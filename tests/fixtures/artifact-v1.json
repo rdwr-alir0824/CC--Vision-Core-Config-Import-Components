@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "domain": "controller-objects",
+  "source": {
+    "product": "vision",
+    "version": "1.0"
+  },
+  "metadata": {
+    "exported_at": "2026-11-17T17:00:00Z",
+    "exporter": "synthetic-fixture"
+  },
+  "objects": [
+    {
+      "id": "sample-1",
+      "futureVendorField": {
+        "enabled": true,
+        "options": [1, null, "synthetic"]
+      },
+      "deviceAccess": {
+        "httpsPassword": {
+          "secret_ref": "synthetic/device-https"
+        }
+      }
+    }
+  ],
+  "validation": {
+    "scope": "offline-contract",
+    "status": "not_validated",
+    "issue_codes": []
+  }
+}

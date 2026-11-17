@@ -1,0 +1,8 @@
+{
+  "role": "source",
+  "name": "synthetic-source",
+  "product": "vision",
+  "version": "1.0",
+  "base_url": "https://source.example.invalid",
+  "secret_ref": "synthetic/source"
+}

@@ -1,0 +1,32 @@
+{
+  "destination": {
+    "controller_id": "synthetic-controller",
+    "product": "cyber-controller",
+    "version": "2.0",
+    "base_url": "https://destination.example.invalid"
+  },
+  "mappings": [
+    {
+      "mapping_id": "map-one",
+      "domain": "controller-objects",
+      "source_index": 0,
+      "source": {"namespace": "Physical/root", "object_type": "device", "object_id": "source-one"},
+      "source_context": {"product": "vision", "version": "1.0"},
+      "destination_context": {"product": "cyber-controller", "version": "2.0"},
+      "state": "missing",
+      "destination": null,
+      "candidates": [],
+      "parent_mapping": null,
+      "depends_on": []
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "action-one",
+      "mapping_id": "map-one",
+      "comparison": "missing",
+      "semantics_known": true,
+      "depends_on": []
+    }
+  ]
+}

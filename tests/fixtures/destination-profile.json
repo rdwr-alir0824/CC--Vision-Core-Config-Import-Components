@@ -1,0 +1,7 @@
+{
+  "role": "destination",
+  "name": "synthetic-destination",
+  "product": "cyber-controller",
+  "version": "2.0",
+  "base_url": "https://destination.example.invalid"
+}

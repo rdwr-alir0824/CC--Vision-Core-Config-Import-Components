@@ -1,0 +1,44 @@
+# ========================================
+# CC -Vision Core Config Import Components
+# Git Exclusions
+# ========================================
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Credentials and secrets
+.env
+.env.*
+*.ini
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+
+# Operational configuration exports
+cyber_controller_*.json
+exports/
+backups/
+runtime/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Original migration scripts
+# Excluded until security review
+/legacy/
