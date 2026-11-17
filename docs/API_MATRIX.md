@@ -1,6 +1,6 @@
 # Legacy API Evidence Matrix
 
-Date: 2026-11-17  
+Date: 2026-11-17
 Evidence level: static source inspection only.
 
 ## Counting and evidence rules
