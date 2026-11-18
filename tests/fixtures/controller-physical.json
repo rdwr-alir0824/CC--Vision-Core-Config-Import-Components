@@ -1,0 +1,51 @@
+{
+  "name": "Synthetic Physical root",
+  "meIdentifier": {"managedElementID": "root-source", "managedElementClass": "synthetic-root"},
+  "opaqueRoot": {"retained": [1, false]},
+  "children": [
+    {
+      "name": "Region",
+      "meIdentifier": {"managedElementID": "site-a", "managedElementClass": "com.radware.insite.model.device.Site", "extraIdentity": "retained"},
+      "opaqueSite": {"color": "blue"},
+      "children": [
+        {
+          "name": "Shared",
+          "meIdentifier": {"managedElementID": "site-b", "managedElementClass": "com.radware.insite.model.device.Site"},
+          "children": [
+            {
+              "name": "Synthetic device one",
+              "type": "synthetic-device-type",
+              "managementIp": "192.0.2.10",
+              "meIdentifier": {"managedElementID": "device-a", "managedElementClass": "com.radware.insite.model.device.Device"},
+              "deviceSetup": {
+                "opaqueSetup": {"keep": true},
+                "deviceAccess": {
+                  "ormID": "access-provenance-only",
+                  "cliUsername": {"secret_ref": "synthetic/device-one/user"},
+                  "cliPassword": {"secret_ref": "synthetic/device-one/password"},
+                  "connectionTimeout": 7,
+                  "opaqueAccess": ["retained"]
+                }
+              },
+              "opaqueDevice": {"preserved": true}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Shared",
+      "meIdentifier": {"managedElementID": "site-c", "managedElementClass": "com.radware.insite.model.device.Site"},
+      "children": [
+        {
+          "name": "Synthetic device two",
+          "type": "another-synthetic-type",
+          "managementIp": "2001:db8::20",
+          "meIdentifier": {"managedElementID": "device-b", "managedElementClass": "com.radware.insite.model.device.Device"},
+          "children": [],
+          "opaqueDevice": {"preserved": [2, null]}
+        }
+      ]
+    }
+  ]
+}

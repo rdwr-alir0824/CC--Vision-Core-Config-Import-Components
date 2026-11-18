@@ -1,0 +1,21 @@
+{
+  "name": "Synthetic Organization root",
+  "meIdentifier": {"managedElementID": "root-source", "managedElementClass": "synthetic-root"},
+  "opaqueRoot": "organization-specific",
+  "children": [
+    {
+      "name": "Shared",
+      "meIdentifier": {"managedElementID": "site-a", "managedElementClass": "com.radware.insite.model.device.Site"},
+      "children": [
+        {
+          "name": "Synthetic organization device",
+          "type": "synthetic-device-type",
+          "managementIp": "192.0.2.10",
+          "meIdentifier": {"managedElementID": "device-a", "managedElementClass": "com.radware.insite.model.device.Device"},
+          "deviceAccess": null,
+          "opaqueDevice": {"tree": "Organization"}
+        }
+      ]
+    }
+  ]
+}
