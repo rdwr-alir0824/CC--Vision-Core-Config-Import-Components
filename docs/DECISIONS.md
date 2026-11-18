@@ -16,13 +16,18 @@ The owner separately accepted **CCV-003-A/B/C's implemented mock-only scope on
 no secret disclosure, and no live operations without separate authorization
 remain in force. Further milestones require separate authorization.
 
+The owner also accepted **CCV-004-A's completed offline-only scope on
+2026-11-17**, including Option 1 duplicate-name handling. Its Category B
+CREATE-planning limitation is accepted as planned CCV-004-B scope; this does
+not authorize or begin B implementation. See the separate acceptance record.
+
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
 | ADR-001 | Modular Python master CLI with explicit module registry | Architectural direction approved by owner, 2026-11-17 | CCV-002, CCV-007 |
 | ADR-002 | Product-specific clients over shared transport and explicit sessions | Direction approved; implemented CCV-003 mock-only scope accepted, 2026-11-17 | CCV-003 |
-| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Architectural direction approved by owner, 2026-11-17 | CCV-002, CCV-004 |
+| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; CCV-004-A offline scope accepted, 2026-11-17; Category B CREATE-planning extension remains planned B scope | CCV-002, CCV-004 |
 | ADR-004 | Separate offline planning, online preflight, approval, apply, and verification | Architectural direction approved by owner, 2026-11-17; live/apply stages not authorized | CCV-002, CCV-007 |
-| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Architectural direction approved by owner, 2026-11-17 | CCV-004 through CCV-006 |
+| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; CCV-004-A preservation/Option 1 offline implementation accepted, 2026-11-17 | CCV-004 through CCV-006 |
 | ADR-006 | Capability/evidence gating by product and version | Direction approved; synthetic isolation accepted, 2026-11-17; real qualification pending | CCV-003, CCV-008 |
 | ADR-007 | Secure transport and externalized secrets with redacted reporting | Direction approved; implemented CCV-003 mock-only controls accepted, 2026-11-17 | CCV-002, CCV-003 |
 | ADR-008 | Initial utility exclusions and offline-first verification | Direction approved; CCV-003 offline acceptance recorded, 2026-11-17; live qualification pending | CCV-001 through CCV-008 |
@@ -62,6 +67,60 @@ developer assertion, not a sandbox. No concrete HTTP/production secret backend,
 destination preflight, apply/verification/journaling implementation, or CCV-004
 is accepted as implemented or authorized to begin. Broader roadmap scope remains
 deferred. No application code or Git operations are part of this decision record.
+
+## Owner implementation acceptance - CCV-004-A, 2026-11-17
+
+**Owner:** project owner, by explicit decision in the project conversation.
+**Decision:** accept **CCV-004-A for its completed offline-only scope** under
+ADR-003/ADR-005. This later, separate acceptance supersedes the earlier
+CCV-003 record's exclusion of A only for the scope stated here; it does not
+accept the remainder of CCV-004 as implemented.
+
+Accepted scope and evidence:
+
+- Normalized controller object/hierarchy/source-reference contracts and
+  separate Physical/Organization identities.
+- Source objects and unknown configuration fields preserved. Option 1 retains
+  duplicate-name objects in artifacts, reports same-type sibling-name ambiguity
+  separately, and permits explicit qualified mappings to resolve those objects.
+  Names alone never establish destination identity.
+- Explicit controller/tree/type/stable-ID mappings against separately supplied
+  destination inventories, hierarchy/dependency checks, no automatic source-ID
+  reuse, and no legacy script modifications.
+- **166 automated tests passed**, **zero guarded network attempts**.
+  Accepted E-014 command: `python -B -m unittest discover -s tests -v`,
+  source on `PYTHONPATH`; exit `0`, **38.012 seconds**. These are existing
+  verification results, not tests rerun for this documentation update.
+  See [E-015](PROGRESS.md#e-015---ccv-004-a-owner-acceptance-2026-11-17).
+
+**CREATE-planning assessment: Category B**, accepted by the owner:
+minor controller-specific contract extensions are required and belong to
+**planned CCV-004-B scope**. This is not a blocker to A acceptance or a claim
+that controller CREATE planning is already implemented.
+
+Source inventory validity does not require destination mappings. Generic
+contracts already represent missing destinations and dependencies, but A's
+strict controller resolver requires existing destination objects. The smallest
+planned extension is a controller-specific planning validator alongside that
+resolver, not relaxation of existing-target resolution:
+
+- Distinguish an explicitly established missing object from unresolved or
+  ambiguous identity.
+- Permit non-root CREATE candidates to depend on an explicitly mapped existing
+  destination parent or another parent CREATE candidate.
+- Leave destination IDs unassigned until actual destination creation; use
+  logical mapping/dependency references, never fabricated or copied source IDs.
+- Require existing destination roots to be explicitly resolved.
+
+**Conditions:** no live API compatibility, real controller schema validation,
+destination preflight, or production import functionality is claimed. Synthetic
+fixtures and supplied inventories establish local contract consistency, not
+verified real product identity, completeness, credential portability, or
+compatibility. Live qualification remains pending.
+
+CCV-004-B implementation remains **not authorized and not started**. No live
+requests, real migrations, concrete backend, external configuration changes,
+application-code changes, or Git operations follow from this acceptance.
 
 ## ADR-001 - Modular Python controller
 

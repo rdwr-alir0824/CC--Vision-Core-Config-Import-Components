@@ -4,7 +4,10 @@ Date: 2026-11-17
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
 foundation and contracts implemented; CCV-003-A/B transport and authentication
 mock-tested; CCV-003-C adds synthetic-version read clients and a mocked
-read-to-plan workflow. No concrete HTTP backend, production secret resolver,
+read-to-plan workflow. CCV-003's implemented mock-only scope is owner-accepted.
+CCV-004-A adds offline controller-object normalization, hierarchy validation,
+and explicit mapping against a separate supplied destination inventory.
+No concrete HTTP backend, production secret resolver,
 online execution, or real product/version compatibility is established.
 
 The owner approved ADR-001 through ADR-009 and the documented architectural
@@ -39,6 +42,8 @@ described below. CCV-003-A adds backend-independent transport mechanics;
 CCV-003-B adds mock-only authentication strategies and local session ownership.
 CCV-003-C connects those components to three source-observed reads and the
 existing artifact/mapping/offline-plan contracts, using injected fake backends.
+CCV-004-A reuses those offline artifact/mapping contracts without changing
+authentication, clients, capabilities, transport, or the CLI/mock workflow.
 Legacy sources remain read-only and are never imported or executed.
 
 ## Responsibilities and interfaces
@@ -477,7 +482,141 @@ these interfaces; this repository provides no concrete network backend. Python
 test guards establish zero guarded attempts, not OS-level isolation.
 The workflow sanitizes existing parser chains at its own boundary; direct calls
 to older profile/plan parsers have not been changed by this milestone.
-CCV-004 and all live/backend development require separate authorization.
+The separately authorized CCV-004-A offline contracts are described below;
+CCV-004-B and all live/backend development remain unauthorized.
+
+## Implemented offline controller objects and identity mapping - CCV-004-A
+
+[Controller objects](../src/cc_vision_import/controller_objects.py) and
+[explicit mapping](../src/cc_vision_import/controller_mapping.py) are reusable
+Python APIs, not export/import commands or production schema certification.
+They do not construct sessions, request API data, fetch device-access details,
+resolve secrets, perform semantic comparison, or execute writes.
+
+### Legacy observations and intentional safety differences
+
+Static inspection of the three object scripts establishes:
+
+- The downloader traverses `children`, recognizing exact managed-element
+  `Site` and `Device` classes; native IDs come from
+  `meIdentifier.managedElementID`. Sites contain other sites/devices.
+- Its flat `sites`/`devices` output stores names, IDs, `parentOrmID`, site
+  `parent_site_name`, device `type`, and `managementIp`. Tree identity is
+  external to that flat payload. Unknown native fields/classes are dropped.
+- Device access is fetched separately, joined by management IP, and moved from
+  `deviceSetup.deviceAccess` to top-level `deviceAccess`; nested access `ormID`
+  is deleted. This is not a verified portable credential/reference schema.
+- Upload resolves destination parents by name and can fall back to root;
+  update supplies the exported device ID as destination `ormID`. Neither
+  behavior is carried into the new contracts.
+
+The credential transformer's field names were additionally inspected as text
+only: CLI/HTTP/HTTPS and SNMPv3 usernames/passwords are sensitive. No legacy
+module, credential configuration, or operational export was loaded/executed.
+
+### Normalized records and field preservation
+
+- Typed root, site, device, device-access, inventory, and
+  `SourceObjectReference` records. A reference contains controller identity,
+  explicit `Physical`/`Organization` tree, object kind, and native ID.
+- Schema-1 artifacts reuse domain `controller-objects`, declared Cyber
+  Controller product/version, existing export metadata and JSON/secret
+  validation. Roots are explicit objects and count toward inventory/mapping
+  totals. Previously invalid artifacts cannot be silently promoted to valid.
+- `normalize_tree` consumes an explicitly supplied synthetic nested tree.
+  The root frame is supplied by the caller; no undocumented root class is
+  invented. Known site/device classes cannot masquerade as roots. Only the
+  two observed child classes are modeled. Devices have absent/empty child
+  arrays; root/site child arrays are mandatory. Unknown classes, malformed
+  child shapes, and excessive nesting fail rather than disappear.
+- Known fields move to typed fields; unknown JSON remains in configuration.
+  Native `meIdentifier` extras, consistent `ormID`/`parentOrmID` provenance,
+  device-setup extras, and **device-access `ormID`** are preserved. Contradictory
+  aliases or duplicate native/normalized representations require reconciliation.
+  There is no native wire-payload serializer or implicit reference rewriting.
+- Device-access location distinguishes absent, top-level, and nested values,
+  including explicit null. Conflicting locations are rejected, not merged.
+  Missing access is not enriched or replaced by an empty object. Non-sensitive
+  access settings and opaque secret references are retained without resolution.
+- Inventories are deep-copied at parsing boundaries and revalidated when
+  converted to artifacts, including after nested configuration mutation.
+  Direct dataclass construction alone is not validation.
+
+Generic artifact secret-key checks are supplemented by username/user/login,
+security-name, passphrase, authentication-key, and privacy-key recognition.
+Sensitive values require null or an opaque `secret_ref`; raw values fail with
+fixed messages and positional paths. Names, IDs, addresses, configuration, and
+credential references are excluded from new object/result representations.
+New boundaries strip underlying parser exception chains. No logging is added.
+Artifacts contain intended configuration and references, not redacted reports.
+Arbitrary secrets disguised in unrecognized free-text fields cannot be
+generically detected; synthetic-only evidence does not certify real exports.
+
+### Hierarchy and explicit destination resolution
+
+- One declared controller per inventory; exactly one root per represented tree.
+  Physical/Organization references remain distinct even for equal native IDs.
+  IDs are unique within a tree, across object kinds.
+- Reject missing/incorrect/cross-context parents, device parents, root parents,
+  duplicate/conflicting identities, cycles/self-reference, and malformed nodes.
+  Reuse the existing dependency-order validator.
+- The owner's Option 1 clarification supersedes initial duplicate-name rejection:
+  preserve every object with a distinct stable ID, including duplicate names,
+  and preserve its configuration in exported artifacts. Equal names under
+  different parents, trees, or object types are not name ambiguities.
+- `assess_controller_identity` separately reports `ambiguous_name` for **every
+  affected same-type sibling**, using positional paths without names or IDs.
+  An invalid identity assessment is not an invalid artifact: export/round-trip
+  remains available without discarding duplicates. A valid assessment means
+  only that no same-type sibling-name collision was found, not that names can
+  establish identity or that mapping/import is authorized. Names remain exact,
+  case-sensitive, and never silently normalized.
+- Existing `ObjectIdentity` uses a canonical JSON array `[controller_id, tree]`
+  as its namespace, object kind as type, and native ID as ID; delimiters cannot
+  collapse distinct context components.
+- `resolve_controller_mappings` requires distinct declared source/destination
+  controller contexts and independently supplied, revalidated inventories.
+  Every source record, including each root, needs an explicit existing
+  `IdentityMapping` with exact index, identity, domain, and product contexts.
+  No mapping is inferred from names, addresses, ordering, or source IDs.
+- Destination identities must exist in the supplied destination inventory;
+  tree/type changes, collisions, unresolved/missing/ambiguous states, relocation,
+  inconsistent parent mappings/dependencies, and dependency cycles fail.
+  Source parent must map to the actual destination parent; no root fallback.
+  Equal raw ID strings are allowed only through explicit destination-qualified
+  mappings to a separately present destination record.
+- Explicit qualified mappings may resolve otherwise name-ambiguous objects.
+  Source/destination ordering and repeated names never select a target.
+  Unresolved/ambiguous mappings remain rejected by the existing resolver.
+  There is no automatic name matcher or import path; ambiguity grants no
+  automatic mapping/import permission and does not erase the source artifact.
+- Resolution returns existing mapping contracts and a counts/status validation
+  result; it does not rewrite configuration, attest inventory provenance,
+  establish semantic equivalence, or authorize create/update operations.
+
+### Verification and remaining gates
+
+[Tests](../tests/test_controller_objects.py) use synthetic
+[Physical](../tests/fixtures/controller-physical.json) and
+[Organization](../tests/fixtures/controller-organization.json) fixtures plus
+derived simple/invalid/ambiguous cases under the existing 15-entry network guard.
+A regression feeds resolved mappings and the exact normalized artifact bytes to
+the existing planner/integrity verifier: unknown semantics/comparison yield
+blocked actions with no changes. The accepted C workflow remains unchanged.
+See [E-013](PROGRESS.md#e-013---ccv-004-a-offline-object-and-mapping-verification-2026-11-17)
+for the initial implementation and
+[E-014](PROGRESS.md#e-014---ccv-004-a-option-1-duplicate-name-clarification-2026-11-17)
+for the superseding duplicate-name policy and current focused/full-suite results.
+
+Both trees' detailed node layouts, string-only device type/address assumptions,
+root classes, identifier aliases, duplicate rules, device-access portability,
+cross-tree device behavior, pagination/completeness, and destination provenance
+remain unverified against products. No adapter for the context-deficient legacy
+flat export is added. There is no automatic parent-name or by-IP lookup.
+Offline product/version declarations grant no capability: production remains
+default-deny and `0.0-test` remains restricted to mocked API development.
+CCV-004-B, credential transformation, real export/import, and live qualification
+require separate authorization.
 
 ## Proposed migration modules
 
@@ -922,7 +1061,8 @@ Status: **Architectural direction approved** (ADR-009); recovery not implemented
 - Live integration and production acceptance require separate authorization.
 
 CCV-001 was static only. CCV-002-A/B/C and CCV-003-A/B/C verification cover offline
-local behavior, not APIs or product compatibility. The next gate is owner review
-of CCV-003-C's narrow mock-only read-to-plan scope, followed by separate
-authorization and evidence for a bounded follow-on task. Do not begin CCV-004,
-real HTTP backend development, or live operations.
+local behavior, not APIs or product compatibility. CCV-003's implemented mock-only
+scope is owner-accepted. CCV-004-A's separately authorized schemas/hierarchy/
+mapping scope is offline-verified; its next gate is technical review and owner
+acceptance. Do not begin CCV-004-B, real HTTP backend development, or live
+operations without separate authorization.

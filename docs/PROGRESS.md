@@ -8,7 +8,12 @@ CCV-003-A/B/C implemented, offline-verified, and owner-accepted on 2026-11-17
 for their implemented mock-only scope. Acceptance evidence: 130 passing tests,
 zero guarded network attempts, no blocking technical-review defects, and
 synthetic capabilities isolated from production. Live compatibility and
-qualification remain pending; CCV-004 is not authorized or started.**
+qualification remain pending. CCV-004-A's completed offline-only scope is
+owner-accepted on 2026-11-17: 166 tests passed (130 retained + 36 object/mapping
+tests), with zero guarded network attempts. Future CREATE planning is Category B:
+minor controller-specific contract extensions are accepted as planned CCV-004-B
+scope, not implemented in A. CCV-004-B implementation and all broader/live work
+remain unauthorized and not started.**
 
 ## Status rules
 
@@ -114,6 +119,50 @@ CCV-004 work is authorized. Earlier owner-review/acceptance-pending labels in
 historical evidence entries are superseded by this acceptance record only for
 the implemented mock-only scope.
 
+### CCV-004-A authorization and name policy - 2026-11-17
+
+The owner separately authorized **CCV-004-A only**: static legacy object analysis,
+normalized controller sites/devices/hierarchy/source identities, preservation of
+unknown non-sensitive configuration, explicit destination-inventory mappings,
+secret-safe device-access contracts, synthetic tests, and architecture/API
+evidence/progress updates. This supersedes earlier not-authorized labels for A
+only, not the historical scope of the CCV-003 acceptance.
+
+The owner's subsequent **Option 1** clarification supersedes the initial
+duplicate-sibling rejection policy: **preserve every distinct-ID source object
+and its configuration, including duplicate names**. Equal names under different
+parents/trees or across object types remain allowed. Same-type sibling-name
+collisions are separately reported as identity ambiguity, not artifact rejection.
+Explicit controller/tree/type/stable-ID mappings against a separate destination
+inventory may resolve those objects. Names alone and automatic source-ID reuse
+never establish destination identity; unresolved/ambiguous decisions stay blocked.
+Names are exact/case-sensitive and never silently normalized. See E-014.
+
+No live requests, real exports/imports, production configuration changes,
+concrete HTTP backend, credential migration, legacy execution/modification,
+dependency installation, Git operations, external configuration changes, or
+CCV-004-B implementation are authorized.
+
+### Owner acceptance of CCV-004-A - 2026-11-17
+
+The project owner explicitly approved **CCV-004-A for its completed offline-only
+scope** on **2026-11-17**. Accepted evidence: **166 automated tests passed**,
+**zero guarded network attempts**, source objects and unknown configuration
+fields preserved, duplicate-name ambiguity safely handled under Option 1,
+explicit qualified identity mapping, no automatic source-ID reuse, and no
+legacy script modifications. See E-015 and the
+[decision register](DECISIONS.md#owner-implementation-acceptance---ccv-004-a-2026-11-17).
+
+The final architecture assessment is accepted as **Category B: future CREATE
+planning needs minor controller-specific contract extensions**. This is a
+planned CCV-004-B responsibility, not an A acceptance blocker, a claim of
+implemented controller CREATE planning, or authorization to begin B.
+
+Acceptance establishes no live API compatibility, real controller schema
+validation, destination preflight, or production import functionality. Historical
+review/acceptance-pending labels are superseded only for A's completed offline
+scope. All live/backend work and B implementation remain separately gated.
+
 ## Milestone tracker
 
 | Task ID | Description | Priority | Dependencies | Approval status | Implementation status | Verification status |
@@ -128,7 +177,8 @@ the implemented mock-only scope.
 | CCV-003-A | Shared injectable HTTP transport and policies | P0 | CCV-002 completion confirmed by owner | Owner accepted mock-only completion on 2026-11-17 | Implemented | Mock-only scope verified and accepted; E-007/E-012; regressions retained in 130-test suite |
 | CCV-003-B | Authentication contracts, strategies, resolver interface, session ownership | P0 | CCV-003-A implementation/testing/technical review | Owner accepted mock-only completion and correction on 2026-11-17 | Implemented; initialization cleanup defect corrected | Mock-only scope verified and accepted; E-008/E-009/E-012; regressions retained in 130-test suite |
 | CCV-003-C | Product read clients and mocked read-to-plan integration | P0 | CCV-003-A/B and 95-test baseline; source API evidence; approved synthetic version/backend gate | Owner accepted mock-only completion on 2026-11-17; `0.0-test` only with explicit mock backends | Implemented; separate mock/production catalogues and backend gate | Mock-only scope verified and accepted: 130 tests; E-010/E-011/E-012; live qualification pending |
-| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | Not approved; planned | Not started | Not started |
+| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | A's offline-only completion accepted; B direction planned, implementation not authorized | A complete for accepted scope; remainder not started | A accepted; real schema/compatibility/credential qualification pending |
+| CCV-004-A | Controller object schemas, hierarchy, and explicit identity mapping | P1 | Accepted CCV-003; source observations; owner-approved Option 1 name policy | Owner accepted offline-only completion on 2026-11-17 | Complete for accepted offline scope; duplicates preserved, identity ambiguity separate | Accepted: 166 tests, zero guarded attempts; E-013/E-014/E-015; Category B CREATE-planning limitation deferred to planned B |
 | CCV-005 | LDAP permissions | P1 | CCV-002, CCV-003; reference mappings | Not approved; planned | Not started | Not started |
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
 | CCV-007 | Integrated orchestration and reporting | P0 | CCV-003; readiness-verified subset of CCV-004/005/006 approved for integration | Proposed — pending owner approval | Not started | Not started |
@@ -151,8 +201,9 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-003 | A/B/C source/tests and directly related docs | E-007 through E-012; owner accepted 130-test mock-only evidence | Real product/version/schema qualification and any broader scope remain separate gates | Preserve accepted mock-only implementation; await separate authorization for further work |
 | CCV-003-A | [Transport](../src/cc_vision_import/transport.py), [mock tests](../tests/test_transport.py), [architecture](ARCHITECTURE.md), this tracker | 60-test implementation checkpoint; regressions retained in accepted 130-test suite; E-007/E-012 | No blocker for accepted mock scope; no concrete backend or live qualification | Preserve accepted transport and restrictions |
 | CCV-003-B | [Authentication](../src/cc_vision_import/authentication.py), [sessions](../src/cc_vision_import/sessions.py), [tests](../tests/test_authentication.py), [architecture](ARCHITECTURE.md), this tracker | 95-test correction checkpoint; regressions retained in accepted 130-test suite; E-008/E-009/E-012 | Review defect corrected; real authentication/compatibility and production HTTP/secret backends remain unqualified/unimplemented | Preserve accepted sessions and cleanup behavior |
-| CCV-003-C | [Production/default lookup](../src/cc_vision_import/capabilities.py), [mock declarations](../src/cc_vision_import/mock_capabilities.py), [session backend gate](../src/cc_vision_import/sessions.py), [clients](../src/cc_vision_import/product_clients.py), [mock workflow](../src/cc_vision_import/mock_workflow.py), [client tests](../tests/test_product_clients.py), [integration tests](../tests/test_mocked_integration.py), architecture/API matrix/this tracker | E-010/E-011/E-012: 130 passing tests, zero guarded attempts; final review found no blocking defects; owner accepted | No blocker for accepted mock scope; real versions/schemas, backend, destination inventory/comparison and production secret provider remain unqualified/unimplemented | Preserve synthetic-only boundary; await separate authorization; stop before CCV-004 |
-| CCV-004 | Proposed object/access/transformation modules and tests; related docs | None; not started | Destination identity, secret handling, tree behavior | Obtain approved mapping contracts |
+| CCV-003-C | [Production/default lookup](../src/cc_vision_import/capabilities.py), [mock declarations](../src/cc_vision_import/mock_capabilities.py), [session backend gate](../src/cc_vision_import/sessions.py), [clients](../src/cc_vision_import/product_clients.py), [mock workflow](../src/cc_vision_import/mock_workflow.py), [client tests](../tests/test_product_clients.py), [integration tests](../tests/test_mocked_integration.py), architecture/API matrix/this tracker | E-010/E-011/E-012: 130 passing tests, zero guarded attempts; final review found no blocking defects; owner accepted | No blocker for accepted mock scope; real versions/schemas, backend, live destination inventory/comparison and production secret provider remain unqualified/unimplemented | Preserve accepted synthetic-only boundary; separately authorized A does not enable new API capabilities |
+| CCV-004 | A's object/mapping contracts and tests; related docs | A's E-013/E-014/E-015; broader scope unimplemented | Real schema/identity/secret qualification; Category B controller CREATE-planning extensions remain planned | Preserve A; obtain separate authorization before B implementation |
+| CCV-004-A | [Object contracts](../src/cc_vision_import/controller_objects.py), [mapping resolution](../src/cc_vision_import/controller_mapping.py), [tests](../tests/test_controller_objects.py), two synthetic tree fixtures, architecture/API matrix/this tracker | E-014/E-015: accepted 36 object/mapping tests; 166 total passing; zero guarded attempts | No blocker for accepted A scope; real compatibility/schema validation, destination preflight, production imports, and controller CREATE-planning extension remain unimplemented/unqualified | Preserve accepted A; do not begin B without authorization |
 | CCV-005 | Proposed LDAP module and tests; related docs | None; not started | Roles/groups/policies and scope/device-lock policy | Resolve authorization-preserving mappings |
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
 | CCV-007 | Proposed orchestration/comparison/reporting and tests; related docs | None; not started | Verified module contracts and approval workflow | Integrate only approved capabilities |
@@ -355,6 +406,265 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-015 - CCV-004-A owner acceptance, 2026-11-17
+
+Decision: the project owner approved **CCV-004-A's completed offline-only scope**
+on **2026-11-17**. Earlier review/owner-acceptance-pending labels in E-013/E-014
+are historical and superseded for that implemented scope only.
+
+Accepted implementation and evidence:
+
+- Normalized controller roots/sites/devices, qualified source references,
+  separate Physical/Organization identities, and offline hierarchy validation.
+- Preservation of source objects, duplicate names, and unknown configuration
+  fields; Option 1 separates same-type sibling-name ambiguity from export
+  validity. Explicit qualified destination mappings may resolve those objects;
+  names alone never establish identity.
+- Explicit mappings checked against a separately supplied destination inventory,
+  parent/dependency consistency, no automatic source-ID reuse, and no legacy
+  script modifications.
+- Existing E-014 full-suite run:
+  `python -B -m unittest discover -s tests -v`, with source on `PYTHONPATH`:
+  **166 tests passed**, exit `0`, **38.012 seconds**. This retains the original
+  130 regressions plus 36 current object/mapping tests.
+- All tests asserted the existing 15 guarded network entry points uncalled:
+  **zero guarded network attempts**.
+
+Accepted architecture limitation and future responsibility:
+
+- Final read-only architecture review classified future CREATE planning as
+  **Category B: minor controller-specific contract extensions required**.
+  The owner accepts this as part of **planned CCV-004-B scope**, not a defect
+  requiring correction before A acceptance.
+- Source inventory validity is independent of mapping completeness. Generic
+  mapping/planning contracts already represent an explicitly missing target
+  with `destination=None`, CREATE candidates, and parent/action dependencies.
+  A's strict controller resolver, however, requires every target and its parent
+  to exist in the supplied destination inventory.
+- The smallest planned extension is a controller-specific planning validator
+  alongside the strict existing-target resolver: distinguish explicitly
+  established absence from unresolved/ambiguous identity; allow a planned
+  non-root object to reference an explicitly mapped existing parent or a
+  parent CREATE dependency; leave destination IDs unassigned until actual
+  creation; require existing destination roots to be explicitly resolved.
+  No source inventory redesign or invented destination IDs are accepted.
+- These are future contract requirements, not implemented B functionality or
+  permission to create objects. B implementation remains **not authorized and
+  not started**.
+
+Limitations and acceptance boundary:
+
+- No live API compatibility, real controller schema validation, destination
+  preflight, or production import functionality is claimed.
+- Source evidence and synthetic fixtures do not qualify real product/version
+  behavior. Supplied inventories/mappings are trusted offline assertions,
+  not authenticated live provenance. Unknown/free-text secret semantics and
+  credential portability remain unresolved.
+- No live API requests, concrete HTTP backend, real export/import, external
+  configuration changes, credential migration, or broader milestone
+  implementation follows from acceptance. Synthetic capabilities remain
+  isolated from production; live compatibility/qualification remain pending.
+
+Documentation-only recording: updated this tracker and
+[DECISIONS.md](DECISIONS.md). Tests were **not rerun**; the results above are
+accepted E-014 evidence, not a new verification run. No application/test code,
+legacy scripts, or external configuration changed. No Git operations, API
+requests, or CCV-004-B work were performed.
+
+### E-014 - CCV-004-A Option 1 duplicate-name clarification, 2026-11-17
+
+The owner approved Option 1 within A's existing offline-only authorization.
+This **supersedes E-013's duplicate-name rejection behavior**, not its remaining
+hierarchy, secret, identity, or network restrictions. No B scope is authorized.
+
+Changed [controller_objects.py](../src/cc_vision_import/controller_objects.py),
+[test_controller_objects.py](../tests/test_controller_objects.py),
+[ARCHITECTURE.md](ARCHITECTURE.md), [API_MATRIX.md](API_MATRIX.md), and this tracker.
+No new files, endpoint/capability changes, backend, dependencies, or execution path.
+The existing mapping resolver itself did not need modification.
+
+Implemented correction:
+
+- Removed duplicate-name failure from structural hierarchy validation.
+  Objects with distinct stable IDs, including site/device name duplicates,
+  remain in the inventory and serialized artifact with their configuration.
+  Duplicate/conflicting IDs and all other invalid hierarchy structures still fail.
+- Added `assess_controller_identity`: revalidate the inventory, group names by
+  qualified parent and object type, and report `ambiguous_name` for **all**
+  members of duplicate same-type sibling groups. Issues use positional paths,
+  fixed messages, and counts, never names, IDs, addresses, or configuration.
+- Identity assessment and artifact validity are separate. A structurally valid
+  artifact remains exportable despite name ambiguity. A valid assessment never
+  grants permission to match by name, map automatically, or import.
+- Different parents/trees/object types do not create same-type sibling ambiguity.
+  Names remain exact/case-sensitive and are not rewritten.
+- Existing explicit resolution accepts ambiguous-name objects only through
+  supplied controller/tree/type/stable-ID mappings to independently supplied
+  destination records. Missing/unresolved/ambiguous mappings still fail;
+  collisions, parent constraints, and no-source-ID-fallback checks remain.
+  There is no automatic matcher/import implementation, and no decision failure
+  mutates or drops objects from the source artifact.
+
+Regression evidence:
+
+- Before correction, the new duplicate-mapping regression reproduced rejection
+  in `_hierarchy` with `duplicate_name`.
+- Updated three former name-rejection tests to check preservation and separate
+  ambiguity instead. Extended the existing cross-tree test; added four tests
+  covering explicit duplicate resolution despite reordered destination/mapping
+  records, blocked unresolved/ambiguous mappings without artifact mutation,
+  refusal to use names/source IDs as destination IDs, and safe issue reporting.
+- Focused run: `python -B -m unittest -v test_controller_objects`, with source
+  and tests on `PYTHONPATH`: **36 tests passed**, exit `0`, **0.736 seconds**.
+- Required full run, with source on `PYTHONPATH`:
+
+  ```powershell
+  python -B -m unittest discover -s tests -v
+  ```
+
+  **166 tests passed**, exit `0`, **38.012 seconds**: the original 130
+  regressions plus 36 current object/mapping tests. Earlier reject-duplicate
+  expectations were intentionally replaced by the clarified owner policy.
+- Pylance syntax checks and per-file diagnostics report no errors/issues for
+  both changed Python files.
+- All tests retained the existing 15-entry fail-fast network guard and asserted
+  every guarded target uncalled: **zero guarded network attempts**.
+  No product/API connection, legacy execution/modification, dependency install,
+  Git operation, external configuration change, or CCV-004-B work occurred.
+
+Limitations remain unchanged: supplied inventories/mappings are trusted offline
+assertions, not verified product identity/provenance; real duplicate-name rules,
+schema compatibility, credential portability, and live behavior are unqualified.
+No semantic equivalence, production readiness, automatic mapping, or import
+authorization follows from preservation or a successful explicit resolution.
+Technical review/owner acceptance of A remain the next gate.
+
+### E-013 - CCV-004-A offline object and mapping verification, 2026-11-17
+
+Historical initial implementation checkpoint. Its duplicate-name rejection
+policy/results are superseded by E-014; other evidence remains historical.
+
+Authorization: CCV-004-A only, including the owner's duplicate-sibling-name
+policy above. Implementation and offline verification are complete for this
+bounded task; technical review and owner acceptance have not been claimed.
+
+Files created:
+
+- [controller_objects.py](../src/cc_vision_import/controller_objects.py)
+- [controller_mapping.py](../src/cc_vision_import/controller_mapping.py)
+- [test_controller_objects.py](../tests/test_controller_objects.py)
+- [controller-physical.json](../tests/fixtures/controller-physical.json)
+- [controller-organization.json](../tests/fixtures/controller-organization.json)
+
+Files modified: [ARCHITECTURE.md](ARCHITECTURE.md),
+[API_MATRIX.md](API_MATRIX.md), and this tracker. Existing application modules,
+tests, clients/capabilities, legacy scripts, dependencies, and external
+configuration were not changed.
+
+Static legacy evidence:
+
+- Read the downloader, creator, and updater as text only. Observed
+  `meIdentifier.managedElementID`, exact Site/Device classes, `children`,
+  site/device names/IDs/parents, device type/address, flat exports lacking
+  internal tree identity, and separately fetched device-access configuration.
+- Downloader discards unknown fields/classes and access `ormID`; creator uses
+  parent-name lookups with possible root fallback; updater reuses exported
+  device IDs. New contracts deliberately do none of those unsafe operations.
+- Additionally inspected credential-transformer field names as text: CLI,
+  HTTP, HTTPS, and SNMPv3 usernames/passwords. No configuration/credential
+  files or operational exports were read, and no legacy code was imported/run.
+- No new endpoint, official documentation, supported version, or live
+  compatibility evidence was obtained. API counts/evidence classifications
+  remain unchanged; API-04 through API-09 gain no client/write coverage.
+
+Implemented behavior:
+
+- Typed root/site/device, tree, source reference, device access, and inventory
+  records; schema-1 `controller-objects` artifacts reuse the existing artifact
+  parser, product declaration, metadata, strict JSON, and secret policy.
+- Nested synthetic normalization requires explicit controller/tree/version
+  context. Unknown JSON fields and identifier/access provenance are preserved;
+  unsupported classes/shapes, conflicting aliases/access locations, nonfinite
+  values, and excessive nesting fail. Known site/device classes cannot be
+  relabeled as roots. Device `children: null` is rejected, not silently dropped.
+- Exactly one root per represented tree; missing, cross-tree/controller, wrong
+  kind, or device parents, duplicate/conflicting IDs, duplicate sibling names
+  (including mixed object kinds), cycles and self-parenting are rejected.
+  Same names under different parents/trees and same native IDs across trees
+  stay distinct. Cached invalid artifacts are not silently promoted.
+- Explicit mappings use canonical controller/tree namespaces and object
+  kind/ID with the existing mapping/dependency validator. Every source record
+  including roots must be mapped. A separate destination inventory must
+  contain each target; context/index mismatches, missing/unresolved/ambiguous
+  mappings, collisions, cross-tree/type targets, relocation, and inconsistent
+  parent dependencies fail. No name/address match or source-ID fallback.
+- Identical raw ID strings are accepted only when explicitly mapped to an
+  independently supplied destination-qualified record. Declared controller
+  labels must differ; this is consistency checking, not real provenance proof.
+- Device-access absence, null, and location remain explicit. Non-sensitive
+  settings and opaque references are retained, including access `ormID` as
+  source-only provenance. No credentials are resolved, transformed, or migrated.
+- Existing generic secret checks plus controller username/user/login,
+  security-name, auth/privacy-key, and passphrase checks require null or
+  opaque secret references. Raw credential values fail with fixed errors;
+  parser chains are discarded, and new representations/reports hide payloads,
+  names, IDs, addresses, and references. No logging was added.
+- Resolved mappings feed the actual existing artifact/planner/integrity
+  contracts in a test. With unknown comparison/semantics all actions remain
+  blocked and have no changes; no execution or approval path is introduced.
+
+Tests and actual results:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m unittest discover -s tests -v
+```
+
+- Final full suite: **162 tests passed**, exit `0`, **63.923 seconds**.
+  All **130 pre-existing tests** remain passing, plus **32 new controller
+  object/mapping tests**. A preceding full run also passed (42.937 seconds);
+  the final run includes expanded checks for all source-observed credential
+  field names.
+- Focused new-module run: **32 tests passed**, exit `0`, **0.675 seconds**,
+  before the final credential-field parameter expansion.
+- Fixtures/derived cases cover simple Physical, nested sites, Organization,
+  multiple devices, duplicate siblings, missing parent, cycles, and ambiguous
+  destinations; additionally check preserved unknown fields, conflicts,
+  mutation/deep-copy safety, context boundaries, mapping dependencies,
+  credential rejection/redaction, and blocked-plan integrity.
+- Pylance syntax checks report no errors for all three new Python files;
+  per-file diagnostics return no issues.
+- Every test uses the existing 15-entry fail-fast network guard and asserts
+  all guarded targets uncalled: **zero guarded network attempts**.
+  No product connection/API request, dependency installation, Git operation,
+  real HTTP backend, or legacy execution/modification occurred.
+- Guards establish zero guarded Python entry-point attempts, not OS-level
+  isolation or a sandbox for arbitrary injected code.
+
+Remaining limitations:
+
+- Detailed real tree schemas/root classes, device type/address shapes,
+  completeness/pagination, identifier alias equivalence, same-device cross-tree
+  semantics, and device-access reference/secret portability remain unverified.
+  The new string-valued type/address contract and both-tree layouts are
+  synthetic assumptions, not Radware compatibility claims.
+- No legacy flat-export adapter, automatic access enrichment, live destination
+  inventory/preflight, product matching, semantic diff, credential migration,
+  reference rebinding, wire-payload generation, approval system, or writes.
+  Supplied destination inventories are trusted assertions, not authenticated
+  evidence. Source-native IDs retained in configuration are provenance only,
+  not permission to copy them into destination requests.
+- Unknown/free-text fields may hide secrets whose semantics cannot be inferred
+  generically. Artifacts hold configuration/references and are not redacted
+  reports; only synthetic fixtures have been used.
+- Offline declaration/version validation enables no product capabilities.
+  Production remains default-deny; `0.0-test` remains mock-development-only.
+- CCV-004-B and all live/backend development remain unauthorized/not started.
+  Recommended next gate: technical review and owner acceptance of A. A possible
+  separately authorized B would define an offline semantic comparison and
+  reference/credential-policy design with evidence-backed synthetic cases,
+  without adding live IO or credential transfer implicitly.
 
 ### E-012 - CCV-003 owner acceptance, 2026-11-17
 
@@ -1068,12 +1378,16 @@ product/version compatibility, domain semantics, credentials, or live APIs.
    owner-confirmed CCV-002 completion, and owner-accepted completion of
    CCV-003-A/B/C for their implemented mock-only scope on 2026-11-17.
    Live compatibility and qualification remain pending.
-   CCV-004/further scope and all live/backend work require separate authorization.
+   CCV-004-A's completed offline-only scope is owner-accepted on 2026-11-17.
+   Its Category B CREATE-planning extensions are planned B scope, not implemented;
+   B/further implementation and all live/backend work require separate authorization.
 2. Supported product/version pairs and permitted migration directions.
 3. Approved official API references and sanitized scheduler path configuration.
-4. Synthetic/sanitized schemas for representative objects, permissions, and tasks.
-5. Destination identity and dependency mapping rules, especially duplicate names
-   and devices appearing in both trees.
+4. Representative real-schema evidence: A adds synthetic controller schemas,
+   not approved product schemas for objects, permissions, or tasks.
+5. A implements explicit destination identity, hierarchy dependencies, and the
+   owner-selected duplicate policy offline; real identity provenance and
+   devices appearing in both trees remain unqualified.
 6. Secret provider, export sensitivity/retention, and credential portability policy.
 7. LDAP scope/device-lock policy; task activation/timezone/type policy.
 8. Development runtime is Python 3.13.14 on Windows; `argparse` and `unittest`
@@ -1087,17 +1401,25 @@ external systems during offline contract development.
 ## Next-session checkpoint
 
 **CCV-003-A/B/C's implemented mock-only scope is owner-accepted on 2026-11-17.
-Acceptance evidence: 130 passing offline tests, zero guarded network attempts,
-no blocking review defects, and synthetic capabilities isolated from production.
-Live compatibility and qualification remain pending.
-Stop; do not begin CCV-004, CCV-009, real HTTP backend development, or live work
+Its 130-test acceptance evidence is preserved in E-012. Separately authorized
+CCV-004-A's completed offline-only scope is also owner-accepted on 2026-11-17.
+Accepted evidence: 166 passing tests, including all 130 regressions plus 36
+object/mapping tests, zero guarded attempts, preserved objects/configuration,
+safe duplicate-name ambiguity handling, explicit qualified mappings, no
+automatic source-ID reuse, and no legacy modifications.
+The Category B CREATE-planning limitation is accepted as planned CCV-004-B
+scope, not implemented or authorized to begin. Synthetic capabilities remain
+isolated; live compatibility/qualification remain pending.
+Stop before CCV-004-B, CCV-009, real HTTP backend development, or live work
 without separate authorization.**
 
-Recommended next action: preserve the accepted checkpoint and await separate
-authorization before any further implementation. A possible future scope is
-CCV-004's evidence-qualified controller-object identity/schema contracts and
-synthetic mapping tests; it is not started or authorized. Approved real product/version/schema
-evidence is needed before enabling corresponding real capabilities. No real HTTP
-backend, production secret resolver, destination inventory/preflight, product
-matching, approval system, durable execution journal, or migration execution is
-implemented. The broader original roadmap apply simulation remains deferred.
+Recommended next action: preserve the accepted A checkpoint and E-013/E-014/E-015
+evidence; await explicit authorization before B implementation. Planned B includes
+minor controller-specific CREATE-planning validation for explicitly missing
+objects, existing/planned parent dependencies, deferred destination IDs, and
+explicitly resolved existing roots. Credential migration remains separately
+gated. Approved real product/version/schema evidence is needed
+before enabling any real capability. No real HTTP backend, production secret
+resolver, live destination inventory/preflight, product matcher, approval system,
+durable execution journal, or migration execution is implemented. The broader
+original roadmap apply simulation remains deferred.

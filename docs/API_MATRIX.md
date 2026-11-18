@@ -154,6 +154,42 @@ Evidence classifications remain separate: **source-observed + mock-tested does
 not mean officially documented, live-tested, or compatible**. The baseline
 endpoint counts and supported real versions have not changed.
 
+## Source object structures and offline schema coverage - CCV-004-A
+
+Static source evidence is extended here, **not upgraded to official or live
+verification**. Endpoint counts remain 16 records / 12 concrete operations;
+no client operation or supported real product/version is added.
+
+| Source | Observed structure/behavior | New offline handling; unresolved evidence |
+| --- | --- | --- |
+| OD `extract_sites_and_devices`, 110-142 | `children`; exact managed-element Site/Device classes; ID in `meIdentifier.managedElementID`; flat sites/devices with `parentOrmID`, site parent name, device type/address | Synthetic typed roots/sites/devices, explicit controller/tree references, and strict hierarchy validation. Native root class and complete real schemas remain unknown. Unknown classes fail, unknown JSON fields are preserved. |
+| OD `extract_device_access_data`, 145-163 | Separate API-06 result `deviceSetup.deviceAccess` merged by address; access `ormID` deleted | No API-06 client or enrichment added. Preserve supplied access configuration/`ormID` as source provenance, distinguish access location/absence/null, reject conflicting locations. Portability and reference semantics remain unresolved. |
+| OC `get_parent_site_id`, 86-120; upload 143-202 | Parent name lookup accepts managed-element ID or `ormID`; failed parent lookup may fall back to tree root | No name lookup/root fallback. Every normalized root/site/device needs explicit qualified mapping against a separate supplied destination inventory and matching parent dependency. Alias equivalence is not assumed. |
+| OU upload 152-184 | Device update reuses exported device ID as `ormID` | No update implementation. Destination ID must independently exist under the supplied destination context; equal source/destination ID strings alone establish nothing. |
+| [Credential transformer](../legacy/app/update_json_credentials.py), 47-134 | CLI/HTTP/HTTPS usernames/passwords and `snmpV3Username`, `snmpV3AuthenticationPassword`, `snmpV3PrivacyPassword` | Field names inspected only; raw values rejected by normalized artifact validation, null/reference values permitted. No credential lookup, replacement, migration, or transformer execution. |
+
+[Controller-object tests](../tests/test_controller_objects.py) cover two synthetic
+tree fixtures and derived simple, nested, duplicate-name, missing-parent, cyclic,
+conflicting-reference, and ambiguous-destination cases. This is local schema/
+mapping coverage, **not mocked or live coverage for API-04 through API-09**.
+Under the owner's Option 1 clarification, duplicate names do not reject exports:
+all distinct-ID objects/configuration survive artifact round-trips. Same-type
+sibling collisions are reported separately as identity ambiguity; equal names
+under different parents/trees or across object types are not such collisions.
+Explicit controller/tree/type/stable-ID mappings to independently supplied
+destination records may resolve ambiguous objects. Names alone and automatic
+source-ID reuse never resolve targets; unresolved/ambiguous mapping decisions
+remain blocked. This offline policy is not evidence of real product duplicate-name
+semantics or support.
+The existing three mock read clients and production/default-deny catalogue are
+unchanged. Domain artifact version syntax is a declaration, not product support;
+`0.0-test` remains a mocked-development marker, never a real supported release.
+No future real HTTP adapter gains permissions from these offline contracts.
+Initial evidence is in
+[E-013](PROGRESS.md#e-013---ccv-004-a-offline-object-and-mapping-verification-2026-11-17);
+the superseding name-policy evidence/results are in
+[E-014](PROGRESS.md#e-014---ccv-004-a-option-1-duplicate-name-clarification-2026-11-17).
+
 ## Evidence needed next
 
 1. Approve target products, source/destination versions, and migration directions.
