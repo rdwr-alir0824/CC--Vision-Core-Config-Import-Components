@@ -2,8 +2,9 @@
 
 Date: 2026-11-17  
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
-foundation and contracts implemented; CCV-003-A shared transport mock-tested.
-No concrete HTTP backend, product client, authentication, or online execution.
+foundation and contracts implemented; CCV-003-A shared transport and CCV-003-B
+authentication/session management mock-tested. No concrete HTTP backend,
+production secret resolver, product API client, or online execution.
 
 The owner approved ADR-001 through ADR-009 and the documented architectural
 amendments. Concrete implementation/storage details remain open where noted;
@@ -33,8 +34,9 @@ Master CLI/controller
 
 Application code lives separately under [src/cc_vision_import](../src/cc_vision_import/).
 CCV-001 created documentation only; CCV-002-A/B/C implement the offline subset
-described below. CCV-003-A adds backend-independent transport mechanics only.
-Legacy sources remain read-only.
+described below. CCV-003-A adds backend-independent transport mechanics;
+CCV-003-B adds mock-only authentication strategies and local session ownership.
+Legacy sources remain read-only and are never imported or executed.
 
 ## Responsibilities and interfaces
 
@@ -77,10 +79,10 @@ secret backend remain undecided.
 ## Implemented shared HTTP transport - CCV-003-A
 
 [Transport contracts and mechanics](../src/cc_vision_import/transport.py) use only
-the standard library. The owner authorized this subtask only; CCV-003-B and
-product/client/session implementation remain outside scope. There is no default
-or concrete HTTP backend, production HTTP dependency, CLI wiring, endpoint
-catalogue, authentication, or migration operation.
+the standard library. At A's checkpoint authentication/session work was outside
+scope; the separately authorized B implementation is described below. There is
+no default or concrete HTTP backend, production HTTP dependency, CLI wiring,
+product operation catalogue, or migration operation.
 
 ### Interfaces and injection
 
@@ -185,7 +187,141 @@ custom-CA forwarding uses a mocked trust loader; invalid CA data is rejected by
 the real standard-library loader. Python guards are not OS-level isolation:
 use trusted local CA files (including their filesystem links) and trusted
 adapters. Live qualification, resource limits for real response bodies,
-authentication, and product/version capability evidence remain future work.
+production authentication integration, and product/version capability evidence
+remain future work.
+
+## Implemented mock authentication and sessions - CCV-003-B
+
+[Authentication contracts/strategies](../src/cc_vision_import/authentication.py)
+and [session ownership](../src/cc_vision_import/sessions.py) build on the unchanged
+CCV-003-A transport. This subtask has mock evidence only, not product/version
+qualification. No real backend, secret-store integration, CLI operation,
+configuration migration, remote logout, or CCV-003-C implementation is present.
+
+### Typed contracts and evidence boundaries
+
+- `CredentialReference` uses the existing opaque secret-reference grammar and
+  hides its value from representations. `SecretResolver.resolve(reference)`
+  returns validated in-memory `ResolvedCredentials`; no default resolver exists.
+- `AuthenticationRequest` requires a source/destination `SessionRole`, declared
+  product/version, credential reference, and optional `SessionExpiration` policy.
+  Version syntax is checked; accepting it does not assert supported versions.
+- `AuthenticationOutcome` records local authentication acceptance with a
+  `LoginEvidence` marker or structured `AuthenticationFailure`. Its
+  `compatibility_verified` attribute is always false in this implementation.
+- `SessionSnapshot` exposes state, expiration reason, product/version/role, and
+  `last_authentication`, a **historical** login outcome. Current eligibility is
+  determined by `state`/`is_authenticated`, not a previous successful outcome.
+- Authentication/session errors have fixed categories for HTTP rejection,
+  authorization, application rejection, malformed login response, transport,
+  secret resolution, invalid credentials/state, expiration, initialization,
+  ownership conflict, cleanup, and clock failures. Where available they retain
+  only numeric HTTP status and fixed transport category/reason.
+
+The only login path used is source-observed API-01,
+`POST /mgmt/system/user/login`. Scheduler login/logout paths remain unknown and
+unused. No cookie name, body token field, renewal endpoint, or remote logout
+path is inferred.
+
+| Strategy | Source evidence and implemented mock behavior | Not established |
+| --- | --- | --- |
+| Vision | [LDAP downloader](../legacy/download_ldap_permissions%20%281%29.py), lines 16-23: JSON username/password, JSON/Accept/XMLHttpRequest headers, HTTP success and body `status == "ok"`. Strict JSON parsing rejects invalid UTF-8, duplicate members, nonfinite constants, nonobjects, and missing/nonstring status; another status string is an application rejection. | Other Vision authentication profiles, version compatibility, token/cookie schema, server TTL. |
+| Cyber Controller | [Object downloader](../legacy/app/download_cybercontroller_objects.py), lines 54-85: Basic credentials plus JSON-text login, HTTP 200 acceptance, session auth on subsequent calls. The mock strategy creates JSON safely, includes Basic on login/subsequent managed requests, and exposes `legacy_http_200_only` evidence. | Whether Basic plus JSON is required, application-level success schema, version compatibility, or proof that HTTP 200 means genuine authentication. |
+
+Cyber Controller deliberately does **not** borrow Vision's `status` schema.
+Its source-observed HTTP-only rule even accepts an HTTP 200 with a non-JSON or
+negative-looking body; this weakness is visible in the outcome marker and tested,
+not presented as verified security behavior. Stronger product-specific
+validation requires approved evidence. Generic response/status/body validation
+still applies through the transport; Cyber Controller's unexpected 2xx statuses
+are rejected rather than broadening its observed HTTP-200 rule.
+
+Basic encoding currently supports Latin-1 credentials and rejects colon-bearing
+usernames or unencodable values before dispatch. Broader encoding behavior needs
+evidence. Vision credentials are encoded safely as JSON without constructing
+JSON through string concatenation.
+
+### Ownership and lifecycle
+
+`SessionManager(backend_factory, resolver, clock=...)` is a synchronous,
+single-owner context manager. Its factory must produce a fresh, exclusively
+owned `SessionBackend` implementing the existing `send` interface plus local
+`close`. Within one manager, source/destination cannot share the same active
+backend instance or overwrite an unclosed role. Cross-manager sharing and
+concurrent use are unsupported; injected factories/backends are trusted.
+
+1. `initialize(request, transport_config)` creates the role's backend and
+   transport, validates configuration, and records `initialized`. A failed
+   transport initialization cleans up the newly owned valid backend.
+2. `authenticate(role)` resolves credentials only at login and sends one POST.
+   Success records `authenticated` with the strategy's limited evidence marker.
+   Failure records `failed` with a sanitized outcome and blocks further use.
+3. `request(...)` forwards generic HTTP mechanics only after authentication;
+   this is not a product client or migration implementation. Source/destination
+   use separate backends, cookie jars, references, and retained credentials.
+   Caller Authorization/Cookie/Proxy-Authorization overrides are rejected.
+4. An optional positive finite local lifetime starts at login success, using an
+   injectable monotonic clock. Omitted lifetime means **unknown server expiry**,
+   not an infinite server session. No TTL is inferred from response fields.
+   At the exact local deadline, subsequent status checks/requests mark the
+   session `expired` and block dispatch. Clock failures fail closed.
+5. HTTP 401 on a managed request marks the session `expired`, records an HTTP
+   rejection reason, and raises a structured authentication error. HTTP 403
+   remains authorization failure without guessing expiration. Application-level
+   expiry in otherwise successful later responses is not modeled without schema
+   evidence.
+6. `close(role)`/`close_all()` and context exit perform **local cleanup only**,
+   release manager-held credentials, and ask the backend to close/discard cookies
+   and authentication state. Successful cleanup is idempotent and records
+   `closed`; requests remain blocked. Cleanup failure records `cleanup_failed`,
+   blocks requests, surfaces a fixed error, and allows explicit cleanup retry.
+   Closing all roles still attempts the other role if one close fails.
+
+Failed/expired sessions are not renewed in place: an owner must explicitly close
+and reinitialize before another login. Expiration drops retained credentials but
+backend resources/cookies remain owned until explicit/context cleanup. Local
+close is not remote logout or token revocation. A cleanup error during context
+exit takes precedence and suppresses formatting of a potentially sensitive
+exception from the context body.
+
+No automatic login renewal or operation replay exists. Login is a POST and never
+retries, even with GET retries enabled. Managed writes retain A's single-attempt
+behavior and indeterminate outcome categories. Other errors propagate without
+replay. A prior uncertain operation still requires reconciliation and approval;
+manually creating a new session does not make that write safe to repeat.
+
+### Secret and backend responsibilities
+
+Resolved credentials have protected representations and never enter snapshots,
+artifacts, plans, or logs through this implementation. Vision credentials are
+not retained by the manager after successful login; the Cyber Controller
+source-observed Basic model retains them in memory until failure, expiration,
+or cleanup. No plaintext credentials, cookies, or body tokens are serialized or
+logged by application code. Existing reference-only artifact contracts are
+unchanged. Mock credentials and cookie markers are synthetic only.
+
+Resolver, factory, clock, and local close exceptions are sanitized at their
+boundaries. Errors do not attach raw callback exceptions, response bodies,
+usernames, passwords, cookies, or tokens. Raw request/body/header data necessarily
+passes to trusted backends. Protected representations are not encryption or a
+guarantee of memory zeroization: Python objects, debugger/frame locals, resolver
+caches, and backend-held copies require separate operational policies. Do not
+serialize resolved credentials or capture raw locals/payloads in logging.
+
+A future backend must actually isolate cookie jars, enforce TLS/timeouts, avoid
+internal retry/redirect/auth-renewal behavior, close local resources, and discard
+session secrets on `close`. Neither those real IO behaviors nor genuine server
+authentication are proven by the protocol. This milestone implements no backend
+or production resolver. The API matrix remains a static source-evidence baseline;
+the mock results here do not certify its product/version capabilities.
+
+### Verification
+
+[Authentication/session tests](../tests/test_authentication.py) use synthetic
+responses, a fake owned session backend, injected resolver/clock, and the existing
+transport/network guards. All 60 existing regressions are retained unchanged.
+Actual commands, results, static checks, restrictions, and limits are recorded in
+[E-008](PROGRESS.md#e-008---ccv-003-b-offline-verification-2026-11-17).
 
 ## Proposed migration modules
 
@@ -629,7 +765,7 @@ Status: **Architectural direction approved** (ADR-009); recovery not implemented
 - Require post-import evidence before marking a migration verified complete.
 - Live integration and production acceptance require separate authorization.
 
-CCV-001 was static only. CCV-002-A/B/C and CCV-003-A verification cover offline
+CCV-001 was static only. CCV-002-A/B/C and CCV-003-A/B verification cover offline
 local behavior, not APIs or product compatibility. The next gate is owner review
-of CCV-003-A and explicit authorization of a bounded follow-on task. Do not begin
-CCV-003-B or live operations.
+of CCV-003-B and explicit authorization of a bounded follow-on task. Do not begin
+CCV-003-C or live operations.
