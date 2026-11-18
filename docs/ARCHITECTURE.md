@@ -19,6 +19,9 @@ per-device evidence acknowledgement and preserved provenance.
 Its acceptance-review corrections reject Cyber Controller controller artifacts
 at generic planning boundaries and confine acknowledgement comparison exclusions
 to policy-validated devices. Unknown root/site configuration remains comparable.
+C2's completed offline scope is owner-accepted. Separately authorized CCV-004-C3
+adds a controller-only master offline CLI, local manifests, verified protected
+records, and redacted reports. C3 implementation acceptance remains pending.
 No concrete HTTP backend, production secret resolver,
 online execution, or real product/version compatibility is established.
 
@@ -497,8 +500,9 @@ test guards establish zero guarded attempts, not OS-level isolation.
 The workflow sanitizes existing parser chains at its own boundary; direct calls
 to older profile/plan parsers have not been changed by this milestone.
 The separately authorized CCV-004-A/B and C1 offline contracts are described
-below. C1/C2 add no client operation; all live/backend development and C3 remain
-unauthorized.
+below. C1/C2 add no client operation; all live/backend development remains
+unauthorized. The subsequently authorized offline-only C3 workflow is described
+separately below and grants no client capability.
 
 ## Implemented offline controller objects and identity mapping - CCV-004-A
 
@@ -1227,8 +1231,231 @@ Python guards are test evidence, not OS-level isolation. Real detail IDs/classes
 required access fields, per-version schemas, pagination/completeness, cross-tree
 device equivalence, and portable credentials remain unverified. Unknown secrets
 disguised as unrecognized arbitrary text cannot be generically detected.
-C2 is implemented/offline-verified, not owner-accepted; C3 and live work remain
-unauthorized.
+C2's completed offline scope, including the subsequent HIGH corrections, is
+owner-accepted; see E-025/E-026 in the progress tracker. The owner separately
+authorized only the offline C3 scope below. All live work remains unauthorized.
+
+## Master offline controller workflow - CCV-004-C3
+
+[offline_inputs.py](../src/cc_vision_import/offline_inputs.py) adapts explicit
+local input declarations to existing contracts.
+[controller_workflow.py](../src/cc_vision_import/controller_workflow.py) provides
+`plan_offline_request(request_path, verify_record=None)` and returns a redacted
+report, protected planning record, and exit status. The
+[CLI](../src/cc_vision_import/cli.py) exposes the same workflow through `plan`.
+No authentication/session/client operation is invoked.
+
+### Input manifest and stage contract
+
+The complete, executable synthetic manifest is
+[examples/offline-controller/request.json](../examples/offline-controller/request.json).
+It has integer `schema_version=1`, `scope="offline-controller-planning"`, and
+requires every following declaration:
+
+| Field | Explicit local contract |
+| --- | --- |
+| `source`, `destination` | `controller_id`, a local `profile` filename, an `input` descriptor, and `reconciliation` object or explicit null. Existing source/destination profile roles and HTTPS-origin validation are reused; the address is inert metadata, never contacted. |
+| `input` | `format="artifact"` plus `path`; or `format="tree"` plus `path`, explicit `tree`, and `exported_at`; or `format="flat"` with those fields and a separate explicit `root` filename. No roots/parents are inferred. |
+| `reconciliation` | Explicit `details`, `accesses`, and `associations` filenames. Record envelopes and qualified one-to-one associations use C2. Associations include explicit `access_record` and typed acknowledgement data or null. |
+| `mappings` | Filename containing existing explicit mapping records. Controller planning, not the strict existing-target-only resolver or generic planner, validates CREATE and existing-target cases together. |
+| `acknowledgements` | Filename containing existing bound acknowledgement declarations; an explicit empty array grants no consent. Embedded reconciliation acknowledgements remain subject to the same shared gate. |
+| `policy` | Filename for schema 1 with `policy_id="acknowledged-normalized-exact-v2"`, an opaque `evidence_reference`, qualified `semantics_known_for`, and explicit `comparison_rules`. No new comparison rule or semantics default is introduced. |
+| `completeness` | Filename for schema 1 with `trees`: explicit tree/evidence-reference pairs. Empty coverage does not declare missing objects safe to CREATE. |
+
+Relative references resolve against the manifest directory, not the current
+working directory or each referenced file's directory. File contents use strict
+UTF-8 JSON with unique member names and finite numbers. Unknown manifest fields,
+unsupported integer versions, unsupported rules/formats, invalid profiles,
+declaration/artifact identity mismatches, and invalid evidence references fail
+explicitly. Only declared Cyber Controller `0.0-test` inputs are enabled; this
+is a trusted synthetic declaration, not product certification.
+
+The six ordered stages are `manifest`, `source`, `destination`, `declarations`,
+`comparison`, and `verification`. Each side reuses C1 tree/flat adaptation or the
+standard artifact parser, optional C2 reconciliation, and controller structural
+validation. Every stage must satisfy its prerequisites; failure marks that stage
+failed and later stages blocked. Already produced safe artifacts remain in the
+protected diagnostic record. No raw rejected input is copied into reports.
+
+Credential safety is a prerequisite for diagnostic retention, independent of
+structural validity. Both original and reconciled artifacts pass the existing
+controller credential scanner before entering the retained artifact collection.
+The same check runs during record construction and serialization, including
+after a caller modifies and rehashes a record. This covers controller-specific
+fields such as passphrase, authKey, privKey, and username, not only the generic
+artifact credential classifier.
+
+Rejected raw credentials fail closed: the workflow returns only fixed
+validation codes, the failed stage, and sanitized status information;
+`record_available=false` and the Python result's `record` is null. No planning
+record is constructed, and `--record` does not open or create an output file.
+Calling `record_json()` on such a result raises the fixed `record_unavailable`
+contract error without rejected values or exception context. Safe incomplete
+artifacts remain eligible for diagnostic retention; this grants no planning
+eligibility or credential completeness.
+
+Acknowledgement-only eligibility failures preserve structurally valid artifacts.
+The existing controller comparison then emits per-object BLOCKED, alongside
+CREATE/SKIP/CONFLICT where independently eligible. Invalid structural artifacts
+cannot proceed. Duplicate/unmatched records, identity uncertainty, credential
+uncertainty, root/hierarchy rules, and conservative comparison exclusions remain
+the responsibility of the existing accepted contracts, not reimplemented logic.
+No acknowledgement is created, renewed, or inferred by this workflow.
+
+### Planning, records, and verification
+
+Only `compare_controller_inventories` and `verify_controller_plan` produce and
+verify controller candidates. Generic controller planning remains explicitly
+unsupported. Existing artifact schema 1 and controller plan schema 2 are
+unchanged. The C3 manifest and protected record are version-1 orchestration
+envelopes, not competing controller-object formats or execution/result models.
+Generic `OperationResult` contracts are not used to imply execution outcomes.
+
+The protected record includes:
+
+- Ordered normalized/reconciled artifacts, including diagnostic invalid status.
+- The controller candidate and complete redacted report.
+- `action_records` associating each opaque report reference with its controller
+  action ID and source/destination snapshot indices. Follow an index into
+  `artifacts.source.objects` or `artifacts.destination.objects` to obtain the
+  protected qualified identity; no guessed destination identity is assigned.
+- SHA-256 bindings for the exact bytes of the manifest and every consumed input,
+  identified by fixed stage slots rather than disclosed filenames.
+- An order-preserving record integrity digest.
+
+Given identical bytes/declarations, planning records and reports are deterministic.
+Standard record JSON preserves dictionary and array ordering; arbitrary record
+key reordering, reformatting input files, or changing policy/completeness evidence,
+profiles, identities, or configuration invalidates retained-record verification.
+Changing only a profile address or local evidence reference may leave the
+underlying controller plan ID unchanged; the enclosing input bindings still
+detect the change. The record's own integrity is checked before serialization.
+
+The report includes additive `status`, numeric `exit_code`, and
+`record_available` fields. Existing artifact schema 1 and controller plan schema
+2 remain unchanged, as do the manifest/record schema numbers. Because the whole
+report is integrity-bound, pre-correction C3 records must be regenerated;
+verification does not silently upgrade or accept them.
+
+`--verify` reprocesses current inputs, runs the existing controller verifier on
+the retained candidate, and compares the entire retained record against the
+recomputed record. A forged/rehashed root CREATE or modified policy binding
+cannot become eligible merely by recomputing hashes. Hashes are integrity
+bindings, not approval signatures or authentication of an evidence catalogue.
+Verification means offline plan integrity, never product read-back verification.
+
+### CLI usage, reports, and exit codes
+
+From the repository root in PowerShell:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m cc_vision_import plan --request .\examples\offline-controller\request.json
+```
+
+By default only the redacted JSON report is printed; no file is written. To
+retain and verify a protected record, choose a new local filename in an existing
+directory whose filesystem permissions you control:
+
+```powershell
+python -B -m cc_vision_import plan --request .\examples\offline-controller\request.json --record C:\ProtectedOfflinePlans\synthetic-candidate.json
+python -B -m cc_vision_import plan --request .\examples\offline-controller\request.json --verify C:\ProtectedOfflinePlans\synthetic-candidate.json
+```
+
+The CLI never overwrites an existing record or creates its parent directory.
+Protected records contain configuration/provenance and must not be committed or
+treated as redacted output. ACLs/encryption are operator responsibilities, not
+implemented storage protections. An output failure is explicit via
+`workflow_result="failed"` and `output_failure`, while earlier validation
+diagnostics are retained. Serialization and credential/integrity validation
+finish before exclusive file creation. Failed writes close the stream and remove
+only the newly created output, never a pre-existing file. If filesystem permissions
+or another OS failure prevent cleanup, `output_cleanup_failure` explicitly reports
+`output_cleanup_failed`; operator inspection is then required. Filesystem races
+are not sandboxed. Rejected credentials and unexpected workflow failures suppress
+record creation altogether.
+
+Unexpected exceptions during cleanup are also contained: exit 6,
+`status="internal_failure"`, `output_failure="internal_error"`, and
+`output_cleanup_failure="output_cleanup_failed"`, with no exception message or
+traceback. `original_output_failure` preserves the prior operation's fixed safe
+category (for example `output_unwritable` or `internal_error`) when the cleanup
+failure replaces the primary category. It never contains an exception message,
+path, credential, or configuration. Expected cleanup I/O errors retain their
+existing I/O category without this additional field. A prevented
+deletion can leave the partial file in place; the report explicitly requires
+operator inspection rather than claiming successful removal or retrying blindly.
+
+The orchestration boundary handles unexpected application exceptions with a
+fixed `internal_error` code, the current stage, `workflow_result="failed"`,
+`status="internal_failure"`, exit 6, and no record. It discards partial state and
+never emits the exception message or traceback. This includes errors constructing
+controlled-failure diagnostics. The record-output boundary applies the same
+sanitization and resource cleanup to unexpected serialization/write exceptions.
+These are explicit failure reports, not successful or blocked-plan fallbacks.
+Process-control exceptions such as KeyboardInterrupt/SystemExit are not converted
+to application failures; output cleanup still runs when creation has begun.
+
+The report includes workflow result, plan ID, source snapshot digest, total
+objects evaluated, all four uppercase classification counts, opaque action
+references, stable validation codes, prerequisite codes, stage statuses, and
+`execution_authorized=false`, plus the machine-readable status/exit code and
+record availability. It exposes no names, addresses, profile URLs,
+native IDs, evidence references, filenames, or configuration. Records correlate
+opaque references with protected snapshot positions. Even a safe candidate
+retains explicit limitations for unverified completeness, credential portability,
+live compatibility, and lack of import authorization.
+
+| Exit | Report status | Meaning |
+| --- | --- | --- |
+| 0 | `success` | All stages verified and no CONFLICT/BLOCKED actions; offline candidate only. |
+| 1 | `blocked_plan` | Valid candidate containing CONFLICT/BLOCKED actions. |
+| 2 | No workflow report | CLI usage/argument error, reported by argparse. |
+| 3 | `input_output_error` | Unreadable/nonlocal input, malformed JSON/encoding, missing retained file, or filesystem output failure. |
+| 4 | `invalid_input` | Invalid declarations/contracts, including rejected raw credentials. |
+| 5 | `integrity_failure` | Candidate/retained-record verification or serialization-integrity failure; invalid retained schema/scope also fails verification. |
+| 6 | `internal_failure` | Unexpected application exception; sanitized report only. |
+
+Existing `modules` and `validate --module ...` commands/registry contracts remain
+unchanged, including generic validation's existing exit 1 for invalid contracts.
+The distinct 4/5/6 categories apply to the C3 planning workflow.
+`validate --module plan` is still the generic schema-1 validator, not a
+controller-record verifier. There is no apply/import/execution command.
+
+### Synthetic demonstration and limits
+
+The thirteen [example JSON files](../examples/offline-controller/) exercise
+recursive export adaptation, normalization, two-sided reconciliation, supplied
+acknowledgements, explicit mappings and completeness, comparison, nested CREATE
+dependencies, and plan/record verification. The supplied synthetic acknowledgements
+were explicitly constructed for those fixture snapshots; planning never generates
+them automatically. One source device is intentionally unacknowledged.
+
+Verified result: **8 objects; CREATE=3, SKIP=3, CONFLICT=1, BLOCKED=1**.
+The existing root/site and identical device SKIP; a changed site CONFLICTs; a
+new site, nested site and device CREATE; missing acknowledgement BLOCKS one
+device. Exit 1 is intentional, including when verifying that unchanged blocked
+candidate. Plan ID:
+`controller-plan-8aa1410a93c263fe107b770436bd7cd48ce3d9e9c80b3861c7c01b52e9a04141`.
+
+The original C3 verification passed all 291 prior cases plus 21 orchestration
+cases. After the acceptance-review corrections, **all 321 tests pass**: all 312
+prior cases retained plus nine permanent correction regressions. One prior
+credential test now asserts the intentionally unavailable record rather than
+serializing a diagnostic record after raw-secret rejection. A separate guarded
+operator demonstration exercised the actual CLI and retained-record verification;
+see E-027/E-028/E-029/E-030 in [PROGRESS.md](PROGRESS.md) for exact historical/current evidence.
+
+Raw tree/flat descriptors represent one explicitly named tree per side; a
+normalized artifact may contain both independently qualified trees. No live
+schema, completeness, credential portability, approval signature, or real product
+compatibility is established. Evidence references remain trusted opaque assertions.
+Unknown secrets disguised as arbitrary unrecognized text remain undetectable by
+the existing field-classification policy. URL/UNC/drive-relative paths are rejected,
+but operators must control mapped drives, links/junctions, filesystem permissions,
+and provenance of local files. Python network guards are not OS-level isolation.
+No concrete HTTP backend, real API/export/import, configuration-changing action,
+dependency installation, Git operation, or next milestone is added.
 
 ## Proposed migration modules
 

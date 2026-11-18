@@ -35,6 +35,13 @@ reconciliation, bound universal acknowledgements, protected provenance, and safe
 controller-specific planning, not live compatibility, execution, production
 configuration changes, or authorization to begin C3.
 
+The owner separately accepted **CCV-004-C3's completed offline-only scope on
+2026-11-18**, using E-030 as the latest correction evidence: 321 passing tests,
+zero guarded network attempts, and no remaining confirmed acceptance blockers.
+This does not establish live compatibility, authorize import execution or a
+next milestone, encrypt retained records, transfer file-permission responsibility
+from the operator, or guarantee cleanup when permissions prevent deletion.
+
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
 | ADR-001 | Modular Python master CLI with explicit module registry | Architectural direction approved by owner, 2026-11-17 | CCV-002, CCV-007 |
@@ -321,8 +328,52 @@ Mandatory limitations:
 This acceptance supersedes earlier C2 implementation-acceptance-pending labels
 only for the completed offline scope. It does not authorize broader CCV-004 work,
 API requests, real HTTP/secret backends, Git operations, or CCV-004-C3.
-C3 remains **unauthorized and not started**. Only this register and the progress
-tracker are updated; no application code or tests are changed.
+At that acceptance checkpoint C3 remained **unauthorized and not started**.
+Its subsequent separate authorization and acceptance below supersede that
+historical boundary only for C3's completed offline scope. No application code
+or tests are changed by either documentation-only acceptance record.
+
+## Owner implementation acceptance - CCV-004-C3, 2026-11-18
+
+**Owner:** project owner, by explicit decision in the project conversation.
+**Decision:** accept **CCV-004-C3 for its completed offline-only scope** under the
+existing architecture decisions. This is implementation acceptance, not live
+product qualification, import approval, or authorization to begin another milestone.
+
+Accepted scope includes the controller-specific master offline workflow,
+versioned local declarations, existing normalization/reconciliation/acknowledgement
+integration, comparison and candidate-plan integrity verification, minimal planning
+CLI, redacted reports, credential-safe record retention, distinct failure statuses,
+and sanitized output-cleanup reporting with safe original-operation context.
+
+Accepted evidence:
+
+- **321 tests passed**.
+- **Zero guarded network attempts**.
+- **No remaining confirmed acceptance blockers**.
+- [E-030](PROGRESS.md#e-030---ccv-004-c3-final-cleanup-failure-context-2026-11-18)
+  is the latest correction evidence: full suite passed in 46.619 seconds, exit 0;
+  focused workflow suite passed 30 tests in 6.934 seconds.
+- [E-031](PROGRESS.md#e-031---ccv-004-c3-owner-acceptance-2026-11-18)
+  records this owner decision. These are existing results, not tests rerun for
+  this documentation update; guards are not OS-level network isolation.
+
+Mandatory limitations remain:
+
+- No live product compatibility or official schema qualification is established.
+- Access completeness and credential portability remain unverified; local
+  evidence is a trusted offline assertion, not authenticated production approval.
+- No import execution, production configuration changes, live API requests,
+  or real HTTP backend is authorized.
+- Retained records are plaintext, not encrypted. Operators control filesystem
+  permissions and protected storage; no guaranteed access protection is claimed.
+- Cleanup cannot guarantee deletion when permissions or OS/audit policy prevent
+  it. A partial file may remain and requires operator inspection after the
+  explicit cleanup-failure report.
+- No Git operations, application changes, or next-milestone work are authorized.
+
+This acceptance supersedes earlier C3 acceptance-pending labels only for the
+completed offline scope. Only this register and the progress tracker are updated.
 
 ## ADR-001 - Modular Python controller
 

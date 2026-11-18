@@ -4,7 +4,9 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
 from ._json import load_json
-from .contracts import ExitStatus, ValidationIssue, ValidationResult
+from .contracts import ContractValidationError, ExitStatus, ValidationIssue, ValidationResult
+from .controller_workflow import _status_fields, plan_offline_request
+from .offline_inputs import local_path
 from .registry import MODULES, get_module
 
 
@@ -28,6 +30,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     validate = commands.add_parser("validate", help="Validate a local synthetic fixture, profile, artifact, or plan.")
     validate.add_argument("--module", choices=[module.name for module in MODULES], required=True)
     validate.add_argument("--input", required=True, help="Local UTF-8 JSON file; not a URL or UNC path.")
+    plan = commands.add_parser("plan", help="Plan an offline controller migration; never execute changes.")
+    plan.add_argument("--request", required=True, help="Versioned local controller workflow manifest.")
+    plan.add_argument("--record", help="New protected local record file; never overwritten. May contain configuration.")
+    plan.add_argument("--verify", help="Retained protected record to verify against current inputs.")
     args = parser.parse_args(argv)
 
     if args.command == "modules":
@@ -46,6 +52,64 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         )
         return ExitStatus.SUCCESS
+
+    if args.command == "plan":
+        result = plan_offline_request(args.request, verify_record=args.verify)
+        report = result.report
+        status = result.exit_status
+        if args.record is not None and result.record is not None:
+            code = None
+            created_path = None
+            written = False
+            cleanup_failed = False
+            original_output_failure = None
+            try:
+                serialized = result.record_json()
+                path = local_path(args.record, Path.cwd())
+                with path.open("x", encoding="utf-8") as output:
+                    created_path = path
+                    output.write(serialized)
+                written = True
+            except ContractValidationError as error:
+                codes = {issue.code for issue in error.result.issues}
+                if "secret_value_not_allowed" in codes:
+                    code, status = "secret_value_not_allowed", ExitStatus.CONTRACT_ERROR
+                elif codes & {"integrity_mismatch", "record_unavailable"}:
+                    code, status = "integrity_mismatch", ExitStatus.INTEGRITY_ERROR
+                else:
+                    code, status = "nonlocal_output", ExitStatus.INPUT_ERROR
+            except FileExistsError:
+                code, status = "output_exists", ExitStatus.INPUT_ERROR
+            except (OSError, ValueError, UnicodeError):
+                code, status = "output_unwritable", ExitStatus.INPUT_ERROR
+            except Exception:
+                code, status = "internal_error", ExitStatus.INTERNAL_ERROR
+            finally:
+                if created_path is not None and not written:
+                    try:
+                        created_path.unlink(missing_ok=True)
+                    except OSError:
+                        cleanup_failed = True
+                    except Exception:
+                        original_output_failure = code
+                        code, status = "internal_error", ExitStatus.INTERNAL_ERROR
+                        cleanup_failed = True
+            if code is not None:
+                report = {
+                    **report, "workflow_result": "failed",
+                    **_status_fields(status), "record_available": False,
+                    "output_failure": code,
+                    "validation_failures": [
+                        *report["validation_failures"],
+                        {"stage": "record_output", "code": code},
+                    ],
+                }
+                if cleanup_failed:
+                    report["output_cleanup_failure"] = "output_cleanup_failed"
+                if original_output_failure is not None:
+                    report["original_output_failure"] = original_output_failure
+        print(json.dumps(report, allow_nan=False))
+        return status
 
     module = get_module(args.module)
     if module is None:

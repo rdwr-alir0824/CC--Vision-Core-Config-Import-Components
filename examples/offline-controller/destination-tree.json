@@ -1,0 +1,27 @@
+{
+  "meIdentifier": {"managedElementID": "dst-root", "managedElementClass": "synthetic-root"},
+  "unknownRoot": {"second": null, "first": [true, 1]},
+  "children": [
+    {
+      "name": "Existing",
+      "meIdentifier": {"managedElementID": "dst-existing", "managedElementClass": "com.radware.insite.model.device.Site"},
+      "children": [
+        {
+          "name": "Identical device", "type": "synthetic-device", "managementIp": "192.0.2.10",
+          "meIdentifier": {"managedElementID": "dst-identical", "managedElementClass": "com.radware.insite.model.device.Device"},
+          "deviceAccess": {"connectionTimeout": 7}, "children": []
+        },
+        {
+          "name": "Unacknowledged device", "type": "synthetic-device", "managementIp": "192.0.2.11",
+          "meIdentifier": {"managedElementID": "dst-blocked", "managedElementClass": "com.radware.insite.model.device.Device"},
+          "deviceAccess": {"connectionTimeout": 7}, "children": []
+        }
+      ]
+    },
+    {
+      "name": "Conflicting site", "mode": "destination",
+      "meIdentifier": {"managedElementID": "dst-conflict", "managedElementClass": "com.radware.insite.model.device.Site"},
+      "children": []
+    }
+  ]
+}

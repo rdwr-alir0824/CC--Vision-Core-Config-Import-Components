@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "scope": "offline-controller-planning",
+  "source": {
+    "controller_id": "synthetic-source",
+    "profile": "source-profile.json",
+    "input": {"format": "tree", "path": "source-tree.json", "tree": "Physical", "exported_at": "2026-11-18T00:00:00Z"},
+    "reconciliation": {"details": "source-details.json", "accesses": "empty.json", "associations": "source-associations.json"}
+  },
+  "destination": {
+    "controller_id": "synthetic-destination",
+    "profile": "destination-profile.json",
+    "input": {"format": "tree", "path": "destination-tree.json", "tree": "Physical", "exported_at": "2026-11-18T00:00:00Z"},
+    "reconciliation": {"details": "destination-details.json", "accesses": "empty.json", "associations": "destination-associations.json"}
+  },
+  "mappings": "mappings.json",
+  "acknowledgements": "empty.json",
+  "policy": "policy.json",
+  "completeness": "completeness.json"
+}

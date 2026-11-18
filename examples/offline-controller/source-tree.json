@@ -1,0 +1,44 @@
+{
+  "meIdentifier": {"managedElementID": "src-root", "managedElementClass": "synthetic-root"},
+  "unknownRoot": {"second": null, "first": [true, 1]},
+  "children": [
+    {
+      "name": "Existing",
+      "meIdentifier": {"managedElementID": "src-existing", "managedElementClass": "com.radware.insite.model.device.Site"},
+      "children": [
+        {
+          "name": "Identical device", "type": "synthetic-device", "managementIp": "192.0.2.10",
+          "meIdentifier": {"managedElementID": "src-identical", "managedElementClass": "com.radware.insite.model.device.Device"},
+          "deviceAccess": {"connectionTimeout": 7}, "children": []
+        },
+        {
+          "name": "Unacknowledged device", "type": "synthetic-device", "managementIp": "192.0.2.11",
+          "meIdentifier": {"managedElementID": "src-blocked", "managedElementClass": "com.radware.insite.model.device.Device"},
+          "deviceAccess": {"connectionTimeout": 7}, "children": []
+        }
+      ]
+    },
+    {
+      "name": "Conflicting site", "mode": "source",
+      "meIdentifier": {"managedElementID": "src-conflict", "managedElementClass": "com.radware.insite.model.device.Site"},
+      "children": []
+    },
+    {
+      "name": "New region",
+      "meIdentifier": {"managedElementID": "src-new", "managedElementClass": "com.radware.insite.model.device.Site"},
+      "children": [
+        {
+          "name": "New nested site",
+          "meIdentifier": {"managedElementID": "src-nested", "managedElementClass": "com.radware.insite.model.device.Site"},
+          "children": [
+            {
+              "name": "New device", "type": "synthetic-device", "managementIp": "192.0.2.12",
+              "meIdentifier": {"managedElementID": "src-new-device", "managedElementClass": "com.radware.insite.model.device.Device"},
+              "deviceAccess": {"connectionTimeout": 9}, "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

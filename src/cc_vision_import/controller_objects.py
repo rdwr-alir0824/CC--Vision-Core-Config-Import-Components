@@ -198,6 +198,13 @@ def _credential_references(value: JsonValue, reader: ContractReader, path: str) 
             _credential_references(item, reader, item_path)
 
 
+def validate_controller_credentials(artifact: ConfigurationArtifact) -> None:
+    """Check credential safety independently of structural validity or completeness."""
+    reader = ContractReader("controller-objects")
+    for index, item in enumerate(artifact.objects):
+        _credential_references(item, reader, f"$.objects[{index}]")
+
+
 def _native_bindings(item: ControllerObject, reader: ContractReader, path: str) -> None:
     data = item.configuration
     if "children" in data:

@@ -1,9 +1,12 @@
 # Development Roadmap
 
-Date: 2026-11-17  
+Date: 2026-11-18
 Status: **CCV-001 architectural baseline approved; CCV-002 completion confirmed
 by the owner; CCV-003-A/B/C implemented mock-only scope owner-accepted on
-2026-11-17.** Future milestones remain proposed/not authorized. Live product
+2026-11-17. CCV-004-A/B/C1/C2 completed offline scopes are owner-accepted.
+Separately authorized CCV-004-C3 controller-only offline orchestration is
+implemented and offline-verified; its owner acceptance is pending.**
+Broader/future milestones remain proposed/not authorized. Live product
 compatibility and qualification are explicitly pending.
 
 Priorities: P0 = foundation/safety gate; P1 = initial migration functionality;
@@ -21,7 +24,7 @@ runtime or API certification.
 | CCV-001 | Project Foundation | P0 | CCV-000 | Static baseline and architectural direction owner-approved, 2026-11-17; deferred evidence remains in tracker. |
 | CCV-002 | Application skeleton, profiles, and offline contracts | P0 | CCV-001 approval; runtime/tooling decisions | A/B/C implemented and offline-verified; parent completion/local commit confirmed by owner, not inspected here. |
 | CCV-003 | Shared transport, product clients, sessions, and mocked read-to-plan slice | P0 | CCV-002; source evidence; explicit synthetic version/backend restrictions | Implemented mock-only A/B/C scope owner-accepted, 2026-11-17; 130 tests, zero guarded attempts, no blocking review defects; live qualification pending. |
-| CCV-004 | Controller objects, device access, credential transformation | P1 | CCV-002, CCV-003; identity and secret-policy decisions | Not started; not authorized. |
+| CCV-004 | Controller objects, device access, credential transformation | P1 | CCV-002, CCV-003; identity and secret-policy decisions | A/B/C1/C2 accepted offline-only; C3 separately authorized 2026-11-18, implemented/offline-verified with 312 passing tests and zero guarded attempts; C3 owner acceptance pending. Broader credential/apply work remains unauthorized. |
 | CCV-005 | LDAP permission migration | P1 | CCV-002, CCV-003; approved destination reference mappings | Not started; not authorized. |
 | CCV-006 | Scheduled-task migration | P1 | CCV-002, CCV-003; resolved paths and task-type contracts | Not started; not authorized. |
 | CCV-007 | Integrated orchestration, comparison, and reporting | P0 | CCV-003 mocked slice; readiness-verified subset of CCV-004/005/006 approved for integration | Not started; not authorized. |
@@ -168,6 +171,52 @@ Risks: product/version differences, expired sessions, and unknown logout/async
 semantics. No generic compatibility fallback or invented endpoint.
 
 ## CCV-004 - Controller objects and credentials
+
+Implemented/accepted slices: A object/mapping contracts; B comparison, safe
+CREATE planning and order-preserving artifacts; C1 legacy representation
+adapters; C2 explicit detail/access reconciliation and universal bound
+acknowledgement. Their acceptance does not authorize credential transformation,
+production writes, or broader CCV-004 execution.
+
+### CCV-004-C3 - Master offline controller migration orchestration
+
+**Authorization:** explicit owner approval on 2026-11-18 for this bounded
+offline-only slice. **Status:** implemented/offline-verified; technical review
+and owner acceptance pending. Dependencies: accepted A/B/C1/C2 and existing
+CLI/profile/artifact/plan contracts.
+
+Deliverables:
+
+- Reusable local-manifest orchestration over existing normalization, adapters,
+  reconciliation, validation, acknowledgement, comparison and controller planning.
+- Minimal `plan --request` CLI, optional protected `--record`, and retained-input
+  `--verify`, with redacted JSON reports and meaningful exit codes.
+- Explicit versioned manifests and integrity-bound local input declarations.
+- A complete synthetic demonstration with all four classifications and nested
+  CREATE dependencies, plus guarded end-to-end failure/regression cases.
+
+Verification: all 291 prior cases retained plus 21 new tests, 312 passing;
+zero guarded network attempts. Demonstration: 8 objects, CREATE=3, SKIP=3,
+CONFLICT=1, BLOCKED=1; its exit 1 is intentional. See E-027 in
+[PROGRESS.md](PROGRESS.md) for actual commands/results, and
+[ARCHITECTURE.md](ARCHITECTURE.md#master-offline-controller-workflow---ccv-004-c3)
+for CLI/manifest usage.
+
+Scope boundaries:
+
+- Controller planning only; no generic controller bypass, root CREATE, implicit
+  identity matching, acknowledgement generation, or unsafe comparison exclusion.
+- No live API/export/import, real backend, configuration write, apply command,
+  credential transformation, new dependency, legacy change, or Git operation.
+- Local evidence/declarations remain offline assertions, not live completeness,
+  compatibility, credential portability, or execution approval.
+- This is not authorization for cross-domain CCV-007, other migration domains,
+  qualification, or the next milestone.
+
+Next action: review C3 and seek owner acceptance; stop before further development
+without separate authorization.
+
+### Broader CCV-004 proposal - not authorized by C3
 
 Proposed deliverables: Physical/Organization export and adapters; hierarchy and
 destination identity mapping; device-access validation; offline credential

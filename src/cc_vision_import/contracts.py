@@ -12,6 +12,9 @@ class ExitStatus(IntEnum):
     VALIDATION_FAILED = 1
     USAGE_ERROR = 2
     INPUT_ERROR = 3
+    CONTRACT_ERROR = 4
+    INTEGRITY_ERROR = 5
+    INTERNAL_ERROR = 6
 
 
 @dataclass(frozen=True)

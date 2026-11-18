@@ -68,8 +68,42 @@ Acknowledgement authorizes offline planning only; access completeness,
 credential portability, and live product compatibility remain unverified.
 Previously generated generic controller plans must be regenerated through
 controller-specific APIs. No real imports or production configuration changes
-are authorized. C3 and all live/backend work remain unauthorized and not started;
-see E-022/E-023/E-024/E-025/E-026.**
+are authorized. The owner subsequently authorized bounded offline-only C3.
+C3 master controller orchestration is now implemented/offline-verified:
+**312 tests passed** (all 291 prior cases unchanged plus 21 new end-to-end cases),
+zero guarded network attempts. Local manifests, the controller-specific
+`plan --request` CLI, protected records, retained-input verification, and
+redacted reports reuse the accepted safety contracts. The synthetic demonstration
+evaluates 8 objects: CREATE=3, SKIP=3, CONFLICT=1, BLOCKED=1; exit 1 is intentional.
+C3's read-only technical review found HIGH-01 (raw credentials could be retained
+in artifact-format diagnostics), MED-01 (conflated failure exits), and MED-02
+(unhandled internal exceptions). The owner authorized correction of all three
+within C3. Corrections are now implemented/offline-verified: **320 tests pass**
+(all 312 prior cases retained plus eight regressions), zero guarded attempts.
+Unsafe credential failures produce no record; safe incomplete diagnostics remain
+available. C3 reports distinguish exits 0 through 6 and sanitize internal errors.
+E-028 records those corrections. The follow-up review found one remaining
+MEDIUM cleanup-handler gap: unexpected cleanup exceptions escaped sanitization.
+The owner selected "Fix highest severity issues", then "Fix issue #1 only".
+That correction is now implemented/offline-verified: **321 tests pass**
+(all 320 prior cases retained plus one regression), zero guarded attempts.
+The guarded CLI subprocess returns exit 6 with sanitized JSON/empty stderr when
+an unexpected cleanup error is injected; blocked cleanup is explicitly reported.
+E-029 records that correction. The owner's final output-cleanup authorization
+also explicitly requires preserving the original operation's safe failure
+category. This is now retained in `original_output_failure` when an unexpected
+cleanup exception replaces the primary error. The expanded regression covers
+both original I/O and internal failures: **321 tests pass in 46.619 seconds**,
+zero guarded attempts. E-030 is the latest correction evidence.
+The owner accepted **CCV-004-C3's completed offline-only scope on 2026-11-18**:
+321 tests passed, zero guarded network attempts, and no remaining confirmed
+acceptance blockers. See E-031. Retained records remain plaintext and require
+operator-controlled permissions; cleanup cannot guarantee deletion when
+permissions prevent it. No live compatibility or import execution authorization
+is established.
+No broader/next milestone,
+live/backend work, real export/import, or production configuration change is
+authorized or started; see E-022 through E-031.**
 
 ## Status rules
 
@@ -378,8 +412,60 @@ This acceptance supersedes earlier C2 review/acceptance-pending labels only for
 the completed offline scope. It establishes no live product compatibility,
 access completeness, credential portability, import authorization, or permission
 to change production configuration. Previously generated generic controller
-plans must be regenerated using controller-specific APIs. C3 remains
-unauthorized and not started.
+plans must be regenerated using controller-specific APIs. At that acceptance
+checkpoint C3 remained unauthorized; only the subsequent authorization below
+permits its bounded offline implementation.
+
+#### CCV-004-C3 authorization - 2026-11-18
+
+The owner separately authorized **Master Offline Migration Orchestration**:
+integrate existing controller export representation adapters, normalization,
+reconciliation, validation, universal acknowledgement, comparison, candidate
+planning, integrity verification, and redacted reporting through a minimal CLI.
+Use explicit versioned local manifests and a complete synthetic demonstration.
+All 291 accepted baseline cases must remain passing; new end-to-end tests and
+zero guarded network attempts are required.
+
+This authorizes only the controller-specific offline workflow, not generic
+controller planning, automatic acknowledgement/approval, apply, live APIs,
+real HTTP backends, real imports/exports, production configuration writes,
+legacy modifications, dependencies, Git operations, or the next milestone.
+It does not authorize broader cross-domain CCV-007. Implementation and actual
+evidence: E-027. C3 owner acceptance remains a separate pending gate.
+
+#### CCV-004-C3 correction authorization - 2026-11-18
+
+The owner explicitly authorized correction of all three confirmed acceptance
+blockers: HIGH-01 credential retention, MED-01 CLI exit classification, and
+MED-02 sanitized unexpected-failure handling. Scope includes permanent regression
+tests, the complete offline suite, and architecture/progress documentation only.
+All existing 312 cases must remain passing. No APIs, production configuration
+changes, legacy modifications, dependencies, Git operations, or next milestone
+are authorized. E-028 records implementation and actual evidence; this is not
+owner acceptance.
+
+The subsequent security/acceptance review found one remaining MEDIUM issue:
+unexpected exceptions in the output-cleanup handler escaped the sanitized
+boundary. The owner selected "Fix highest severity issues" and then explicitly
+"Fix issue #1 only". This authorizes only the cleanup-handler correction,
+permanent guarded regression, offline verification, and related architecture/
+progress evidence. It does not authorize Git, live operations, dependencies, or
+another milestone. E-029 records the correction; owner acceptance remains pending.
+
+#### Owner acceptance of CCV-004-C3 - 2026-11-18
+
+The project owner explicitly approved **CCV-004-C3 for its completed offline-only
+scope**. Accepted evidence uses E-030 as the latest correction checkpoint:
+321 tests passed, zero guarded network attempts, and no remaining confirmed
+acceptance blockers. E-031 records this owner decision.
+
+This supersedes earlier C3 acceptance-pending labels only for the implemented
+offline scope. It establishes no live compatibility, access completeness,
+credential portability, import execution authorization, or permission to change
+production configuration. Retained records are plaintext; file permissions and
+protected storage remain operator responsibilities. Cleanup cannot guarantee
+deletion when permissions prevent it, and failed removal requires operator
+inspection. No next milestone, Git operation, backend, or live work is authorized.
 
 ## Milestone tracker
 
@@ -395,11 +481,12 @@ unauthorized and not started.
 | CCV-003-A | Shared injectable HTTP transport and policies | P0 | CCV-002 completion confirmed by owner | Owner accepted mock-only completion on 2026-11-17 | Implemented | Mock-only scope verified and accepted; E-007/E-012; regressions retained in 130-test suite |
 | CCV-003-B | Authentication contracts, strategies, resolver interface, session ownership | P0 | CCV-003-A implementation/testing/technical review | Owner accepted mock-only completion and correction on 2026-11-17 | Implemented; initialization cleanup defect corrected | Mock-only scope verified and accepted; E-008/E-009/E-012; regressions retained in 130-test suite |
 | CCV-003-C | Product read clients and mocked read-to-plan integration | P0 | CCV-003-A/B and 95-test baseline; source API evidence; approved synthetic version/backend gate | Owner accepted mock-only completion on 2026-11-17; `0.0-test` only with explicit mock backends | Implemented; separate mock/production catalogues and backend gate | Mock-only scope verified and accepted: 130 tests; E-010/E-011/E-012; live qualification pending |
-| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | A/B/C1/C2 accepted for their completed offline scopes; C2 accepted 2026-11-18; remainder not authorized | Accepted A/B/C1/C2 scopes complete; C2 review defects corrected; remainder not started | C2 accepted: 291 passing tests, zero guarded attempts, no remaining confirmed acceptance blockers; real schema/compatibility/credential qualification pending |
+| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | A/B/C1/C2/C3 accepted for their completed offline-only scopes; C3 accepted 2026-11-18; broader scope not authorized | Accepted scopes complete; C3 workflow and corrections accepted offline-only; broader scope not started | C3 accepted: 321 passing tests, zero guarded attempts, no remaining confirmed acceptance blockers; E-030 latest correction/E-031 acceptance; live qualification pending |
 | CCV-004-A | Controller object schemas, hierarchy, and explicit identity mapping | P1 | Accepted CCV-003; source observations; owner-approved Option 1 name policy | Owner accepted offline-only completion on 2026-11-17 | Complete for accepted offline scope; duplicates preserved, identity ambiguity separate | Accepted: 166 tests, zero guarded attempts; E-013/E-014/E-015; Category B extension subsequently implemented in separately authorized B, E-016 |
 | CCV-004-B | Offline semantic comparison and CREATE planning | P1 | Accepted A; Category B assessment; explicit semantics/completeness policies | Owner accepted implemented offline-only scope on 2026-11-18, including serialization correction | Complete for accepted offline scope; separate validator, clarified policy, schema-2 plans, lossless standard controller serialization | Accepted: 220 tests, zero guarded attempts, no blocking reviewed defects; E-016 through E-019; live qualification pending |
 | CCV-004-C1 | Legacy export adapters | P1 | Accepted A/B; source-observed legacy structures; existing mock clients and secret/order contracts | Owner accepted implemented offline-only scope on 2026-11-18 | Complete for accepted offline scope; recursive/explicit-context flat/read-result adapters and structured export diagnostics | Accepted: 244 tests + five guarded review probes passed; zero guarded attempts; no confirmed acceptance-blocking defects; E-020/E-021; live qualification pending |
 | CCV-004-C2 | Device-detail and access reconciliation | P1 | Accepted C1/A/B; explicit qualified associations; source/access/policy-bound universal acknowledgement gate | Owner accepted completed offline-only scope on 2026-11-18, including both HIGH corrections | Complete for accepted offline scope; shared validator enforces policy; generic controller planning rejected; comparison exclusions device-only; diagnostics preserved | Accepted: 291 tests pass, zero guarded attempts, both HIGH findings corrected and verified, no remaining confirmed acceptance blockers; E-022 through E-026; live qualification pending |
+| CCV-004-C3 | Master offline controller migration orchestration | P1 | Accepted A/B/C1/C2; existing CLI/profile/artifact/controller planning contracts | Owner accepted completed offline-only scope on 2026-11-18 | Complete for accepted offline scope, including credential-safe retention, distinct exits, sanitized failures, safe original-error context and explicit cleanup reporting | Accepted: 321 tests passed, zero guarded attempts, no remaining confirmed acceptance blockers; E-030 latest correction/E-031 owner acceptance; all live/execution/storage limitations preserved |
 | CCV-005 | LDAP permissions | P1 | CCV-002, CCV-003; reference mappings | Not approved; planned | Not started | Not started |
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
 | CCV-007 | Integrated orchestration and reporting | P0 | CCV-003; readiness-verified subset of CCV-004/005/006 approved for integration | Proposed — pending owner approval | Not started | Not started |
@@ -423,11 +510,12 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-003-A | [Transport](../src/cc_vision_import/transport.py), [mock tests](../tests/test_transport.py), [architecture](ARCHITECTURE.md), this tracker | 60-test implementation checkpoint; regressions retained in accepted 130-test suite; E-007/E-012 | No blocker for accepted mock scope; no concrete backend or live qualification | Preserve accepted transport and restrictions |
 | CCV-003-B | [Authentication](../src/cc_vision_import/authentication.py), [sessions](../src/cc_vision_import/sessions.py), [tests](../tests/test_authentication.py), [architecture](ARCHITECTURE.md), this tracker | 95-test correction checkpoint; regressions retained in accepted 130-test suite; E-008/E-009/E-012 | Review defect corrected; real authentication/compatibility and production HTTP/secret backends remain unqualified/unimplemented | Preserve accepted sessions and cleanup behavior |
 | CCV-003-C | [Production/default lookup](../src/cc_vision_import/capabilities.py), [mock declarations](../src/cc_vision_import/mock_capabilities.py), [session backend gate](../src/cc_vision_import/sessions.py), [clients](../src/cc_vision_import/product_clients.py), [mock workflow](../src/cc_vision_import/mock_workflow.py), [client tests](../tests/test_product_clients.py), [integration tests](../tests/test_mocked_integration.py), architecture/API matrix/this tracker | E-010/E-011/E-012: 130 passing tests, zero guarded attempts; final review found no blocking defects; owner accepted | No blocker for accepted mock scope; real versions/schemas, backend, live destination inventory/comparison and production secret provider remain unqualified/unimplemented | Preserve accepted synthetic-only boundary; separately authorized A does not enable new API capabilities |
-| CCV-004 | A/B object/mapping/planning contracts, C1 adapters, C2 reconciliation/policy and tests; related docs | E-013 through E-026; A/B/C1/C2 accepted offline-only; broader scope unimplemented | Real schema/identity/secret qualification and live operations | Preserve accepted scopes and limitations; await separate authorization; stop before C3 |
+| CCV-004 | A/B object/mapping/planning contracts, C1 adapters, C2 reconciliation/policy, C3 controller-only orchestration and tests/docs | E-013 through E-031; A/B/C1/C2/C3 accepted for completed offline scopes; E-030 latest C3 correction; broader scope unimplemented | Real schema/identity/secret qualification and live operations remain gated | Preserve accepted scopes and limitations; stop before the next milestone |
 | CCV-004-A | [Object contracts](../src/cc_vision_import/controller_objects.py), [mapping resolution](../src/cc_vision_import/controller_mapping.py), [tests](../tests/test_controller_objects.py), two synthetic tree fixtures, architecture/API matrix/this tracker | E-014/E-015: accepted 36 object/mapping tests; 166 total passing; zero guarded attempts | No blocker for accepted A scope; real compatibility/schema validation, destination preflight, and production imports remain unimplemented/unqualified; B's separate extension does not weaken A | Preserve accepted A and its strict existing-target resolver |
 | CCV-004-B | [Planning validator](../src/cc_vision_import/controller_planning.py), [comparison/plans](../src/cc_vision_import/controller_comparison.py), shared credential-field classification in [objects](../src/cc_vision_import/controller_objects.py), [artifact serialization](../src/cc_vision_import/artifacts.py), [comparison tests](../tests/test_controller_comparison.py), [artifact tests](../tests/test_configuration_contracts.py), architecture/this tracker | E-018/E-019: owner accepted all 212 prior tests + eight serialization regressions; 220 total pass; zero guarded attempts | No blocker for accepted offline scope; historical ordering loss cannot be reconstructed; hashes cannot transfer to reserialized data; semantics/completeness not live-qualified; no actual creation/ID binding/import | Preserve accepted B; await separate authorization; do not begin C |
 | CCV-004-C1 | [Adapters](../src/cc_vision_import/controller_exports.py), [tests](../tests/test_controller_exports.py), [synthetic responses](../tests/fixtures/controller-export-responses.json), architecture/API matrix/this tracker | E-020/E-021: owner accepted 244 tests and five guarded review probes; zero guarded attempts | No confirmed acceptance blocker; real schemas/completeness/credential portability unverified; incomplete artifacts rejected; flat root context required; historical loss unrecoverable | Preserve accepted C1; await separate authorization; do not begin C2 |
-| CCV-004-C2 | [Reconciliation](../src/cc_vision_import/controller_reconciliation.py), [access policy](../src/cc_vision_import/controller_access_policy.py), [shared planning](../src/cc_vision_import/controller_planning.py), [objects](../src/cc_vision_import/controller_objects.py), [comparison](../src/cc_vision_import/controller_comparison.py), [generic plans](../src/cc_vision_import/plans.py), related tests/docs | E-022 through E-026: owner accepted 291-test evidence, zero guarded attempts, and both HIGH corrections; final full run 88.461 seconds, exit 0; no remaining confirmed acceptance blockers | Real schemas/completeness/portability unverified; evidence catalogue not authenticated; unbound evidence and generic controller plans are ineligible; old affected plans require regeneration; no live capability | Preserve accepted offline C2 and mandatory limitations; await separate authorization; stop before C3 |
+| CCV-004-C2 | [Reconciliation](../src/cc_vision_import/controller_reconciliation.py), [access policy](../src/cc_vision_import/controller_access_policy.py), [shared planning](../src/cc_vision_import/controller_planning.py), [objects](../src/cc_vision_import/controller_objects.py), [comparison](../src/cc_vision_import/controller_comparison.py), [generic plans](../src/cc_vision_import/plans.py), related tests/docs | E-022 through E-026: owner accepted 291-test evidence, zero guarded attempts, and both HIGH corrections; final full run 88.461 seconds, exit 0; no remaining confirmed acceptance blockers | Real schemas/completeness/portability unverified; evidence catalogue not authenticated; unbound evidence and generic controller plans are ineligible; old affected plans require regeneration; no live capability | Preserve accepted offline C2 and limitations during separately authorized C3 integration |
+| CCV-004-C3 | Acceptance recorded in this tracker and [DECISIONS.md](DECISIONS.md); application/tests unchanged by acceptance update | E-030 latest correction: 321 tests passed in 46.619 seconds, exit 0; focused 30 passed; zero guarded attempts; E-031 owner acceptance 2026-11-18; no remaining confirmed acceptance blockers | Local evidence/permissions trusted; plaintext records; deletion may be prevented; live schemas/completeness/portability unverified; no execution authorization | Preserve accepted offline scope and limitations; await separate authorization before further work |
 | CCV-005 | Proposed LDAP module and tests; related docs | None; not started | Roles/groups/policies and scope/device-lock policy | Resolve authorization-preserving mappings |
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
 | CCV-007 | Proposed orchestration/comparison/reporting and tests; related docs | None; not started | Verified module contracts and approval workflow | Integrate only approved capabilities |
@@ -630,6 +718,464 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-031 - CCV-004-C3 owner acceptance, 2026-11-18
+
+- **Task / objective:** record owner acceptance of completed offline-only C3.
+- **Priority / dependencies:** P1; C3 implementation, reviews/corrections
+  E-027 through E-030, and the explicit owner decision on 2026-11-18.
+- **Approval:** owner accepted the completed offline-only scope; this update
+  authorizes documentation changes only.
+- **Implementation:** acceptance recorded in this tracker and
+  [DECISIONS.md](DECISIONS.md). No application or test changes.
+- **Verification:** owner-accepted existing evidence: **321 tests passed**,
+  **zero guarded network attempts**, and **no remaining confirmed acceptance
+  blockers**. E-030 remains the latest correction evidence, including the full
+  321-test pass in 46.619 seconds and focused 30-test pass in 6.934 seconds.
+  Tests were not rerun for this documentation-only acceptance record.
+- **Files affected:** this tracker and [DECISIONS.md](DECISIONS.md) only.
+- **Known blockers / limitations:** no confirmed acceptance blockers in the
+  accepted scope. Live compatibility, official schemas, access completeness,
+  and credential portability remain unverified. No import execution or production
+  configuration changes are authorized. Retained records are plaintext;
+  operators control file permissions/protected storage. Cleanup cannot guarantee
+  deletion when permissions or OS/audit policy prevent it; explicit failure
+  reporting requires operator inspection. Guards are not OS-level isolation.
+- **Next action:** preserve accepted C3 and all limitations. No next milestone,
+  backend, live API, Git operation, or further implementation is authorized.
+
+This owner acceptance supersedes earlier C3 acceptance-pending labels only for
+the completed offline scope. Historical evidence and corrections remain intact.
+
+### E-030 - CCV-004-C3 final cleanup failure context, 2026-11-18
+
+Historical correction checkpoint; E-031 records subsequent owner acceptance.
+
+- **Task / objective:** satisfy the final bounded output-cleanup authorization,
+  including safe preservation of the original operation failure category.
+- **Priority / dependencies:** P1; existing C3 cleanup correction E-029,
+  credential rejection before persistence, and the 321-test regression baseline.
+- **Approval:** explicit owner authorization for the single output-cleanup
+  correction, regression verification, and architecture/progress updates only.
+- **Implementation:** implemented.
+- **Verification:** all 321 tests pass; zero guarded network attempts.
+  Owner acceptance remains pending. No new milestone is authorized.
+
+The unexpected-cleanup handler, sanitized exit 6, explicit cleanup-failure flag,
+permission-error compatibility, and exclusive creation already existed from
+E-029. Final requirement 7 exposed one missing detail: replacing the primary
+write error with `internal_error` discarded its original safe category.
+
+Exact changes:
+
+- [cli.py](../src/cc_vision_import/cli.py): captures the fixed original category
+  inside the unexpected-cleanup handler and reports it as
+  `original_output_failure`. Overall `output_failure=internal_error`, exit 6,
+  `status=internal_failure`, and explicit `output_cleanup_failed` remain intact.
+  No exception object/message, sensitive path, credential, or configuration is
+  retained. Expected permission errors keep their existing exit/report behavior.
+- [test_controller_workflow.py](../tests/test_controller_workflow.py): expands
+  the existing cleanup regression to cover an original OSError or RuntimeError
+  followed by an unexpected cleanup RuntimeError, plus expected PermissionError
+  cleanup. It checks the original safe category, sanitized JSON/empty stderr,
+  no traceback/messages/output filename, closed streams, no execution approval,
+  and honest reporting when the injected failure prevents deletion.
+- [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker document the additive
+  failure-only field and actual evidence. No other modules or schemas changed.
+
+Actual tests:
+
+- Initial targeted red test:
+  `python -B -m unittest -q test_controller_workflow.ControllerWorkflowTests.test_cleanup_failures_remain_structured_and_sanitized`
+  failed in both unexpected-cleanup subcases because the original category was
+  absent. An intermediate focused run caught the category capture on the wrong
+  exception branch; moving it into the cleanup handler corrected that error.
+- Final focused command, source/tests on PYTHONPATH:
+  `python -B -m unittest -q test_controller_workflow`:
+  **30 tests passed in 6.934 seconds**, exit 0.
+- Full command:
+  `$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'`, then
+  `python -B -m unittest discover -s tests -q`:
+  **321 tests passed in 46.619 seconds**, exit 0. All existing methods remain;
+  the cleanup regression is expanded rather than duplicating test scaffolding.
+- Existing output preservation, credential rejection before record creation,
+  successful planning/verification, and all prior controller safeguards remain
+  covered and passing. Pylance diagnostics are clear for the changed CLI/tests.
+- **Zero guarded network attempts** across all 15 socket/DNS/HTTP/URL guards.
+  Test temporary files are cleaned up after injected failures. No live APIs,
+  configuration-changing operations, dependencies, legacy modifications,
+  Git operations, or next milestone were performed.
+
+Remaining limitations: OS/audit policy can prevent deletion, leaving a partial
+file requiring operator inspection. The report does not claim successful
+cleanup. Protected records remain plaintext and require operator-controlled
+storage/permissions; Python guards are not OS isolation. Live compatibility,
+access completeness, credential portability, and execution authorization remain
+unverified/ungranted. Next action: owner acceptance of the corrected offline scope.
+
+### E-029 - CCV-004-C3 unexpected cleanup exception correction, 2026-11-18
+
+- **Task / objective:** correct the sole MEDIUM finding from final security/
+  acceptance verification: unexpected output-cleanup exceptions escaped the CLI.
+- **Priority / dependencies:** P1; C3 and E-028, the 320-test baseline, and the
+  guarded review reproduction.
+- **Approval:** after the read-only review, the owner selected "Fix highest
+  severity issues" and explicitly confirmed "Fix issue #1 only". Authorization
+  covers this correction, regression, offline tests and related documentation.
+- **Implementation:** implemented.
+- **Verification:** 321 offline tests pass; zero guarded network attempts.
+  Owner acceptance remains a separate pending gate.
+
+Review evidence and root cause:
+
+- The read-only review ran **320 tests in 66.420 seconds**, exit 0.
+- Guarded review probes verified rehashed credential-bearing records are rejected
+  through `--verify` for both source and destination, exit 5, with no synthetic
+  credential in stdout/stderr or the newly produced safe diagnostic record.
+- Additional status/semantics checks passed: usage 2, unreadable file 3,
+  successful root planning 0, and all eight source objects BLOCKED when explicit
+  semantics were removed.
+- Expected PermissionError cleanup failures were explicitly reported.
+  Unexpected RuntimeError cleanup failures escaped: cleanup executes in
+  `finally`, outside the preceding write exception handlers, and only OSError
+  was caught there.
+- An actual guarded child CLI process reproduced exit 1 instead of 6, no JSON
+  report, synthetic exception details/traceback on stderr, and the partial file
+  left without a structured cleanup report. A process-local audit hook injected
+  the cleanup RuntimeError; no external system or global hooks were modified.
+  Parent test cleanup removed the temporary file afterward.
+
+Exact correction and affected files:
+
+- [cli.py](../src/cc_vision_import/cli.py): adds the missing unexpected-exception
+  handler inside cleanup. It sets fixed `internal_error`, exit 6, and the existing
+  cleanup-failure flag; the normal sanitized report is then emitted.
+  Expected OSError behavior, exclusive creation, existing-file preservation,
+  closed streams, and process-control exception behavior remain unchanged.
+- [test_controller_workflow.py](../tests/test_controller_workflow.py): one new
+  permanent regression with PermissionError and RuntimeError cleanup subcases.
+  It checks status/exit agreement, sanitized output, empty stderr, no traceback,
+  explicit cleanup failure, no execution authorization, and closed streams.
+  Failed removal is not falsely represented as success; the test removes its
+  temporary partial file after leaving the injected-failure context.
+- [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker document the behavior,
+  authorization, actual results and remaining storage limitations.
+- No other application modules or legacy files changed.
+
+Actual correction verification:
+
+- Red regression command:
+  `python -B -m unittest -q test_controller_workflow.ControllerWorkflowTests.test_cleanup_failures_remain_structured_and_sanitized`
+  with source/tests on PYTHONPATH: one test, expected failure before the fix;
+  RuntimeError escaped.
+- Focused command: `python -B -m unittest -q test_controller_workflow`:
+  **30 tests passed in 11.908 seconds**, exit 0.
+- Full command:
+  `$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'`, then
+  `python -B -m unittest discover -s tests -q`:
+  **321 tests passed in 57.496 seconds**, exit 0. All 320 prior methods remain
+  unchanged and passing; one new method adds the cleanup regression.
+- The same actual guarded subprocess/audit-hook reproduction now returns:
+  exit 6, `status=internal_failure`, `workflow_result=failed`,
+  `record_available=false`, `output_failure=internal_error`, and
+  `output_cleanup_failure=output_cleanup_failed`. Stderr is empty; neither
+  synthetic write/cleanup message nor a traceback appears in the report.
+- Pylance diagnostics are clear for the changed CLI and tests; test syntax check
+  passes. No dependencies or tooling were installed.
+- **Zero guarded network attempts** across all 15 socket/DNS/HTTP/URL guards,
+  including parent/child guarded probes. Guards are not OS-level isolation.
+- No live APIs, production configuration changes, legacy execution/modification,
+  Git operations, or next milestone. All temporary probe outputs were cleaned up.
+
+Remaining limitations and next action:
+
+- If cleanup is prevented, a partial file may remain and needs operator
+  inspection. The application cannot guarantee deletion against OS/audit policy;
+  it now reports this explicitly without exposing the exception text.
+- Protected records remain plaintext; ACLs/encryption/storage protection,
+  filesystem race control and trusted evidence provenance are operator duties.
+  No live compatibility, access completeness, credential portability or import
+  authorization is established.
+- No remaining confirmed acceptance blockers in the reviewed scope after the
+  authorized correction and verification. Recommend owner acceptance of C3's
+  implemented offline-only scope; do not begin another milestone.
+
+### E-028 - CCV-004-C3 credential and CLI corrections, 2026-11-18
+
+Historical correction evidence. E-029 records the later-discovered cleanup
+exception gap and its separately authorized correction/verification.
+
+- **Task / objective:** correct HIGH-01, MED-01, and MED-02 within existing C3.
+- **Priority / dependencies:** P1; C3 implementation E-027, accepted controller
+  contracts, and the final read-only review's three confirmed findings.
+- **Approval:** explicit owner authorization on 2026-11-18 for these corrections,
+  focused/full offline tests, and directly related documentation only.
+- **Implementation:** implemented.
+- **Verification:** 320 offline tests pass; zero guarded network attempts.
+  Follow-up technical acceptance review and owner acceptance remain pending.
+
+Root causes and exact corrections:
+
+1. Generic artifact parsing did not apply all controller credential rules before
+   diagnostic retention. The shared controller scanner is now exposed through
+   `validate_controller_credentials`; both initial and reconciled artifacts pass
+   it before retention. Record construction and serialization check it again.
+   There is no competing credential classifier. Both source and destination
+   artifact inputs reject raw passphrase/authKey/privKey/username data.
+2. Rejected raw credentials now return a sanitized failed report and no record:
+   Python `record=None`, `record_available=false`, exit 4, stable error codes,
+   and the failed stage. Serialization raises fixed `record_unavailable`;
+   `--record` never opens an output. Existing files are left untouched.
+   Safe incomplete artifacts remain available in protected diagnostic records
+   without becoming eligible for planning.
+3. ExitStatus adds 4 contract error, 5 integrity error, and 6 internal error,
+   preserving existing 0-3 values and generic validate behavior. C3 exit 1 now
+   means only a valid candidate with blocked/conflicting operations. Reports
+   include numeric `exit_code` and stable string `status`. Verification-stage
+   contract failures, including retained schema/scope mismatch, use 5;
+   unreadable/malformed files remain 3.
+4. The outer orchestration boundary catches unexpected application exceptions,
+   including failures while constructing controlled-error diagnostics. It
+   discards partial state and exception details, returns fixed `internal_error`
+   with the stage and exit 6, and suppresses record persistence. No exception
+   message, traceback, configuration, or credential enters the report.
+   Record-output exceptions receive the same explicit sanitization.
+5. CLI serialization/validation completes before exclusive output creation.
+   Failed writes close and remove only the newly created file; existing files
+   are never overwritten/deleted. Cleanup runs on exceptional exits. OS cleanup
+   failures are explicitly reported rather than silently ignored.
+
+Files modified (none created):
+
+- [contracts.py](../src/cc_vision_import/contracts.py)
+- [controller_objects.py](../src/cc_vision_import/controller_objects.py)
+- [offline_inputs.py](../src/cc_vision_import/offline_inputs.py)
+- [controller_workflow.py](../src/cc_vision_import/controller_workflow.py)
+- [cli.py](../src/cc_vision_import/cli.py)
+- [test_controller_workflow.py](../tests/test_controller_workflow.py)
+- [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker.
+
+Eight permanent regression methods cover:
+
+- Raw controller-specific credentials in both source/destination artifacts;
+  no record, no rejected values in result/error representations or stdout/stderr,
+  and existing-output preservation.
+- Continued protected retention of safe incomplete reconciliation diagnostics.
+- Distinct CLI exits/statuses for blocked plans, invalid declarations, and
+  integrity mismatch.
+- Injected internal failures at manifest, comparison, and verification stages.
+- Serialization failure before output creation.
+- Internal failure while constructing an existing validation-failure record.
+- Rehashed raw-credential record rejection at serialization/output.
+- Partial-write cleanup for expected I/O and unexpected internal exceptions.
+
+Actual test evidence:
+
+- Initial focused red run reproduced the missing behavior: six methods failed
+  before implementation. A test-only write injector initially called itself
+  recursively; it was corrected to call the original bound stream writer.
+- First green focused run: `python -B -m unittest -q test_controller_workflow`,
+  source/tests on PYTHONPATH, **27 passed in 6.497 seconds**, exit 0.
+- After covering diagnostic-construction failure and rehashed credential records:
+  the same focused command, **29 passed in 5.996 seconds**, exit 0.
+- Full command:
+  `$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'`, then
+  `python -B -m unittest discover -s tests -q`:
+  **320 tests passed in 82.165 seconds**, exit 0.
+- All 312 prior methods remain present/passing. One existing raw-password
+  assertion now requires no record instead of serializing a failure record;
+  this is the explicitly authorized fail-closed compatibility change.
+- Existing successful CLI planning/verification, intentional partial-plan
+  demonstration, order/type preservation, hierarchy/identity/acknowledgement
+  gates, and forged-plan rejection remain covered and passing.
+- Pylance diagnostics are clear for all five changed application modules and
+  the changed tests; workflow/test syntax checks pass.
+- **Zero guarded network attempts**, with all 15 socket/DNS/HTTP/URL guards
+  asserted unused. Python guards are not OS-level network isolation.
+- Temporary inputs/output files are automatically cleaned up by the test
+  harness. No real API requests, production changes, legacy execution/changes,
+  new dependencies, Git operations, or next milestone were performed.
+
+Compatibility and remaining limitations:
+
+- C3 reports add `status`, `exit_code`, and `record_available`. Artifact schema 1,
+  controller plan schema 2, policies, and manifest/record schema numbers remain
+  unchanged. Whole-record binding means pre-correction C3 records must be
+  regenerated, not silently upgraded.
+- CLI usage errors remain argparse exit 2 without a workflow report.
+  Process-control exceptions are not converted into application failures.
+- Protected records are plaintext, not encrypted. ACLs, storage protection,
+  local evidence provenance, and hostile filesystem races remain operator
+  responsibilities. If the OS prevents failed-output removal, fixed
+  `output_cleanup_failure=output_cleanup_failed` reports the remaining problem.
+- Generic unknown-field text cannot be reliably classified as a secret.
+  Access completeness/credential portability/live compatibility remain
+  unverified. No execution authorization follows from planning or acknowledgement.
+- **Known blockers:** all three confirmed findings are corrected and covered by
+  passing regressions; follow-up acceptance review/owner acceptance remain gates.
+- **Next action:** re-review the three corrections and seek owner acceptance
+  for C3's offline-only scope. Do not start another milestone.
+
+### E-027 - CCV-004-C3 master offline controller orchestration, 2026-11-18
+
+Historical pre-review implementation evidence. E-028 supersedes the failure-exit,
+credential-retention, and output-cleanup behavior below.
+
+- **Task / objective:** CCV-004-C3, integrate accepted offline controller
+  components into one operator-facing planning workflow without duplicating
+  domain safety logic or introducing execution.
+- **Priority / dependencies:** P1; accepted A/B/C1/C2, explicit profiles,
+  order-preserving artifacts, qualified mappings, universal acknowledgements,
+  controller-specific comparison/planning, and retained-input integrity.
+- **Approval:** explicit owner authorization of the bounded offline scope on
+  2026-11-18. No next milestone or broader CCV-007 authorization follows.
+- **Implementation:** implemented.
+- **Verification:** all 312 offline tests pass, including all 291 prior cases
+  unchanged and 21 new cases; zero guarded network attempts. C3 technical review
+  and owner acceptance remain pending.
+
+Files created:
+
+- [offline_inputs.py](../src/cc_vision_import/offline_inputs.py): strict local
+  manifest/profile/input adapters, optional C2 reconciliation, qualified typed
+  declarations, explicit policies/completeness evidence, exact input-byte binding.
+- [controller_workflow.py](../src/cc_vision_import/controller_workflow.py):
+  six-stage orchestration, controller-only candidate generation/verification,
+  redacted reports, opaque correlated action references, and protected records.
+- [test_controller_workflow.py](../tests/test_controller_workflow.py):
+  21 permanent guarded end-to-end cases.
+- Thirteen JSON files under [examples/offline-controller](../examples/offline-controller/):
+  request, two profiles, two tree responses, two detail sets, two association sets,
+  explicit empty inputs, mappings, policy, and completeness. All values and
+  acknowledgements are synthetic; no operational exports or credentials are used.
+
+Files modified:
+
+- [cli.py](../src/cc_vision_import/cli.py): additive controller-specific `plan`
+  command, optional new protected record output, retained-record verification,
+  redacted errors/results, and standard exit codes.
+- [ARCHITECTURE.md](ARCHITECTURE.md): manifest/record/CLI/report contracts,
+  demonstration usage, supported boundaries, and limitations.
+- [ROADMAP.md](ROADMAP.md): clarify C3's authorized controller-only subset,
+  accepted A/B/C1/C2 status, and separation from broader deferred orchestration.
+- This tracker: approval, implementation, actual evidence, and handoff.
+
+Integration and safety:
+
+1. Manifest references resolve against its own directory. Profiles, recursive
+   trees, explicit-root flat exports, or existing artifacts are supplied locally;
+   no endpoint is invented or contacted. Only Cyber Controller `0.0-test` is enabled.
+2. Existing adapters normalize objects; optional C2 reconciliation uses explicit
+   one-to-one associations. Structural validation precedes planning. Produced
+   safe artifacts remain available for diagnosis if later prerequisites fail.
+3. Explicit mapping, access acknowledgement, semantic-rule, and destination
+   completeness inputs feed only controller comparison and verification.
+   The workflow never calls generic controller planning, creates acknowledgements,
+   guesses identity, creates roots, assigns destination IDs, or weakens exclusions.
+4. Missing/stale acknowledgements and uncertain semantics block affected
+   candidates, not export data. Invalid prerequisites fail the stage and block
+   later stages. CONFLICT/BLOCKED candidates return exit 1, never success.
+5. Controller verifier checks current or retained candidates; the outer record
+   additionally binds all consumed file bytes, profiles and policy/completeness
+   evidence. Rehashed forbidden candidates and altered bindings remain rejected.
+   Record schemas/scopes are explicitly checked. Record serialization checks
+   its own integrity and preserves dictionary/array order.
+6. Reports contain only digests, counts, opaque action references, stable codes,
+   stage statuses, and prerequisites. Names, device/controller IDs, addresses,
+   URLs, evidence references, file paths, and configuration remain out of reports.
+   Protected action records correlate references with artifact snapshot indices.
+7. New record files are written only with `--record`, are never overwritten, and
+   contain protected configuration/provenance. No parent directory or ACL is
+   created automatically. Output failures are explicit and preserve prior
+   validation diagnostics.
+
+CLI and demonstration:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m cc_vision_import plan --request .\examples\offline-controller\request.json
+```
+
+Optional `--record <new-local-file>` retains a protected record; subsequent
+`--verify <retained-local-file>` recomputes the entire workflow and checks it.
+See the architecture document for protected-directory guidance. Exit codes:
+0 verified candidate without conflicts/blocks; 1 blocked/conflicting/invalid
+candidate or integrity failure; 2 CLI usage; 3 local input/encoding/JSON/output I/O.
+There is no apply/import/execution command.
+
+The complete demonstration evaluates **8 objects**:
+**CREATE=3, SKIP=3, CONFLICT=1, BLOCKED=1**. It preserves a new site's nested
+site/device dependencies, existing root/site/identical-device SKIP, a conflicting
+site, and an intentionally unacknowledged source device. Both initial generation
+and successful verification of that unchanged partial candidate return exit 1.
+
+Actual redacted demonstration values:
+
+- Plan ID:
+  `controller-plan-8aa1410a93c263fe107b770436bd7cd48ce3d9e9c80b3861c7c01b52e9a04141`.
+- Source snapshot SHA-256:
+  `fc4162a91d22eaac4195b545a9078af4e60c7526d130335a729e0a1429681748`.
+- `workflow_result="blocked"` and `execution_authorized=false`.
+- Protected record output was written and verified in a temporary guarded test
+  directory, then automatically removed. No generated operational record is
+  added to the repository.
+
+Actual tests and diagnostics:
+
+- Initial focused command: `python -B -m unittest -q test_controller_workflow`,
+  source/tests on `PYTHONPATH`: 18 tests passed in 5.469 seconds.
+- Expanded focused run: 21 cases, one assertion failed because it assumed
+  dependency-ordered actions used source array position. The test now locates
+  the action by explicit `source_index`; no domain behavior was changed.
+- Initial complete suite: **312 tests passed in 100.888 seconds**, exit 0.
+- Separate guarded stdin-only operator demonstration: actual CLI generation with
+  protected output, followed by CLI retained-record verification; **1 test passed
+  in 4.214 seconds**, intentionally asserting both CLI exit statuses are 1.
+- After making retained-record schema/scope errors explicit, final command:
+  `python -B -m unittest discover -s tests -q`, with `PYTHONPATH=src`:
+  **312 tests passed in 60.451 seconds**, exit 0.
+- Pylance diagnostics: no diagnostics in the two new source modules, changed CLI,
+  or new test module.
+- **Zero guarded network attempts** across all 15 socket/DNS/HTTP/URL guards,
+  including invalid input, missing file/acknowledgement, error, and CLI paths.
+  These assertions do not constitute OS-level network isolation.
+
+The new cases cover successful existing-root and nested-CREATE plans; all four
+classifications; protected correlation/redaction; deterministic order/type/null
+preservation; stale/missing acknowledgement; existing artifact and raw tree/flat
+inputs; invalid mappings/identities/roots; incomplete destination evidence;
+diagnostic preservation; changed source, destination profile, policy and
+completeness bindings; forged/rehashed records; raw credentials/unsafe evidence;
+malformed/duplicate/non-UTF-8 JSON and schemas; input/output errors; non-overwrite;
+and strict record schema/scope/integrity verification.
+
+Compatibility and remaining limitations:
+
+- Existing artifact schema 1 and controller plan schema 2, policies, safety
+  validators, registry, generic operations/results, and baseline test cases are
+  unchanged. Manifest/record schema 1 are orchestration envelopes, not new
+  normalized object formats. Generic controller plans remain unsupported.
+- Raw tree/flat descriptors contain one explicitly named tree per side; an
+  existing normalized artifact can contain both separately qualified trees.
+- Input files and record dictionaries are order/byte bound conservatively;
+  formatting or key-order changes may require regenerating a record.
+- Local evidence/catalogue assertions and declaration provenance are trusted,
+  not authenticated approval or live completeness. No access completeness,
+  credential portability, official schema verification, or live compatibility
+  is established. Unknown secrets disguised as arbitrary text remain undetectable
+  by existing classification rules.
+- Protected output requires operator-controlled filesystem permissions/storage.
+  URL/UNC/drive-relative paths are rejected; mapped drives, links/junctions,
+  ACLs, and hostile filesystem races are not sandboxed by the application.
+  A partial file after an explicit output failure is not a valid record.
+- No live API/export/import, concrete HTTP backend, configuration-changing action,
+  legacy modification/execution, dependency installation, Git operation,
+  cross-domain execution, or next milestone was performed.
+- **Known implementation blockers:** none observed in the completed offline
+  checks; technical review/owner acceptance remain pending.
+- **Next action:** review the C3 manifest, CLI, report redaction, acknowledgement
+  enforcement, and retained-record integrity boundaries, then seek owner
+  acceptance. Do not begin the next milestone without separate authorization.
 
 ### E-026 - CCV-004-C2 owner acceptance, 2026-11-18
 
@@ -2831,13 +3377,40 @@ verified, and no remaining confirmed acceptance blockers.
 See E-022/E-023/E-024/E-025/E-026. Previously generated generic controller plans
 must be regenerated using controller-specific APIs. Acknowledgement authorizes
 offline planning only, not real imports or production configuration changes.
-Stop before C3, CCV-009, real HTTP backend development, or live work without
-separate authorization.**
+The owner subsequently authorized bounded offline-only C3, initially implemented and
+offline-verified with 312 passing tests (all 291 prior cases + 21 new), zero
+guarded attempts. `plan --request` coordinates local inputs, normalization,
+reconciliation and controller-specific planning/verification; optional protected
+records correlate opaque redacted report actions with source snapshots.
+The demonstration evaluates 8 objects: CREATE=3, SKIP=3, CONFLICT=1, BLOCKED=1,
+with an intentional partial-plan exit 1. See E-027.
+The subsequent technical review found HIGH-01 raw-credential retention and
+MED-01/MED-02 failure-classification/reporting gaps. The owner authorized all
+three corrections; they are now implemented/offline-verified: 320 tests pass
+(all 312 prior cases retained + eight regressions), zero guarded attempts.
+Rejected credentials/internal failures produce no record; controller credential
+checks precede retention, record validation precedes creation, failed new writes
+are cleaned up, and C3 reports distinguish exit categories 0-6. See E-028.
+The follow-up review found one MEDIUM unexpected-cleanup exception gap. The
+owner explicitly authorized fixing that issue only; it is now corrected and
+verified: 321 tests pass (all 320 prior unchanged + one regression), zero guarded
+attempts. A real guarded CLI process now returns sanitized exit 6, empty stderr,
+and an explicit cleanup-failure report. See E-029.
+E-030 is the latest correction evidence: 321 tests passed in 46.619 seconds,
+zero guarded attempts. On 2026-11-18 the owner accepted C3's completed offline-only
+scope with no remaining confirmed acceptance blockers; see E-031.
+Retained records remain plaintext with operator-controlled permissions, and
+cleanup cannot guarantee deletion when permissions prevent it.
+Stop before the next milestone,
+CCV-009, real HTTP backend development, or live work without separate authorization.**
 
-Recommended next action: preserve accepted A/B/C1/C2, their evidence and
+Recommended next action: preserve accepted A/B/C1/C2/C3, their evidence and
 limitations, both planning corrections, and the unchanged strict resolver.
-Await separate authorization for further work. Do not begin C3; credential
-migration remains separately gated.
+Preserve C3's accepted controller-only CLI, strict local manifests, redacted
+reports, protected record verification, and cleanup/error protections.
+Await separate authorization before further development.
+Credential migration, cross-domain orchestration, and the next milestone remain
+separately gated.
 Real API schemas and credential portability remain unverified; nonempty access
 does not establish completeness. No live compatibility or real export/import
 execution is authorized.

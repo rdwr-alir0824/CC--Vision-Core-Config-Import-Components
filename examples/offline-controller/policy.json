@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "policy_id": "acknowledged-normalized-exact-v2",
+  "evidence_reference": "evidence-11111111111111111111111111111111",
+  "semantics_known_for": [
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"root","object_id":"src-root"},
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"site","object_id":"src-existing"},
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"device","object_id":"src-identical"},
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"device","object_id":"src-blocked"},
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"site","object_id":"src-conflict"},
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"site","object_id":"src-new"},
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"site","object_id":"src-nested"},
+    {"controller_id":"synthetic-source","tree":"Physical","kind":"device","object_id":"src-new-device"}
+  ],
+  "comparison_rules": ["validated-native-identity-provenance-v1", "validated-offline-access-acknowledgement-v1"]
+}

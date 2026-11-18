@@ -1,0 +1,4 @@
+[
+  {"record_id":"detail-identical","payload":{"futureDetail":{"second":[null,true,1],"first":false}}},
+  {"record_id":"detail-blocked","payload":{"futureDetail":{"second":[null,true,1],"first":false}}}
+]
