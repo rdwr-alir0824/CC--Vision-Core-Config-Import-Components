@@ -4,9 +4,11 @@ Date: 2026-11-18
 Status: **CCV-001 architectural baseline approved; CCV-002 completion confirmed
 by the owner; CCV-003-A/B/C implemented mock-only scope owner-accepted on
 2026-11-17. CCV-004-A/B/C1/C2 completed offline scopes are owner-accepted.
-Separately authorized CCV-004-C3 controller-only offline orchestration is
-implemented and offline-verified; its owner acceptance is pending.**
-Broader/future milestones remain proposed/not authorized. Live product
+CCV-004-C3's completed offline-only scope is owner-accepted on 2026-11-18
+(E-030/E-031: 321 tests passed, zero guarded attempts).
+CCV-009-A static product compatibility/API discovery is separately authorized;
+its documentation is delivered for owner review.**
+Broader/future implementation remains proposed/not authorized. Live product
 compatibility and qualification are explicitly pending.
 
 Priorities: P0 = foundation/safety gate; P1 = initial migration functionality;
@@ -24,15 +26,16 @@ runtime or API certification.
 | CCV-001 | Project Foundation | P0 | CCV-000 | Static baseline and architectural direction owner-approved, 2026-11-17; deferred evidence remains in tracker. |
 | CCV-002 | Application skeleton, profiles, and offline contracts | P0 | CCV-001 approval; runtime/tooling decisions | A/B/C implemented and offline-verified; parent completion/local commit confirmed by owner, not inspected here. |
 | CCV-003 | Shared transport, product clients, sessions, and mocked read-to-plan slice | P0 | CCV-002; source evidence; explicit synthetic version/backend restrictions | Implemented mock-only A/B/C scope owner-accepted, 2026-11-17; 130 tests, zero guarded attempts, no blocking review defects; live qualification pending. |
-| CCV-004 | Controller objects, device access, credential transformation | P1 | CCV-002, CCV-003; identity and secret-policy decisions | A/B/C1/C2 accepted offline-only; C3 separately authorized 2026-11-18, implemented/offline-verified with 312 passing tests and zero guarded attempts; C3 owner acceptance pending. Broader credential/apply work remains unauthorized. |
+| CCV-004 | Controller objects, device access, credential transformation | P1 | CCV-002, CCV-003; identity and secret-policy decisions | A/B/C1/C2/C3 completed offline scopes owner-accepted; C3 latest correction E-030: 321 tests, zero guarded attempts; E-031 acceptance. Broader credential/apply work remains unauthorized. |
 | CCV-005 | LDAP permission migration | P1 | CCV-002, CCV-003; approved destination reference mappings | Not started; not authorized. |
 | CCV-006 | Scheduled-task migration | P1 | CCV-002, CCV-003; resolved paths and task-type contracts | Not started; not authorized. |
 | CCV-007 | Integrated orchestration, comparison, and reporting | P0 | CCV-003 mocked slice; readiness-verified subset of CCV-004/005/006 approved for integration | Not started; not authorized. |
 | CCV-008 | Compatibility qualification and release readiness | P2 | CCV-007; separately authorized lab access and acceptance scope | Not started; not authorized. |
-| CCV-009 | API discovery and automation expansion workstream | P1 | CCV-001 approval; explicit discovery scope and evidence-access authorization | Not started; not authorized. |
+| CCV-009 | API discovery and automation expansion workstream | P1 | CCV-001 approval; explicit discovery scope and evidence-access authorization | A authorized for static/workspace discovery only; analysis documented for review. Further evidence acquisition, lab work, activation and implementation require separate authorization. |
+| CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | Documentation delivered; static evidence E-032. Vision 5.4.x and CC 10.10.x remain unqualified targets, not supported releases. |
 
 Milestone numbers identify workstreams, not a rigid execution order. CCV-009 is
-proposed to run alongside approved development after the CCV-001 gate, not wait
+able to run alongside approved development after the CCV-001 gate, not wait
 until CCV-008. Its findings may supply readiness evidence without requiring the
 entire discovery workstream to finish before a module starts.
 
@@ -75,7 +78,9 @@ inventory, proposed architecture/decisions, and persistent checkpoint.
 Acceptance:
 - Inventory accounts for all 22 scripts and identifies nine apparent duplicate
   pairs. Byte equality has not yet been established through hashing for this
-  acceptance baseline; record hash verification as pending, not verified equality.
+  acceptance baseline. Subsequently reconfirmed in CCV-009-A/E-032: 22 files,
+  13 byte-distinct implementations and nine duplicate copies; this does not
+  retroactively change the historical acceptance evidence.
 - API count distinguishes 12 concrete operations from four unresolved references.
 - Architecture separates products, sessions, domains, plan/apply, and verification.
 - Roadmap covers CCV-001 through CCV-009 with dependencies, readiness gates,
@@ -181,8 +186,9 @@ production writes, or broader CCV-004 execution.
 ### CCV-004-C3 - Master offline controller migration orchestration
 
 **Authorization:** explicit owner approval on 2026-11-18 for this bounded
-offline-only slice. **Status:** implemented/offline-verified; technical review
-and owner acceptance pending. Dependencies: accepted A/B/C1/C2 and existing
+offline-only slice. **Status:** completed scope owner-accepted on 2026-11-18;
+E-030 is the latest correction evidence and E-031 records acceptance.
+Dependencies: accepted A/B/C1/C2 and existing
 CLI/profile/artifact/plan contracts.
 
 Deliverables:
@@ -195,8 +201,11 @@ Deliverables:
 - A complete synthetic demonstration with all four classifications and nested
   CREATE dependencies, plus guarded end-to-end failure/regression cases.
 
-Verification: all 291 prior cases retained plus 21 new tests, 312 passing;
-zero guarded network attempts. Demonstration: 8 objects, CREATE=3, SKIP=3,
+Initial verification: 312 passing tests. Accepted correction checkpoint:
+**321 tests passed, zero guarded network attempts**, no remaining confirmed
+acceptance blockers. These are historical C3 results, not tests rerun for
+CCV-009-A and not product compatibility evidence.
+Demonstration: 8 objects, CREATE=3, SKIP=3,
 CONFLICT=1, BLOCKED=1; its exit 1 is intentional. See E-027 in
 [PROGRESS.md](PROGRESS.md) for actual commands/results, and
 [ARCHITECTURE.md](ARCHITECTURE.md#master-offline-controller-workflow---ccv-004-c3)
@@ -210,11 +219,15 @@ Scope boundaries:
   credential transformation, new dependency, legacy change, or Git operation.
 - Local evidence/declarations remain offline assertions, not live completeness,
   compatibility, credential portability, or execution approval.
+- Retained records remain plaintext; permissions/protected storage are operator
+  responsibilities. Cleanup cannot guarantee deletion when permissions prevent
+  it; explicit cleanup-failure reporting and operator inspection remain required.
 - This is not authorization for cross-domain CCV-007, other migration domains,
   qualification, or the next milestone.
 
-Next action: review C3 and seek owner acceptance; stop before further development
-without separate authorization.
+Next action: preserve accepted C3 and all limitations during the separately
+authorized CCV-009-A documentation-only discovery. No application extension is
+authorized.
 
 ### Broader CCV-004 proposal - not authorized by C3
 
@@ -304,40 +317,104 @@ Never equate a mocked pass with live compatibility or promise automatic rollback
 
 ## CCV-009 - API discovery and automation expansion
 
-Status: **Proposed — pending owner approval**; not started.
+Status: **CCV-009-A authorized on 2026-11-18 for static, read-only discovery and
+documentation only**. Findings are delivered for owner review; broader CCV-009
+implementation, live discovery and capability activation remain unauthorized.
 
-Proposed deliverables: a continuously maintained manual-configuration gap and
-automation-opportunity register in this roadmap, linked to operation evidence in
-[API_MATRIX.md](API_MATRIX.md) and task status in [PROGRESS.md](PROGRESS.md).
-Discovery does not authorize implementation, scope expansion, or live requests.
+Deliverables: product/version/role/direction API evidence in
+[API_MATRIX.md](API_MATRIX.md), compatibility limitations, the manual-automation
+gap register and prioritized discovery backlog below, and E-032/status in
+[PROGRESS.md](PROGRESS.md). No approved vendor documentation was found in the
+workspace, so no additional officially documented capability is asserted.
+
+### CCV-009-A targets, scope and readiness
+
+- **A:** APSolute Vision 5.4.x source to Cyber Controller 10.10.x destination.
+- **B:** Cyber Controller 10.10.x source to Cyber Controller 10.10.x destination.
+- Families are based on owner-reported testing, not application compatibility
+  certification. Exact source/destination patches/builds and operation-level
+  evidence have not been supplied.
+- Legacy versions remain unknown. Object API intent is Cyber Controller;
+  LDAP/scheduler intent is Vision. Shared paths do not establish shared behavior.
+- The production capability catalogue remains empty. Only existing synthetic
+  `0.0-test` declarations exist; C3 is not a real-version Vision migration client.
+- Completed static scope: 22 files / 13 distinct implementations / nine duplicate
+  copies, 16 logical operation records, 12 concrete method/path pairs across ten
+  path templates, plus four unresolved scheduler references within those 16
+  records. Login has two product-specific evidence rows, not a thirteenth pair.
+- Documentation discovery does not establish access completeness, full backup
+  coverage, safe credential portability, real API behavior or import authority.
 
 Each gap record must include an ID, manual activity, proposed automation benefit,
 product/version, API/schema evidence, dependencies, risk, priority, approval,
 implementation/verification status, blocker, and next action. Use "unknown" for
 missing information rather than inventing endpoints or claiming no API exists.
 
-Initial candidates are hypotheses, not confirmed operator procedures or supported
-automation:
+### Manual migration automation gap analysis
 
-| Gap ID | Manual gap / opportunity to investigate | Evidence and readiness gap | Priority / risk | Next action |
-| --- | --- | --- | --- | --- |
-| GAP-001 | Resolve site hierarchy and destination device identity mappings | Legacy name lookups and source-ID reuse observed; safe matching contract unknown | P0 / wrong target or hierarchy | Confirm operator workflow and destination identity/schema evidence |
-| GAP-002 | Map LDAP roles, groups, policies, and device-lock intent | Permission import observed; reference-discovery capabilities unestablished | P0 / privilege expansion | Obtain approved reference schemas; preserve scope |
-| GAP-003 | Map scheduler references, task activation, and timezone | Configuration-supplied paths and task schemas unavailable | P1 / unintended task execution | Obtain sanitized path configuration and representative schemas |
-| GAP-004 | Verify asynchronous completion and reduce manual post-import checking | HTTP acceptance observed; completion/read-back coverage incomplete | P0 / false success or duplicate retry | Identify evidenced status/read-back mechanisms per operation |
-| GAP-005 | Safely transform or re-enter device-access credentials | Offline transformation observed; secret portability unknown | P1 / secret exposure or unusable access | Confirm supported credential handling without collecting secrets |
-| GAP-006 | Identify remaining manual product configuration and supported APIs | Operator inventory and vendor coverage incomplete; no additional endpoints asserted | P1 / unbounded scope | Collect approved operator gap list and prioritize evidence review |
+These are **discovery candidates, not owner-confirmed manual procedures**. For
+every row: A permits this static analysis only; proposed automation is **not
+approved, not implemented and not product-verified**. The existing offline
+contracts supply reusable safety primitives, not newly supported product APIs.
+V54 = Vision 5.4.x target; C1010 = Cyber Controller 10.10.x target. Exact builds
+remain unknown in every row. DISC references below are prerequisites/next actions,
+not authorizations.
 
-For all initial candidates: product/version is unknown; approval is
-**Proposed — pending owner approval**; implementation and verification are
-**not started**. Dependencies are CCV-001 approval, scoped discovery authorization,
-and approved operator/vendor evidence. Those missing inputs are current blockers.
-No candidate authorizes document restoration or deployment-helper integration.
+| Gap ID | Manual activity candidate and automation benefit | Product/version, role and direction | API/schema evidence and implementation boundary | Dependencies / blocker | Priority / safety risk | Next action |
+| --- | --- | --- | --- | --- | --- | --- |
+| GAP-001 | Rebuild sites/organizations and place devices; reduce repetitive hierarchy entry | V54 source A; C1010 source B and destination A/B | CC API-02 through API-09 intent; C3 offline mapping/nested CREATE already exists; Vision tree API/schema missing | DISC-01/03/04/06; qualified roots, parent mappings, destination completeness | P0 / wrong hierarchy, root fallback, source-ID reuse | Obtain per-build hierarchy/identity contracts; validate operator workflow; never use name/IP guessing |
+| GAP-002 | Recreate LDAP permissions and map roles/groups/policies; reduce manual permission entry | V54 source A; C1010 source B and destination A/B | Vision API-10/11 only; Vision-destination write is outside A/B; no CC LDAP contract | DISC-01/02/07; CC paths and reference/lock semantics missing | P0 / privilege expansion or forced device locking | Establish CC reference APIs and exact scope-preserving mapping; no all-scope fallback |
+| GAP-003 | Recreate scheduled operations and dependencies; avoid repeated task entry | V54 source A; C1010 source B and destination A/B | CFG-01 through CFG-04; literal paths/task-type schemas missing; no CC evidence | DISC-01/02/08; task references, timezone and activation policy | P1 / unintended scheduled execution | Obtain sanitized API section and vendor task schemas; require explicit activation intent |
+| GAP-004 | Manually verify operation completion; automate supported status/read-back checks later | C1010 destination A/B; source declarations independent | API-07/08/09 accept HTTP 200; async header not completion evidence; no polling path observed | DISC-04/06/09; completion/error/idempotency/recovery contracts | P0 / false success, uncertain writes, duplicate replay | Identify documented completion mechanism without inventing a polling endpoint |
+| GAP-005 | Re-enter or safely remap access credentials; reduce manual secret handling without retaining values | V54 source A; C1010 source B and destination A/B | Local credential-transform helper and CC API-06/08/09; C3 rejects raw credentials and gates acknowledged access | DISC-03/04/05; provider/portability/masking policy unresolved | P0 / secret exposure, invalid device access, bypassed acknowledgement | Classify supported credential representations without collecting credentials; retain fail-closed behavior |
+| GAP-006 | Inventory other manual product management activities; prioritize bounded automation | V54 source A; C1010 both roles B and destination A | No additional official capabilities available; owner procedure inventory missing | DISC-01/10; approved vendor references and owner workflow validation | P2 / invented API coverage and unbounded scope | Ask owner to validate a sanitized activity list in a separately authorized evidence slice |
+| GAP-007 | Join device details/access to tree exports; reduce manual reconciliation | V54 source A; C1010 source B and destination A/B | CC API-06 first-IP-match legacy merge is unsafe; C2 explicit qualified association already exists offline | DISC-03/04/05; native detail identity, full access schema, completeness evidence | P0 / wrong-device merge, dropped fields, stale acknowledgement | Qualify native IDs/tree/controller provenance and ambiguity/error behavior |
+| GAP-008 | Capture configuration exports/backups and pre-change recovery evidence; reduce manual backup steps | V54 source A; C1010 source B and destination A/B | Partial legacy JSON exports only; no full product backup/restore API established; API-12 excluded | DISC-01/09; documented coverage, protected storage, restore/recovery procedure | P1; recovery is a gate before future writes / incomplete backup, false rollback assurance | Distinguish partial object exports from full backup; verify recovery prerequisites separately |
+| GAP-009 | Compare source/destination configuration and prepare dependency plans; reduce manual diff/checklists | V54 source A; C1010 source B and destination A/B | C3 loss-preserving ordered offline comparison/planning exists for synthetic CC only; real schemas unknown | DISC-03/04/05/07/08 by selected domain; no inferred transforms | P0 / false SKIP, silent field loss, unsafe exclusions | Map version-pinned schemas into existing contracts; unknown semantics remain BLOCKED |
+| GAP-010 | Repeat authentication/version/inventory preparation; make declarations and capture evidence consistent | V54 source A; C1010 source B and destination A/B | API-01 variants and unresolved CFG login/logout; no version-discovery endpoint observed | DISC-01/02/04; exact builds, RBAC, TLS, pagination/error semantics | P0 / cross-product assumptions, unsafe sessions, incomplete inventory | Qualify declarations/authentication independently; do not activate or connect clients |
+
+### Prioritized API discovery backlog
+
+All items are **planned evidence/lab questions**, not execution authorization.
+CCV-009-A authorizes recording/prioritizing them only. Official references,
+sanitized schema fixtures and any laboratory results must retain separate
+evidence classifications. Later lab work requires explicit lab access,
+per-operation permission and additional write authorization where applicable;
+no production changes are proposed as discovery tests.
+
+| ID / priority | Capability and relevant evidence | Product/role/direction | Prerequisites | Additional evidence / later laboratory question | Readiness / next action |
+| --- | --- | --- | --- | --- | --- |
+| DISC-01 / P0 | Version and documentation provenance for every operation | V54 source A; C1010 source B/destination A/B | Owner-provided approved references and sanitized testing inventory | Exact independent builds/patches; vendor title/revision/sections; which operations were owner-tested, when and how? | Missing DOC-V54, DOC-CC1010, TEST-OWNER; acquire/review only after separate authorization |
+| DISC-02 / P0 | Auth/session/TLS/RBAC; API-01-C/V, CFG-01/02 | V54 source A; C1010 both roles | DISC-01; sanitized CFG-SCHED paths for Vision scheduler auth | Basic plus JSON or JSON/cookie/CSRF requirements? Expiry/logout/error semantics, least privileges, trusted CA and bounded timeouts? | Source intent only; qualify distinct per-product strategies without requesting credentials |
+| DISC-03 / P0 | Vision source export/tree/site/device/access contracts, paths unknown | V54 source A only | DISC-01 | Which documented operations preserve roots, both trees, native identity, unknown configuration and access provenance? What is full inventory/completeness evidence? | Critical A blocker; never substitute CC API-02 through API-06 |
+| DISC-04 / P0 | CC inventory/detail schema and identity; API-02 through API-06 | C1010 source B/destination A/B | DISC-01; DISC-02 before any future lab reads | Full schema, root classes/IDs, tree scoping, detail association, duplicate names/IPs, pagination/filtering, errors and full-inventory proof? | Source-observed plus three synthetic reads across products; obtain CC schemas and distinct role/build cases |
+| DISC-05 / P0 | Device access/secret representation and acknowledgement compatibility; API-06/08/09 | V54 source A; C1010 source B/destination A/B | DISC-03 for Vision; DISC-04 for CC; owner secret policy | Which fields are portable, masked, encrypted or server-owned? What supported reference/re-entry approach avoids raw-secret artifacts? | No credential collection; preserve existing credential rejection, provenance and bound acknowledgement |
+| DISC-06 / P0 | Site/device create/update, completion/read-back, idempotency; API-07/08/09 | C1010 destination A/B | DISC-02/04/05; qualified source schema for selected direction; recovery evidence DISC-09 before future writes | Required fields/types, destination ID binding, PUT replace/merge, async result/error model and uncertain-write reconciliation? | No executor exists; docs/specification first; lab mutations require separate explicit authorization |
+| DISC-07 / P1 | LDAP listing, permission/reference operations; API-10/11 are Vision-only | V54 source A; C1010 source B/destination A/B | DISC-01/02; owner scope/device-lock policy | Exact CC endpoints and both products' role/group/policy schemas, scope equivalence, duplicate identity and read-back? | CC equivalents absent; Vision destination POST does not qualify CC; retain GAP-002 P0 safety gate |
+| DISC-08 / P1 | Scheduler paths/task types; CFG-01 through CFG-04 | V54 source A; C1010 source B/destination A/B | DISC-01/02; sanitized path evidence; owner task inventory | Literal per-product paths, task schemas, reference IDs, server-owned fields, timezone, activation, task completion? | Unresolved; do not assume conventional endpoints, strip unknown fields or activate schedules |
+| DISC-09 / P1 | Partial export coverage, full backup/recovery and post-change comparison | V54 source A; C1010 source B/destination A/B | DISC-01; owner recovery requirements | Is there a documented backup/export API, what does it omit, and what supported restore/read-back procedure exists? | No full backup endpoint established; recovery evidence becomes P0 gate before later writes; no API-12 integration |
+| DISC-10 / P2 | Other management/manual activities, scope validation | V54/C1010 roles as owner subsequently confirms | DISC-01; sanitized owner-validated manual procedure list | Which additional documented operations reduce approved manual work? Dependencies, risk, supported versions and evidence per candidate? | No new endpoints asserted; Docker/cron and document-store restoration remain excluded pending separate scope decisions |
+
+### Proposed next milestone - CCV-009-B
+
+**Version-pinned vendor evidence acquisition and offline schema qualification**
+is proposed, **not authorized or started**. Suggested bounded inputs: owner-
+approved DOC-V54/DOC-CC1010, exact source/destination build declarations,
+sanitized scheduler API paths and non-sensitive operation-level testing records.
+Review DISC-01 and the documentation/schema portions of DISC-02/03/04 first.
+
+Proposed acceptance: provenance-complete references for a selected read-only
+slice, explicitly versioned request/response/identity/completeness contracts,
+synthetic fixture requirements, direction-specific unsupported edges, and a
+separately approvable lab test plan. Missing references remain blockers rather
+than invented schemas. No live clients, backend, capability activation,
+authentication attempts or migration implementation are included in this proposal.
 
 Acceptance:
 - Validate the manual activity with the owner before calling it a confirmed gap.
 - Record each opportunity and distinguish source-observed, officially documented,
-  mock-tested, and live-tested evidence by product/version.
+  owner-reported, mock-tested, and separately authorized live-tested evidence by
+  product/version.
 - For a proposed automation slice, record schema/identity/dependency readiness,
   safety constraints, acceptance criteria, and a separate approval decision.
 - Explicitly record unknown, unsupported, or still-manual areas with reasons and
@@ -352,9 +429,9 @@ evidence-qualified records, sanitized inputs, and explicit approval gates.
 
 ## Immediate next action
 
-Preserve the owner-accepted CCV-003-A/B/C mock-only checkpoint and its 130-test,
-zero-guarded-attempt evidence. Await separate authorization before CCV-004 or
-any further implementation. Supported real versions, approved API/schema
-evidence, live compatibility, and qualification remain open gates; no live
-requests, production connectivity, real migration execution, or external
-configuration changes are authorized by this acceptance.
+Review the CCV-009-A discovery documents and unresolved evidence requests.
+Preserve accepted C3/E-030/E-031 and all prior safety/retention limitations.
+Obtain separate authorization before proposed CCV-009-B or any other work.
+Real-version support, vendor schemas, live compatibility, backend development,
+lab access, migration execution and production configuration changes remain
+unqualified/unauthorized. No production capability is activated by discovery.

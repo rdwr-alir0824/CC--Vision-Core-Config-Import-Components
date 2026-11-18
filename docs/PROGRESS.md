@@ -101,9 +101,19 @@ acceptance blockers. See E-031. Retained records remain plaintext and require
 operator-controlled permissions; cleanup cannot guarantee deletion when
 permissions prevent it. No live compatibility or import execution authorization
 is established.
-No broader/next milestone,
-live/backend work, real export/import, or production configuration change is
-authorized or started; see E-022 through E-031.**
+The owner separately authorized **CCV-009-A product compatibility and API
+discovery**, limited to static/read-only workspace analysis and documentation.
+Approved targets are APSolute Vision 5.4.x to Cyber Controller 10.10.x (A), and
+Cyber Controller 10.10.x to Cyber Controller 10.10.x (B), based on owner-reported
+testing, not blanket compatibility certification. **CCV-009-A is OWNER ACCEPTED
+on 2026-11-18: ACCEPT WITH NON-BLOCKING OBSERVATIONS**, limited to static legacy
+API discovery, compatibility evidence classification and automation-gap analysis.
+E-032 and the completed independent technical acceptance review are the accepted
+evidence; E-033 records the owner decision and outstanding LOW documentation
+observation. **CCV-009-B is PROPOSED - NOT AUTHORIZED** and has not started.
+No live/backend work, real export/import, production capability activation or
+configuration change is authorized or started. Broader CCV-009/other milestones
+remain unauthorized; see E-022 through E-033.**
 
 ## Status rules
 
@@ -467,12 +477,33 @@ protected storage remain operator responsibilities. Cleanup cannot guarantee
 deletion when permissions prevent it, and failed removal requires operator
 inspection. No next milestone, Git operation, backend, or live work is authorized.
 
+#### CCV-009-A authorization - 2026-11-18
+
+The owner authorized **Product Compatibility and API Discovery** only: review
+project documentation/capability contracts, statically inspect legacy scripts,
+inventory operations, distinguish evidence categories, map the two approved
+directions, identify manual-automation candidates and missing references, and
+update API_MATRIX/ROADMAP/PROGRESS. The two target families are owner-reported
+testing targets, not supported versions or qualification evidence. The owner
+reports accepted C3 merged into main; no Git inspection was performed.
+
+No product connections/API requests/authentication attempts, credential
+collection, dependencies, legacy execution/modification, configuration writes,
+migration execution, real backend/client implementation, automatic capability
+activation, production catalogue changes, Git commits or merges are authorized.
+The task performs no Git operations. Existing C3 safety/retention guarantees
+remain unchanged. No later discovery or implementation slice is authorized.
+
+The owner subsequently accepted A on 2026-11-18 with non-blocking observations;
+see E-033. This accepts the completed static scope only, not product compatibility
+or CCV-009-B.
+
 ## Milestone tracker
 
 | Task ID | Description | Priority | Dependencies | Approval status | Implementation status | Verification status |
 | --- | --- | --- | --- | --- | --- | --- |
 | CCV-000 | Static project context and legacy discovery | P0 | None | User confirmed discovery completed | Static discovery completed; no application implementation | Static inventory corroborated; no runtime/API verification |
-| CCV-001 | Project Foundation documentation | P0 | CCV-000 | Owner approved static baseline and ADR-001 through ADR-009 on 2026-11-17 | Static documentation complete | Owner-accepted static scope complete; no API/runtime certification; duplicate hashing deferred |
+| CCV-001 | Project Foundation documentation | P0 | CCV-000 | Owner approved static baseline and ADR-001 through ADR-009 on 2026-11-17 | Static documentation complete | Owner-accepted static scope complete; no API/runtime certification; historical duplicate-hash gap subsequently closed by E-032 |
 | CCV-002 | Skeleton, profiles, offline contracts | P0 | CCV-001; remaining implementation decisions | A/B/C approved; owner confirmed parent completed before 003-A | A/B/C implemented; local commit reported by owner, not inspected | 39 offline regressions retained in A's transport verification; no API certification |
 | CCV-002-A | Minimal offline application foundation | P0 | CCV-001 approval; Python 3.13.14 and standard library | Approved and technically reviewed by owner | Implemented | Verified complete for authorized offline scope; regressions pass in B |
 | CCV-002-B | Offline profiles, versioned artifacts, metadata, and validation contracts | P0 | CCV-002-A technical review | Approved on 2026-11-17 | Implemented | Verified complete for authorized offline scope; see E-005 |
@@ -491,7 +522,9 @@ inspection. No next milestone, Git operation, backend, or live work is authorize
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
 | CCV-007 | Integrated orchestration and reporting | P0 | CCV-003; readiness-verified subset of CCV-004/005/006 approved for integration | Proposed — pending owner approval | Not started | Not started |
 | CCV-008 | Qualification and release readiness | P2 | CCV-007; separate lab authorization | Not approved; planned | Not started | Not started |
-| CCV-009 | API discovery and automation expansion | P1 | CCV-001 approval; scoped discovery/evidence-access authorization | Proposed — pending owner approval | Not started | Not started |
+| CCV-009 | API discovery and automation expansion | P1 | CCV-001 approval; scoped discovery/evidence-access authorization | A owner-accepted for completed static scope; broader work not authorized | A complete; other slices not started | E-032 and independent review accepted under E-033; no product qualification |
+| CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | OWNER ACCEPTED - 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted static discovery, evidence classification and automation-gap analysis | E-032 plus completed independent review; zero acceptance blockers, one LOW documentation observation; E-033 owner decision; no runtime compatibility claims |
+| CCV-009-B | Version-pinned vendor evidence and offline schema qualification | P1 | Accepted CCV-009-A; separate owner authorization and approved evidence inputs | PROPOSED - NOT AUTHORIZED | Not started | Not started; no evidence acquisition, qualification or implementation authorized |
 
 ## Task details and handoff
 
@@ -500,8 +533,8 @@ entries identify implemented files. Test evidence is absent unless stated.
 
 | Task ID | Files affected | Test evidence | Known blockers / gates | Next action |
 | --- | --- | --- | --- | --- |
-| CCV-000 | Legacy reference inventory; no changes made in this phase | User completion statement and static enumeration; nine apparent duplicate pairs under amended review baseline | Duplicate byte equality not accepted as hash-verified; runtime not assessed | Keep legacy read-only; hash verification pending |
-| CCV-001 | [PROJECT](PROJECT.md), [ARCHITECTURE](ARCHITECTURE.md), [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), [PROGRESS](PROGRESS.md), [DECISIONS](DECISIONS.md) | Static evidence below; owner approval recorded above | Duplicate hashing remains a deferred evidence task, not part of this implementation | Preserve accepted static baseline and open questions |
+| CCV-000 | Legacy reference inventory; no changes made in this phase | Original static enumeration; later E-032 SHA-256 verification confirms 22 files, 13 distinct implementations and nine duplicate copies | No remaining duplicate-hash evidence gap; runtime not assessed | Keep legacy read-only; preserve source fingerprints |
+| CCV-001 | [PROJECT](PROJECT.md), [ARCHITECTURE](ARCHITECTURE.md), [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), [PROGRESS](PROGRESS.md), [DECISIONS](DECISIONS.md) | Static evidence below; owner approval recorded above; duplicate hashing subsequently verified in E-032 | No remaining duplicate-hash gap; product/schema evidence remains unqualified | Preserve historical acceptance baseline and current evidence distinctions |
 | CCV-002 | Source/test foundation and directly related docs | A/B/C evidence; 39 regressions retained in E-007 | No blocker for completed offline scope; no product certification | Preserve existing behavior |
 | CCV-002-A | Six files in [package](../src/cc_vision_import/), [tests](../tests/test_foundation.py), this tracker | Nine offline unit tests passed; interpreter Python 3.13.14; see E-004 | No blocker for A; synthetic contract establishes no product compatibility | Stop; seek review and explicit authorization for the next subtask |
 | CCV-002-B | [Contracts](../src/cc_vision_import/contracts.py), [shared validation](../src/cc_vision_import/_contract_validation.py), [profiles](../src/cc_vision_import/profiles.py), [artifacts](../src/cc_vision_import/artifacts.py), registry/CLI, tests/fixtures, [architecture](ARCHITECTURE.md), this tracker | 22 offline tests passed; Python 3.13.14; see E-005 | No blocker for authorized B scope; real product schemas, compatibility, and secret-provider policy remain open | Stop for owner review; no C/003 implementation |
@@ -520,7 +553,9 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
 | CCV-007 | Proposed orchestration/comparison/reporting and tests; related docs | None; not started | Verified module contracts and approval workflow | Integrate only approved capabilities |
 | CCV-008 | Proposed qualification evidence, operator/release docs; fixes only if approved | None; not started | Lab authorization, version matrix, owner acceptance | Plan approved qualification coverage |
-| CCV-009 | Proposed gap register in [ROADMAP](ROADMAP.md), evidence in [API_MATRIX](API_MATRIX.md), status here; future implementation separately scoped | None; not started | Owner-validated manual gaps, products/versions, scoped discovery authorization and approved references | Review GAP-001 through GAP-006; collect sanitized evidence only after authorization |
+| CCV-009 | Gap/backlog register in [ROADMAP](ROADMAP.md), operation evidence in [API_MATRIX](API_MATRIX.md), status here | A evidence E-032 and independent review accepted under E-033; no fresh runtime suite | Exact builds, vendor references, operator workflow confirmation, schema/lab evidence and later authorization | Preserve accepted A; keep further work proposed |
+| CCV-009-A | Discovery: [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), this tracker; acceptance: this tracker and [DECISIONS](DECISIONS.md) only | E-032 and completed independent read-only review; zero guarded attempts; E-033 owner acceptance; 321 application tests remain historical C3 evidence, not rerun in A or this acceptance update | One accepted LOW observation in [ARCHITECTURE](ARCHITECTURE.md), approximately 1905-1907; missing DOC-V54/DOC-CC1010, CFG-SCHED and TEST-OWNER; real compatibility unverified | Preserve acceptance and limitations; separately authorize documentation maintenance or CCV-009-B before starting either |
+| CCV-009-B | Proposed vendor/build/schema evidence records; no files created | None; not started | Separate authorization; exact builds, approved references and sanitized evidence | Remain PROPOSED - NOT AUTHORIZED; do not begin |
 
 CCV-004/005/006 sequencing remains flexible until API/schema readiness is verified
 for each selected slice. CCV-009 may run in parallel after explicit authorization;
@@ -718,6 +753,166 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-033 - CCV-009-A owner acceptance with non-blocking observations, 2026-11-18
+
+- **Task / objective:** record formal owner acceptance of **CCV-009-A - Product
+  Compatibility and API Discovery**, not authorize additional discovery.
+- **Decision:** **ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+- **Date / owner:** **2026-11-18**; project owner, by explicit decision in the
+  project conversation. **CCV-009-A: OWNER ACCEPTED - 2026-11-18.**
+- **Priority / dependencies:** P1; E-032, the completed independent technical
+  acceptance review and the explicit owner decision.
+- **Scope accepted:** static legacy API discovery, compatibility evidence
+  classification and automation-gap analysis only.
+- **Implementation / files affected by this record:** acceptance and current
+  checkpoint recorded in this tracker and [DECISIONS.md](DECISIONS.md) only.
+  No application, test, API definition, legacy or other documentation changes.
+- **Accepted evidence:** E-032 and the completed independent review established:
+
+  | Measure | Accepted result |
+  | --- | --- |
+  | Legacy files | 22 |
+  | Byte-distinct implementations | 13 |
+  | Duplicate copies | Nine |
+  | Concrete HTTP method/path combinations | 12 |
+  | Concrete path templates | 10 |
+  | Unresolved scheduler references | Four |
+  | Logical operation records | 16 |
+  | Product-specific API matrix rows | 17 |
+  | Required matrix fields | All 18 present |
+  | Documented source fingerprints | Eight of eight matched |
+  | Automation-gap candidates | Ten |
+  | Prioritized discovery items | Ten |
+
+- **Review outcome:** zero confirmed acceptance-blocking defects; one LOW,
+  non-blocking documentation observation; no confirmed discovery-related
+  security vulnerabilities. Production capability restrictions remained intact
+  and default-deny; no real product/version or operation was activated.
+- **Independent verification evidence:** inspected all three A deliverables,
+  cross-checked canonical legacy implementations, verified operation traceability
+  and documentation consistency, and checked production default-deny behavior.
+  Read-only static checks completed successfully (exit 0), reporting zero guarded
+  network attempts and no project changes. These are completed review results,
+  not new checks or application tests run by this acceptance record.
+- **Test evidence boundary:** the previously reported **321 passing application
+  tests belong to CCV-004-C3**, with E-030 correction/E-031 acceptance evidence.
+  They are historical and were **not rerun during CCV-009-A, its independent
+  acceptance review or this documentation-only acceptance update**.
+- **Accepted outstanding observation:** **LOW**, [ARCHITECTURE.md](ARCHITECTURE.md),
+  approximately lines **1905-1907**. An older C1/C2 acceptance checkpoint is not
+  clearly identified as historical, potentially confusing readers about completed
+  approval gates. Accepted as non-blocking. Correct only during a separately
+  authorized documentation-maintenance task; that file is unchanged here.
+- **Mandatory limitations / known qualification gates:**
+  1. APSolute Vision **5.4.x** remains an unverified target version family.
+  2. Cyber Controller **10.10.x** remains an unverified target version family.
+  3. Vision-to-CC compatibility is not established.
+  4. CC-to-CC compatibility is not established.
+  5. Exact patch releases and independent source/destination builds require
+     qualification; family-level targets do not certify every patch.
+  6. Vendor API documentation and complete request/response schemas remain
+     outstanding.
+  7. Scheduler API paths remain unresolved.
+  8. Credential portability remains unverified.
+  9. Authentication, RBAC, inventory completeness and asynchronous completion
+     require qualification.
+  10. Full backup/recovery functionality is not established.
+  11. No production migration execution is authorized. Static discovery acceptance
+      is not production readiness.
+  Existing C3 limitations remain: plaintext retained records, operator-controlled
+  permissions/protected storage and no guaranteed deletion when permissions
+  prevent cleanup. No live backend, API/authentication operation, capability
+  activation, migration or configuration write is authorized.
+- **Next milestone:** **CCV-009-B: PROPOSED - NOT AUTHORIZED; not started.**
+  Proposed scope only: version-pinned vendor documentation acquisition; offline
+  API request/response schema qualification; exact product build evidence;
+  operation-level compatibility assessment; outstanding scheduler and migration
+  capability investigation. None of these activities begins under this decision.
+- **Next action:** preserve accepted A, E-032 and this review/acceptance record.
+  Await separate authorization for documentation maintenance, CCV-009-B or any
+  other work. No Git operations or dependency installation were performed.
+
+### E-032 - CCV-009-A static product compatibility and API discovery, 2026-11-18
+
+Historical discovery checkpoint; E-033 records the subsequent independent
+technical review and formal owner acceptance with non-blocking observations.
+
+- **Task / objective:** inventory evidenced API operations and direction-specific
+  automation gaps without contacting products or changing capabilities.
+- **Priority / dependencies:** P1; accepted C3, owner target/direction declaration,
+  project instructions/architecture/decisions/matrix/roadmap/progress, existing
+  capability contracts and read-only legacy sources.
+- **Approval:** explicit owner authorization for this bounded static/workspace
+  discovery and three documentation deliverables only. Owner acceptance of the
+  discovery deliverables is pending; no further milestone is authorized.
+- **Implementation:** expanded [API_MATRIX.md](API_MATRIX.md) with all 18 required
+  fields in two keyed tables, 17 product-specific rows for 16 operation records
+  (login separated by product), five distinct evidence classes, exact inspected
+  source fingerprints, target-role/direction limits and missing-document register.
+  Expanded [ROADMAP.md](ROADMAP.md) with GAP-001 through GAP-010 and prioritized
+  DISC-01 through DISC-10. Corrected stale roadmap C3 acceptance labels using
+  E-030/E-031; did not alter historical test evidence.
+- **Compatibility evidence:** Vision 5.4.x and Cyber Controller 10.10.x are
+  owner-reported target families only. Exact builds, per-operation test dates/
+  outcomes and official document titles/revisions are not supplied. No approved
+  vendor manual, release/API specification or OpenAPI/Swagger document was found
+  in the inspected workspace; JSON found is synthetic fixture/example data.
+  No new officially documented operation or real-version compatibility is claimed.
+- **Static verification performed:** read-only enumeration/SHA-256 hashing
+  reconfirmed **22 legacy files, 13 byte-distinct implementations, nine duplicate
+  copies**. Python sources were parsed as AST data, never imported/executed;
+  call sites and canonical request/response field use were inspected, with
+  shell helpers read as text. Inventory remains **12 concrete unique method/path
+  pairs across ten path templates**, including 11 management operations and
+  one excluded auxiliary document-service operation. Four unresolved scheduler
+  operation references make **16 logical records**, not four proven additional
+  endpoints. No concrete PATCH/DELETE or version-discovery endpoint was established.
+- **Documentation validation:** final local static checker exited **0**.
+  Verified all **18 required fields**, complete/nonempty matching **17-row**
+  product-operation tables, **16** logical records, **12** concrete method/path
+  pairs and **10** path templates. AST reconstruction checked concrete URL
+  expressions/methods against matrix rows, including the two explicit tree
+  selections; configured scheduler methods/keys were checked without inventing
+  their missing paths. Parsed all **17** legacy Python files as data: **55**
+  HTTP call sites including duplicates, **28** in canonical API-bearing sources
+  (call sites are not endpoint counts). All **eight** documented API source
+  fingerprints matched. Verified **10** gap records, **10** backlog records,
+  no broken local links/anchors in the three changed documents, and the empty
+  production capability tuple. **Zero guarded network attempts** under the
+  checker's socket/DNS/HTTP guards; this measures that local validation process
+  only, not OS-level isolation or live compatibility. An initial checker selector
+  also matched a pre-existing third `Record` table and stopped before validation;
+  narrowing it to the two new table headers resolved that checker issue without
+  changing application or legacy code.
+- **Tests:** no application tests rerun for this documentation-only task.
+  Latest accepted C3 evidence remains E-030: **321 passed in 46.619 seconds**,
+  focused 30 passed in 6.934 seconds, zero guarded attempts; E-031 owner
+  acceptance. None of those tests certify the newly named real targets.
+- **Network/safety evidence:** no product/API/authentication requests or legacy
+  execution. Local byte reads/AST parsing do not execute migration functions.
+  No new dependencies, source/test changes, production catalogue modifications,
+  configuration writes, credential collection, Git operations or migration
+  execution. This shared environment is not claimed to be an OS-level sandbox.
+- **Files affected:** [API_MATRIX.md](API_MATRIX.md), [ROADMAP.md](ROADMAP.md)
+  and this tracker only.
+- **Known blockers / limitations:** Vision source tree/detail/export evidence
+  missing for A; CC LDAP/scheduler equivalents missing for A/B; scheduler paths
+  unresolved; full inventory/response schemas, auth/role/session behavior,
+  access portability, completion/read-back and full backup/recovery unqualified.
+  No full product backup is established by partial legacy JSON exports.
+  All real-version capabilities remain unsupported; production catalogue empty.
+  Automation gaps remain hypotheses pending owner procedure validation.
+- **Preserved C3 guarantees:** controller-specific planning only, pre-existing
+  roots, explicit qualified identities, universal bound access acknowledgement,
+  unknown semantics BLOCKED, raw-credential rejection before retained records,
+  ordered configuration preservation, no apply/execution. Plaintext retained
+  records, operator-controlled permissions and inability to guarantee deletion
+  when permissions prevent cleanup remain documented limitations.
+- **Next action:** owner review of A and missing-reference requests. Proposed
+  CCV-009-B: version-pinned vendor evidence acquisition/offline schema
+  qualification for a selected read-only slice; requires separate authorization.
+  No live client/backend, lab activity or next milestone has begun.
 
 ### E-031 - CCV-004-C3 owner acceptance, 2026-11-18
 
@@ -3401,13 +3596,26 @@ zero guarded attempts. On 2026-11-18 the owner accepted C3's completed offline-o
 scope with no remaining confirmed acceptance blockers; see E-031.
 Retained records remain plaintext with operator-controlled permissions, and
 cleanup cannot guarantee deletion when permissions prevent it.
-Stop before the next milestone,
-CCV-009, real HTTP backend development, or live work without separate authorization.**
+The owner subsequently accepted **CCV-009-A's completed static discovery scope on
+2026-11-18: ACCEPT WITH NON-BLOCKING OBSERVATIONS**. E-032 and the completed
+independent technical acceptance review are the accepted evidence; E-033 records
+the decision and outstanding LOW historical-checkpoint observation. Target
+families/directions remain owner-reported, not supported-version claims.
+**CCV-009-A: OWNER ACCEPTED - 2026-11-18.
+CCV-009-B: PROPOSED - NOT AUTHORIZED; not started.**
+Stop before proposed CCV-009-B, other milestones, real HTTP backend development,
+capability activation or live work without separate authorization.**
 
 Recommended next action: preserve accepted A/B/C1/C2/C3, their evidence and
 limitations, both planning corrections, and the unchanged strict resolver.
 Preserve C3's accepted controller-only CLI, strict local manifests, redacted
 reports, protected record verification, and cleanup/error protections.
+Preserve accepted CCV-009-A, its API matrix, compatibility limits, manual-gap
+analysis, prioritized evidence backlog and accepted LOW documentation observation.
+Vendor documentation, exact build/per-operation
+testing provenance and sanitized scheduler paths are missing. Obtain separate
+authorization before any proposed follow-up; no real API compatibility or import
+execution authorization is established by discovery.
 Await separate authorization before further development.
 Credential migration, cross-domain orchestration, and the next milestone remain
 separately gated.

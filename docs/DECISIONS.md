@@ -42,6 +42,12 @@ This does not establish live compatibility, authorize import execution or a
 next milestone, encrypt retained records, transfer file-permission responsibility
 from the operator, or guarantee cleanup when permissions prevent deletion.
 
+The owner separately accepted **CCV-009-A's completed static discovery scope on
+2026-11-18: ACCEPT WITH NON-BLOCKING OBSERVATIONS**. E-032 and the completed
+independent technical acceptance review support this decision; E-033 in
+[PROGRESS.md](PROGRESS.md) records it. No real-version compatibility or production
+readiness is established. **CCV-009-B is PROPOSED - NOT AUTHORIZED**, not started.
+
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
 | ADR-001 | Modular Python master CLI with explicit module registry | Architectural direction approved by owner, 2026-11-17 | CCV-002, CCV-007 |
@@ -374,6 +380,97 @@ Mandatory limitations remain:
 
 This acceptance supersedes earlier C3 acceptance-pending labels only for the
 completed offline scope. Only this register and the progress tracker are updated.
+
+## Owner discovery acceptance - CCV-009-A, 2026-11-18
+
+**Owner:** project owner, by explicit decision in the project conversation.
+**Milestone:** CCV-009-A - Product Compatibility and API Discovery.
+**Decision:** **ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+**Date:** **2026-11-18**.
+**Status:** **CCV-009-A: OWNER ACCEPTED - 2026-11-18.**
+**Scope accepted:** static legacy API discovery, compatibility evidence
+classification and automation-gap analysis only.
+
+Accepted evidence:
+[E-032](PROGRESS.md#e-032---ccv-009-a-static-product-compatibility-and-api-discovery-2026-11-18)
+and the completed independent technical acceptance review. The formal owner
+decision and review results are recorded in
+[E-033](PROGRESS.md#e-033---ccv-009-a-owner-acceptance-with-non-blocking-observations-2026-11-18).
+This is static discovery acceptance under the existing evidence gates, not a
+production-compatibility decision or authorization to begin another milestone.
+
+Independently verified and accepted findings:
+
+- **22 legacy files**, **13 byte-distinct implementations**, **nine duplicate
+  copies**.
+- **12 concrete HTTP method/path combinations**, **10 concrete path templates**,
+  **four unresolved scheduler references**, **16 logical operation records**.
+- **17 product-specific API matrix rows**, **all 18 required fields present**,
+  **eight of eight documented source fingerprints matched**.
+- **Ten automation-gap candidates** and **ten prioritized discovery items**.
+- **Zero confirmed acceptance-blocking defects**, **one LOW non-blocking
+  documentation observation**, and **no confirmed discovery-related security
+  vulnerabilities**. Production capability restrictions remained intact.
+
+The independent review inspected the three discovery deliverables, cross-checked
+canonical legacy implementations, verified operation traceability and
+documentation consistency, and verified production capabilities remain
+default-deny. Read-only static checks completed successfully, reported zero
+guarded network attempts and made no project changes.
+
+The **321 passing application tests are historical CCV-004-C3 evidence**
+(E-030/E-031), not a fresh CCV-009-A run. They were not rerun during A, its
+independent review or this documentation-only acceptance update.
+
+### Accepted non-blocking observation
+
+- **Severity:** LOW.
+- **File / location:** [ARCHITECTURE.md](ARCHITECTURE.md), approximately
+  **1905-1907**.
+- **Issue:** an older C1/C2 acceptance checkpoint is not clearly identified as
+  historical.
+- **Impact:** potential reader confusion about previously completed approval
+  gates; no unsafe execution is enabled.
+- **Decision:** accepted as non-blocking.
+- **Follow-up:** correct during a separately authorized documentation-maintenance
+  task. That file is not modified under this authorization.
+
+### Mandatory limitations and next milestone
+
+- APSolute Vision **5.4.x** and Cyber Controller **10.10.x** remain unverified
+  target version families. Neither **Vision-to-CC** nor **CC-to-CC** compatibility
+  is established. Exact patch releases and independent source/destination builds
+  require qualification; no blanket family compatibility is certified.
+- Vendor API documentation and complete request/response schemas remain
+  outstanding. Scheduler API paths remain unresolved.
+- Credential portability remains unverified. Authentication, RBAC, inventory
+  completeness and asynchronous completion require qualification.
+- Full backup/recovery functionality is not established. Partial JSON exports
+  are not qualified full product backups.
+- No production migration execution is authorized. Static discovery acceptance
+  is not production readiness, live compatibility, capability activation or
+  approval for a real backend, API request, authentication or configuration write.
+- Existing C3 limitations remain: plaintext retained records, operator-controlled
+  permissions/protected storage and no guaranteed cleanup deletion when
+  permissions prevent it.
+
+**CCV-009-B: PROPOSED - NOT AUTHORIZED; not started.**
+Proposed scope only:
+
+- Version-pinned vendor documentation acquisition.
+- Offline API request/response schema qualification.
+- Exact product build evidence.
+- Operation-level compatibility assessment.
+- Outstanding scheduler and migration capability investigation.
+
+None of these activities is started or authorized by this decision. Only
+[PROGRESS.md](PROGRESS.md) and this register are updated. No application/test/API
+definition changes, other documentation changes, dependencies, legacy execution,
+Git operations or product operations are performed.
+
+This acceptance supersedes earlier A acceptance-pending labels only for the
+completed static scope. Preserve E-032, historical C3 evidence and all limitations;
+separate authorization is required for every follow-up.
 
 ## ADR-001 - Modular Python controller
 
