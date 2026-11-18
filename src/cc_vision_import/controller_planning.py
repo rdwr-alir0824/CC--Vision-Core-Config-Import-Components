@@ -4,7 +4,11 @@ from dataclasses import dataclass, field
 
 from ._contract_validation import ContractReader
 from .contracts import ContractValidationError, ValidationIssue, ValidationResult
-from .controller_objects import ControllerInventory, ControllerRoot, TreeName, parse_controller_artifact
+from .controller_access_policy import DeviceAccessAcknowledgement, device_access_acknowledgement_issues
+from .controller_objects import (
+    ControllerDevice, ControllerInventory, ControllerRoot, TreeName,
+    has_uncertain_controller_object_credentials, parse_controller_artifact,
+)
 from .mappings import IdentityMapping, MappingState, dependency_order, parse_mapping
 
 
@@ -39,6 +43,7 @@ def _mapping(payload: object) -> IdentityMapping:
 def validate_controller_planning(
     source: ControllerInventory, destination: ControllerInventory, mappings: object, *,
     complete_trees: tuple[TreeName, ...] = (),
+    device_access_acknowledgements: tuple[DeviceAccessAcknowledgement, ...] = (),
 ) -> ControllerPlanningValidation:
     reader = ContractReader("controller-planning")
     if not isinstance(source, ControllerInventory) or not isinstance(destination, ControllerInventory):
@@ -76,6 +81,22 @@ def validate_controller_planning(
         ):
             reader.fail("context_mismatch", "$.mappings", "Mapping identities and contexts must match the inventories.")
 
+    if (
+        not isinstance(device_access_acknowledgements, tuple)
+        or any(not isinstance(item, DeviceAccessAcknowledgement) for item in device_access_acknowledgements)
+    ):
+        reader.fail("invalid_acknowledgement", "$.acknowledgements", "Expected explicit bound device acknowledgements.")
+    acknowledged_devices = [item.device for item in device_access_acknowledgements]
+    device_references = {
+        item.reference for item in (*source.objects, *destination.objects) if isinstance(item, ControllerDevice)
+    }
+    for item in device_access_acknowledgements:
+        item.to_dict()
+    if len(set(acknowledged_devices)) != len(acknowledged_devices) or not set(acknowledged_devices) <= device_references:
+        reader.fail("invalid_acknowledgement", "$.acknowledgements", "Acknowledgements must identify distinct supplied devices.")
+    source_acknowledgements = device_access_acknowledgement_issues(source, device_access_acknowledgements)
+    destination_acknowledgements = device_access_acknowledgement_issues(destination, device_access_acknowledgements)
+
     source_indices = {item.reference: index for index, item in enumerate(source.objects)}
     destination_indices = {
         item.reference.as_identity(): index for index, item in enumerate(destination.objects)
@@ -110,6 +131,15 @@ def validate_controller_planning(
             mapping is None or mapping.state != MappingState.RESOLVED or targets[index] is None
         ):
             issues[index].append("root_unresolved")
+        issues[index].extend(source_acknowledgements.get(item.reference, ()))
+        target_index = targets[index]
+        target = None if target_index is None else destination.objects[target_index]
+        if target is not None:
+            issues[index].extend(destination_acknowledgements.get(target.reference, ()))
+        if has_uncertain_controller_object_credentials(item) or (
+            target is not None and has_uncertain_controller_object_credentials(target)
+        ):
+            issues[index].append("unresolved_credentials")
 
     owners: dict[int, list[int]] = {}
     for index, target in enumerate(targets):

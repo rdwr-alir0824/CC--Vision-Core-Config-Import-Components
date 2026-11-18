@@ -158,6 +158,32 @@ def is_controller_credential_field(key: str) -> bool:
     )
 
 
+def has_uncertain_controller_credentials(value: JsonValue) -> bool:
+    """Secret references remain unresolved; masks cannot establish equivalence."""
+    if isinstance(value, dict):
+        return any(is_controller_credential_field(key) for key in value) or any(
+            has_uncertain_controller_credentials(item) for item in value.values()
+        )
+    if isinstance(value, list):
+        return any(has_uncertain_controller_credentials(item) for item in value)
+    if isinstance(value, str):
+        return bool(re.fullmatch(r"[*#\u2022\u25cf]{3,}", value)) or value.casefold() in (
+            "redacted", "<redacted>", "[redacted]", "masked", "<masked>", "[masked]",
+            "hidden", "<hidden>", "[hidden]",
+        )
+    return False
+
+
+def has_uncertain_controller_object_credentials(item: ControllerObject) -> bool:
+    record = _record(item)
+    del record["reference"], record["parent"]
+    return has_uncertain_controller_credentials(record) or (
+        isinstance(item, ControllerDevice)
+        and item.device_access.location != DeviceAccessLocation.ABSENT
+        and item.device_access.value is None
+    )
+
+
 def _credential_references(value: JsonValue, reader: ContractReader, path: str) -> None:
     if isinstance(value, list):
         for index, item in enumerate(value):

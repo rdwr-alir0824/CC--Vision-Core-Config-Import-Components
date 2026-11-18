@@ -2,16 +2,18 @@
 
 import hashlib
 import json
-import re
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 
 from ._contract_validation import ContractReader
 from .contracts import JsonValue
+from .controller_access_policy import (
+    DEVICE_ACCESS_POLICY, RECONCILIATION_FIELD, DeviceAccessAcknowledgement,
+)
 from .controller_objects import (
-    ControllerDevice, ControllerInventory, ControllerObject, ControllerRoot, DeviceAccessLocation,
-    SourceObjectReference, TreeName, is_controller_credential_field,
+    ControllerDevice, ControllerInventory, ControllerObject, ControllerRoot,
+    SourceObjectReference, TreeName,
 )
 from .controller_planning import validate_controller_planning
 from .mappings import MappingState
@@ -32,6 +34,7 @@ def _ordered(value: object) -> str:
 
 class ControllerComparisonRule(StrEnum):
     NATIVE_IDENTITY_PROVENANCE = "validated-native-identity-provenance-v1"
+    DEVICE_ACCESS_ACKNOWLEDGEMENT = "validated-offline-access-acknowledgement-v1"
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,7 @@ class ControllerComparisonPolicy:
     rules: tuple[ControllerComparisonRule, ...]
     rule_evidence: tuple[str, ...]
     ignored_fields: tuple[str, ...]
+    device_access_policy: str = DEVICE_ACCESS_POLICY
     field_order: str = "preserved"
     credential_values: str = "block-unresolved-or-masked"
     authorization: str = "offline-comparison-only"
@@ -55,18 +59,25 @@ def _policy(rules: tuple[ControllerComparisonRule, ...]) -> ControllerComparison
         ContractReader("controller-comparison").fail(
             "invalid_comparison_rule", "$.comparison_rules", "Expected distinct supported evidence-backed rules.",
         )
+    native = ControllerComparisonRule.NATIVE_IDENTITY_PROVENANCE in rules
+    acknowledgement = ControllerComparisonRule.DEVICE_ACCESS_ACKNOWLEDGEMENT in rules
     return ControllerComparisonPolicy(
         "acknowledged-normalized-exact-v2",
         ("owner-policy-option-1:2026-11-18", "synthetic-tests:test_controller_comparison"),
         tuple(sorted(rules)),
-        (
+        ((
             "offline-contract:controller_objects._native_bindings",
             "offline-contract:controller_planning.validate_controller_planning",
-        ) if rules else (),
-        (
+        ) if native else ()) + (
+            ("offline-contract:controller_access_policy." + DEVICE_ACCESS_POLICY,) if acknowledgement else ()
+        ),
+        ((
             "configuration.ormID", "configuration.parentOrmID",
             "configuration.meIdentifier.managedElementID",
-        ) if rules else (),
+        ) if native else ()) + ((
+            "configuration.offlineDeviceReconciliation.acknowledgement",
+            "configuration.offlineDeviceReconciliation.source_artifact_sha256",
+        ) if acknowledgement else ()),
     )
 
 
@@ -144,6 +155,11 @@ def _configuration(
     item: ControllerObject, rules: tuple[ControllerComparisonRule, ...],
 ) -> dict[str, JsonValue]:
     configuration = deepcopy(item.configuration)
+    if isinstance(item, ControllerDevice) and ControllerComparisonRule.DEVICE_ACCESS_ACKNOWLEDGEMENT in rules:
+        provenance = configuration.get(RECONCILIATION_FIELD)
+        if isinstance(provenance, dict):
+            provenance.pop("acknowledgement", None)
+            provenance.pop("source_artifact_sha256", None)
     if ControllerComparisonRule.NATIVE_IDENTITY_PROVENANCE in rules:
         configuration.pop("ormID", None)
         configuration.pop("parentOrmID", None)
@@ -161,38 +177,19 @@ def _configuration(
     return result
 
 
-def _uncertain_credentials(value: JsonValue) -> bool:
-    if isinstance(value, dict):
-        return any(is_controller_credential_field(key) for key in value) or any(
-            _uncertain_credentials(item) for item in value.values()
-        )
-    if isinstance(value, list):
-        return any(_uncertain_credentials(item) for item in value)
-    if isinstance(value, str):
-        return bool(re.fullmatch(r"[*#\u2022\u25cf]{3,}", value)) or value.casefold() in (
-            "redacted", "<redacted>", "[redacted]", "masked", "<masked>", "[masked]",
-            "hidden", "<hidden>", "[hidden]",
-        )
-    return False
-
-
-def _credential_uncertainty(item: ControllerObject) -> bool:
-    return _uncertain_credentials(_configuration(item, ())) or (
-        isinstance(item, ControllerDevice)
-        and item.device_access.location != DeviceAccessLocation.ABSENT
-        and item.device_access.value is None
-    )
-
-
 def compare_controller_inventories(
     source: ControllerInventory, destination: ControllerInventory, mappings: object, *,
     complete_trees: tuple[TreeName, ...] = (),
     semantics_known_for: tuple[SourceObjectReference, ...] = (),
     comparison_rules: tuple[ControllerComparisonRule, ...] = (),
+    device_access_acknowledgements: tuple[DeviceAccessAcknowledgement, ...] = (),
 ) -> ControllerMigrationPlan:
     reader = ContractReader("controller-comparison")
     policy = _policy(comparison_rules)
-    validated = validate_controller_planning(source, destination, mappings, complete_trees=complete_trees)
+    validated = validate_controller_planning(
+        source, destination, mappings, complete_trees=complete_trees,
+        device_access_acknowledgements=device_access_acknowledgements,
+    )
     source, destination = validated.source, validated.destination
     if (
         not isinstance(semantics_known_for, tuple)
@@ -212,9 +209,6 @@ def compare_controller_inventories(
         item = source.objects[index]
         codes = list(entry.issue_codes)
         comparison = Comparison.UNKNOWN
-        target = None if entry.destination_index is None else destination.objects[entry.destination_index]
-        if _credential_uncertainty(item) or (target is not None and _credential_uncertainty(target)):
-            codes.append("unresolved_credentials")
         if item.reference not in known:
             codes.append("unknown_semantics")
         elif not codes:
@@ -246,12 +240,17 @@ def compare_controller_inventories(
         )
     source_digest = hashlib.sha256(_ordered(source.to_artifact().to_dict()).encode("utf-8")).hexdigest()
     destination_digest = hashlib.sha256(_ordered(destination.to_artifact().to_dict()).encode("utf-8")).hexdigest()
-    declarations_digest = _digest({
+    declarations: dict[str, object] = {
         "mappings": [None if entry.mapping is None else asdict(entry.mapping) for entry in validated.entries],
         "complete_trees": validated.complete_trees,
         "semantics_known_for": [index for index, item in enumerate(source.objects) if item.reference in known],
         "comparison_policy": asdict(policy),
-    })
+    }
+    if device_access_acknowledgements:
+        declarations["device_access_acknowledgements"] = sorted(
+            (item.to_dict() for item in device_access_acknowledgements), key=_canonical,
+        )
+    declarations_digest = _digest(declarations)
     body = {
         "schema_version": 2, "stage": "offline-controller-candidate", "source_sha256": source_digest,
         "destination_sha256": destination_digest, "declarations_sha256": declarations_digest,
@@ -271,11 +270,13 @@ def verify_controller_plan(
     complete_trees: tuple[TreeName, ...] = (),
     semantics_known_for: tuple[SourceObjectReference, ...] = (),
     comparison_rules: tuple[ControllerComparisonRule, ...] = (),
+    device_access_acknowledgements: tuple[DeviceAccessAcknowledgement, ...] = (),
 ) -> ControllerMigrationPlan:
     """Recompute the offline candidate from retained inputs; this is not import approval."""
     expected = compare_controller_inventories(
         source, destination, mappings, complete_trees=complete_trees, semantics_known_for=semantics_known_for,
         comparison_rules=comparison_rules,
+        device_access_acknowledgements=device_access_acknowledgements,
     )
     try:
         unchanged = isinstance(payload, dict) and _canonical(payload) == expected.to_json()

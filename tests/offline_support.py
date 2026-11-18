@@ -4,9 +4,31 @@ import runpy
 import sys
 import tempfile
 import unittest
+import importlib
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+
+def device_access_acknowledgements(*inventories):
+    """Explicit synthetic operator acknowledgements for comparison regression fixtures."""
+    policy = importlib.import_module("cc_vision_import.controller_access_policy")
+    objects = importlib.import_module("cc_vision_import.controller_objects")
+    result = []
+    for inventory in inventories:
+        artifact = inventory.to_artifact()
+        for item, row in zip(inventory.objects, artifact.objects, strict=True):
+            if (
+                not isinstance(item, objects.ControllerDevice)
+                or item.device_access.location == objects.DeviceAccessLocation.ABSENT
+                or item.device_access.value is None or item.device_access.value == {}
+                or objects.has_uncertain_controller_credentials(row)
+            ):
+                continue
+            result.append(policy.acknowledge_device_access(
+                artifact, artifact, item.reference, evidence_reference="evidence-" + "2" * 32,
+            ))
+    return tuple(result)
 
 
 class OfflineTestCase(unittest.TestCase):

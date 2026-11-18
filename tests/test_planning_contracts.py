@@ -71,6 +71,20 @@ class PlanningContractTests(OfflineTestCase):
         )
         self.assertEqual(verified, plan)
 
+    def test_cyber_controller_non_controller_domains_keep_generic_planning(self) -> None:
+        artifact = json.loads(self.raw)
+        artifact["source"]["product"] = "cyber-controller"
+        artifact["domain"] = "synthetic-domain"
+        self.raw = json.dumps(artifact).encode("utf-8")
+        self.request["mappings"][0]["source_context"]["product"] = "cyber-controller"
+        self.request["mappings"][0]["domain"] = "synthetic-domain"
+        plan = self.plan()
+        self.assertEqual(plan.actions[0].kind, "create")
+        self.assertEqual(
+            self.plans.verify_plan(plan.to_dict(), self.raw, self.request["destination"], plan.integrity_sha256),
+            plan,
+        )
+
     def test_missing_and_duplicate_mapping_records_fail_explicitly(self) -> None:
         self.request["mappings"] = []
         self.assert_contract_error("missing_mapping", self.plan)

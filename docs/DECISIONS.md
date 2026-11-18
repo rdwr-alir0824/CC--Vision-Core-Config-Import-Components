@@ -29,13 +29,19 @@ The owner separately accepted **CCV-004-C1's implemented offline-only scope on
 their artifact/comparison/candidate-plan integration, not real export/import
 execution, live compatibility, or authorization to begin C2.
 
+The owner separately accepted **CCV-004-C2's completed offline-only scope on
+2026-11-18**, including both HIGH-severity safety corrections. This includes
+reconciliation, bound universal acknowledgements, protected provenance, and safe
+controller-specific planning, not live compatibility, execution, production
+configuration changes, or authorization to begin C3.
+
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
 | ADR-001 | Modular Python master CLI with explicit module registry | Architectural direction approved by owner, 2026-11-17 | CCV-002, CCV-007 |
 | ADR-002 | Product-specific clients over shared transport and explicit sessions | Direction approved; implemented CCV-003 mock-only scope accepted, 2026-11-17 | CCV-003 |
-| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; A offline scope accepted, 2026-11-17; B comparison/planning and C1 adapter/artifact/candidate-plan integration accepted offline-only, 2026-11-18 | CCV-002, CCV-004 |
-| ADR-004 | Separate offline planning, online preflight, approval, apply, and verification | Direction approved, 2026-11-17; B offline planning accepted, 2026-11-18; live/apply stages not authorized | CCV-002, CCV-007 |
-| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; A preservation/Option 1 accepted, 2026-11-17; B comparison/serialization correction and C1 hierarchy/provenance/fidelity controls accepted offline-only, 2026-11-18 | CCV-004 through CCV-006 |
+| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; A offline scope accepted, 2026-11-17; B/C1 integration and C2 reconciliation/provenance/planning integrity accepted offline-only, 2026-11-18 | CCV-002, CCV-004 |
+| ADR-004 | Separate offline planning, online preflight, approval, apply, and verification | Direction approved, 2026-11-17; B and C2 offline planning/safety gates accepted, 2026-11-18; live/apply stages not authorized | CCV-002, CCV-007 |
+| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; A preservation/Option 1 accepted, 2026-11-17; B/C1 fidelity controls and C2 qualified associations/acknowledgements/validated exclusions accepted offline-only, 2026-11-18 | CCV-004 through CCV-006 |
 | ADR-006 | Capability/evidence gating by product and version | Direction approved; synthetic isolation accepted, 2026-11-17; real qualification pending | CCV-003, CCV-008 |
 | ADR-007 | Secure transport and externalized secrets with redacted reporting | Direction approved; implemented CCV-003 mock-only controls accepted, 2026-11-17 | CCV-002, CCV-003 |
 | ADR-008 | Initial utility exclusions and offline-first verification | Direction approved; CCV-003 offline acceptance recorded, 2026-11-17; live qualification pending | CCV-001 through CCV-008 |
@@ -233,6 +239,90 @@ from this acceptance.
 
 CCV-004-C2 remains **not authorized and not started**. Only this register and the
 progress tracker are updated; no application code or Git operations are involved.
+
+## Owner policy decision - CCV-004-C2 access acknowledgement, 2026-11-18
+
+The preceding C1 acceptance boundary is historical. The owner separately
+authorized offline-only C2 and approved **Option 1**: explicit per-device offline
+acknowledgement and a protected opaque evidence reference before access
+configuration becomes eligible for migration planning. In the subsequent scope
+clarification, the owner selected **all controller devices carrying access
+configuration**, including direct C1/A/B inputs, not only C2-reconciled devices.
+
+The acknowledgement must bind qualified identity, relevant source snapshot,
+device-access data, and policy version. Changed access invalidates it. Missing,
+mismatched, or stale declarations block affected controller planning operations;
+structurally incomplete data stays available as protected diagnostic artifacts.
+No acknowledgement overrides malformed hierarchy, conflicting identities,
+missing required fields, unsafe credentials, or unresolved sensitive references.
+
+Evidence references must be opaque local catalogue identifiers, not credentials,
+session tokens, addresses, or raw configuration. Structural validation, offline
+acknowledgement, official schema verification, and live compatibility remain
+separate. Acknowledgement establishes neither access completeness nor credential
+portability and never authorizes actual imports.
+
+Implementation/evidence: [E-023](PROGRESS.md#e-023---ccv-004-c2-bound-access-acknowledgement-policy-2026-11-18).
+This historical record approves policy, not implementation. C2 implementation
+acceptance was pending at that checkpoint; the separate owner acceptance below
+supersedes that pending status only for the completed offline scope. C3 and live
+work remain unauthorized and not started.
+
+## Owner implementation acceptance - CCV-004-C2, 2026-11-18
+
+**Owner:** project owner, by explicit decision in the project conversation.
+**Decision:** accept **CCV-004-C2 for its completed offline-only scope**, including
+both HIGH-severity safety corrections, under the existing artifact, identity,
+semantics, and operation-gating ADRs. This is implementation acceptance, not live
+product qualification or execution authorization.
+
+Accepted evidence:
+
+- **291 automated tests passed**.
+- **Zero guarded network attempts**.
+- No remaining confirmed acceptance blockers.
+- Both HIGH-severity findings corrected and verified.
+
+Accepted functionality:
+
+- Explicit device-detail/access reconciliation.
+- Qualified one-to-one identity associations.
+- Universal device-access acknowledgement enforcement.
+- Stale acknowledgement rejection.
+- Protected source provenance.
+- Safe integration with controller-specific planning.
+- Explicit rejection of generic controller planning.
+- Validated comparison exclusions.
+
+The accepted safety corrections require explicitly resolved existing destination
+roots, prevent forbidden root CREATE through generic planning/verification, and
+preserve unknown root/site configuration during comparison. Forged root CREATE
+plans remain rejected even after hashes are recomputed. Comparison exclusions
+apply only under the supported validated provenance rules.
+
+Accepted command: `python -B -m unittest discover -s tests -q`,
+with `PYTHONPATH=src`; **291 passes in 88.461 seconds**, exit 0.
+See [E-025](PROGRESS.md#e-025---ccv-004-c2-acceptance-blocking-planning-corrections-2026-11-18)
+for implementation/test evidence and
+[E-026](PROGRESS.md#e-026---ccv-004-c2-owner-acceptance-2026-11-18)
+for this owner decision. These are existing results, not tests rerun for the
+documentation update. Guarded network assertions are not OS-level isolation.
+
+Mandatory limitations:
+
+- No live product compatibility is established.
+- Access completeness and credential portability remain unverified.
+- Acknowledgement authorizes offline planning only.
+- No real import execution is authorized.
+- Previously generated generic controller plans must be regenerated using
+  controller-specific APIs.
+- No production configuration changes are authorized.
+
+This acceptance supersedes earlier C2 implementation-acceptance-pending labels
+only for the completed offline scope. It does not authorize broader CCV-004 work,
+API requests, real HTTP/secret backends, Git operations, or CCV-004-C3.
+C3 remains **unauthorized and not started**. Only this register and the progress
+tracker are updated; no application code or tests are changed.
 
 ## ADR-001 - Modular Python controller
 

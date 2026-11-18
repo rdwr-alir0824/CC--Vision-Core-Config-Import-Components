@@ -36,8 +36,40 @@ C1's implemented offline-only scope is **owner-accepted on 2026-11-18**:
 244 automated tests and five additional guarded review probes passed, zero
 guarded network attempts, no confirmed acceptance-blocking defects, verified
 configuration preservation, safe incomplete-export handling, and unchanged
-legacy scripts. See E-020/E-021. C2 and all live/backend work remain unauthorized
-and not started.**
+legacy scripts. See E-020/E-021. The owner separately authorized offline-only
+CCV-004-C2 on 2026-11-18 and selected per-device acknowledgement with an opaque
+evidence reference as its planning gate. Initial C2 verification passed 271 tests;
+the clarified bound policy passed 282. Universal enforcement at the shared
+controller planning boundary is now implemented/offline-verified:
+**286 tests passed** (all 282 prior cases + four new boundary regressions),
+zero guarded network attempts.
+Explicit qualified associations, exact conflict rejection, protected detail/
+access provenance, and invalid incomplete-artifact gating reuse existing
+controller contracts. Acknowledgements bind device identity, normalized source
+snapshot, ordered access/input data, and policy version; missing/stale declarations
+produce BLOCKED. The shared validator applies the gate directly; comparison
+consumes its entries rather than maintaining a comparison-only gate.
+The owner explicitly applied this gate to all controller devices
+carrying access, including direct C1/A/B inputs. Completeness and credential
+portability remain unverified.
+C2's final read-only review reproduced two acceptance blockers despite the
+286-test pass: generic planning could verify a forbidden root CREATE after
+acknowledgement passed, and the acknowledgement comparison rule could hide
+unknown root/site differences. The owner authorized correction of both findings.
+Both are now corrected and offline-verified: **291 tests passed** (all 286 prior
+cases retained with affected generic-path expectations updated, plus five new
+regressions), zero guarded network attempts. Generic Cyber Controller controller
+planning now fails explicitly; supported controller planning retains its policy
+gates. Metadata exclusions apply only to policy-validated devices.
+C2's completed offline-only scope is **owner-accepted on 2026-11-18**:
+291 automated tests passed, zero guarded network attempts, both HIGH findings
+corrected and verified, and no remaining confirmed acceptance blockers.
+Acknowledgement authorizes offline planning only; access completeness,
+credential portability, and live product compatibility remain unverified.
+Previously generated generic controller plans must be regenerated through
+controller-specific APIs. No real imports or production configuration changes
+are authorized. C3 and all live/backend work remain unauthorized and not started;
+see E-022/E-023/E-024/E-025/E-026.**
 
 ## Status rules
 
@@ -275,6 +307,80 @@ no real export/import execution or C2 is authorized. This acceptance supersedes
 earlier C1 review/acceptance-pending labels only for the implemented offline
 scope. No tests are rerun for this documentation-only update.
 
+### CCV-004-C2 authorization and access gate - 2026-11-18
+
+The owner separately authorized offline-only device-detail/access reconciliation
+against normalized tree devices, using explicit qualified associations and the
+existing object/artifact/comparison/planning contracts. Configuration fidelity,
+conflict detection, safe credentials, incomplete-input rejection/gating, synthetic
+tests, and documentation are required. No competing device model is authorized.
+
+The owner selected **per-device offline acknowledgement and an opaque evidence
+reference**, in addition to structural reconciliation, before permitting
+subsequent planning. This is not a completeness/credential-portability
+certification, evidence-provider integration, or permission to change configuration.
+
+This authorization supersedes earlier C2-not-authorized statements only for the
+specified offline scope. No API requests, concrete backend, real controllers,
+production imports/exports, configuration writes, legacy execution/modification,
+dependency installation, Git operations, or C3 are authorized.
+Implementation and actual verification evidence: E-022/E-023. Review/acceptance pending.
+
+#### Clarified Option 1 policy and universal scope
+
+The owner's subsequent decision requires identity-, source-, access-, and
+policy-version-bound acknowledgements; changed access invalidates prior consent.
+Evidence references must be protected opaque identifiers, never secrets, session
+tokens, addresses, or raw configuration. In the scope clarification form, the
+owner selected **all controller devices carrying device-access configuration**.
+This intentionally changes direct C1/A/B planning: explicit acknowledgement is
+now required there too, not only for C2-enriched artifacts.
+
+Missing/stale acknowledgements produce BLOCKED without discarding diagnostic
+data. They cannot override structural, hierarchy, identity, or credential
+failures. Structural validation, offline acknowledgement, official verification,
+and live-tested compatibility remain distinct. No completeness, portability, or
+import-execution authorization follows. The
+[decision register](DECISIONS.md#owner-policy-decision---ccv-004-c2-access-acknowledgement-2026-11-18)
+records policy approval separately from the subsequent implementation acceptance.
+
+The owner reaffirmed universal scope and required enforcement at the **shared
+controller planning boundary**, with explicit negative tests for A/B, C1, and
+C2 paths. E-024 records that implementation and its complete offline test run.
+This closes the earlier direct-validator gap without changing artifact/plan
+schemas, policy versions, or integrity formats. No configuration change, Git
+operation, or C3 work is authorized.
+
+#### Acceptance-review correction authorization - 2026-11-18
+
+The final read-only review found two HIGH, 10/10-confidence offline
+planning-safety defects: a fully acknowledged controller artifact could use
+generic planning/verification to create a root that controller planning blocks;
+and the acknowledgement comparison rule could turn differing unknown root/site
+configuration into a verified SKIP. The owner selected "Fix highest severity
+issues", then explicitly selected **"Fix both HIGH findings"**.
+
+Authorization is limited to these corrections, focused regressions, related
+architecture/progress documentation, and guarded offline tests. It does not
+authorize Git, APIs, dependency installation, legacy changes/execution, live
+compatibility claims, or C3. Implementation and actual results are recorded in
+E-025; this is correction authorization, not owner acceptance of C2.
+
+#### Owner acceptance of CCV-004-C2 - 2026-11-18
+
+The project owner explicitly approved **CCV-004-C2 for its completed offline-only
+scope**, including both HIGH-severity corrections. Accepted evidence:
+291 passing automated tests, zero guarded network attempts, no remaining
+confirmed acceptance blockers, and both findings corrected and verified.
+See E-026 for accepted functionality and mandatory limitations.
+
+This acceptance supersedes earlier C2 review/acceptance-pending labels only for
+the completed offline scope. It establishes no live product compatibility,
+access completeness, credential portability, import authorization, or permission
+to change production configuration. Previously generated generic controller
+plans must be regenerated using controller-specific APIs. C3 remains
+unauthorized and not started.
+
 ## Milestone tracker
 
 | Task ID | Description | Priority | Dependencies | Approval status | Implementation status | Verification status |
@@ -289,10 +395,11 @@ scope. No tests are rerun for this documentation-only update.
 | CCV-003-A | Shared injectable HTTP transport and policies | P0 | CCV-002 completion confirmed by owner | Owner accepted mock-only completion on 2026-11-17 | Implemented | Mock-only scope verified and accepted; E-007/E-012; regressions retained in 130-test suite |
 | CCV-003-B | Authentication contracts, strategies, resolver interface, session ownership | P0 | CCV-003-A implementation/testing/technical review | Owner accepted mock-only completion and correction on 2026-11-17 | Implemented; initialization cleanup defect corrected | Mock-only scope verified and accepted; E-008/E-009/E-012; regressions retained in 130-test suite |
 | CCV-003-C | Product read clients and mocked read-to-plan integration | P0 | CCV-003-A/B and 95-test baseline; source API evidence; approved synthetic version/backend gate | Owner accepted mock-only completion on 2026-11-17; `0.0-test` only with explicit mock backends | Implemented; separate mock/production catalogues and backend gate | Mock-only scope verified and accepted: 130 tests; E-010/E-011/E-012; live qualification pending |
-| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | A/B/C1 bounded offline scopes owner-accepted; remainder not authorized | A/B/C1 complete for accepted scopes; remainder not started | C1 accepted 2026-11-18: 244 tests + five guarded probes, zero guarded attempts; real schema/compatibility/credential qualification pending |
+| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | A/B/C1/C2 accepted for their completed offline scopes; C2 accepted 2026-11-18; remainder not authorized | Accepted A/B/C1/C2 scopes complete; C2 review defects corrected; remainder not started | C2 accepted: 291 passing tests, zero guarded attempts, no remaining confirmed acceptance blockers; real schema/compatibility/credential qualification pending |
 | CCV-004-A | Controller object schemas, hierarchy, and explicit identity mapping | P1 | Accepted CCV-003; source observations; owner-approved Option 1 name policy | Owner accepted offline-only completion on 2026-11-17 | Complete for accepted offline scope; duplicates preserved, identity ambiguity separate | Accepted: 166 tests, zero guarded attempts; E-013/E-014/E-015; Category B extension subsequently implemented in separately authorized B, E-016 |
 | CCV-004-B | Offline semantic comparison and CREATE planning | P1 | Accepted A; Category B assessment; explicit semantics/completeness policies | Owner accepted implemented offline-only scope on 2026-11-18, including serialization correction | Complete for accepted offline scope; separate validator, clarified policy, schema-2 plans, lossless standard controller serialization | Accepted: 220 tests, zero guarded attempts, no blocking reviewed defects; E-016 through E-019; live qualification pending |
 | CCV-004-C1 | Legacy export adapters | P1 | Accepted A/B; source-observed legacy structures; existing mock clients and secret/order contracts | Owner accepted implemented offline-only scope on 2026-11-18 | Complete for accepted offline scope; recursive/explicit-context flat/read-result adapters and structured export diagnostics | Accepted: 244 tests + five guarded review probes passed; zero guarded attempts; no confirmed acceptance-blocking defects; E-020/E-021; live qualification pending |
+| CCV-004-C2 | Device-detail and access reconciliation | P1 | Accepted C1/A/B; explicit qualified associations; source/access/policy-bound universal acknowledgement gate | Owner accepted completed offline-only scope on 2026-11-18, including both HIGH corrections | Complete for accepted offline scope; shared validator enforces policy; generic controller planning rejected; comparison exclusions device-only; diagnostics preserved | Accepted: 291 tests pass, zero guarded attempts, both HIGH findings corrected and verified, no remaining confirmed acceptance blockers; E-022 through E-026; live qualification pending |
 | CCV-005 | LDAP permissions | P1 | CCV-002, CCV-003; reference mappings | Not approved; planned | Not started | Not started |
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
 | CCV-007 | Integrated orchestration and reporting | P0 | CCV-003; readiness-verified subset of CCV-004/005/006 approved for integration | Proposed — pending owner approval | Not started | Not started |
@@ -316,10 +423,11 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-003-A | [Transport](../src/cc_vision_import/transport.py), [mock tests](../tests/test_transport.py), [architecture](ARCHITECTURE.md), this tracker | 60-test implementation checkpoint; regressions retained in accepted 130-test suite; E-007/E-012 | No blocker for accepted mock scope; no concrete backend or live qualification | Preserve accepted transport and restrictions |
 | CCV-003-B | [Authentication](../src/cc_vision_import/authentication.py), [sessions](../src/cc_vision_import/sessions.py), [tests](../tests/test_authentication.py), [architecture](ARCHITECTURE.md), this tracker | 95-test correction checkpoint; regressions retained in accepted 130-test suite; E-008/E-009/E-012 | Review defect corrected; real authentication/compatibility and production HTTP/secret backends remain unqualified/unimplemented | Preserve accepted sessions and cleanup behavior |
 | CCV-003-C | [Production/default lookup](../src/cc_vision_import/capabilities.py), [mock declarations](../src/cc_vision_import/mock_capabilities.py), [session backend gate](../src/cc_vision_import/sessions.py), [clients](../src/cc_vision_import/product_clients.py), [mock workflow](../src/cc_vision_import/mock_workflow.py), [client tests](../tests/test_product_clients.py), [integration tests](../tests/test_mocked_integration.py), architecture/API matrix/this tracker | E-010/E-011/E-012: 130 passing tests, zero guarded attempts; final review found no blocking defects; owner accepted | No blocker for accepted mock scope; real versions/schemas, backend, live destination inventory/comparison and production secret provider remain unqualified/unimplemented | Preserve accepted synthetic-only boundary; separately authorized A does not enable new API capabilities |
-| CCV-004 | A/B object/mapping/planning contracts, C1 adapters and tests; related docs | E-013 through E-021; A/B/C1 accepted offline-only; broader scope unimplemented | Real schema/identity/secret qualification and live operations | Preserve accepted A/B/C1; stop before C2 |
+| CCV-004 | A/B object/mapping/planning contracts, C1 adapters, C2 reconciliation/policy and tests; related docs | E-013 through E-026; A/B/C1/C2 accepted offline-only; broader scope unimplemented | Real schema/identity/secret qualification and live operations | Preserve accepted scopes and limitations; await separate authorization; stop before C3 |
 | CCV-004-A | [Object contracts](../src/cc_vision_import/controller_objects.py), [mapping resolution](../src/cc_vision_import/controller_mapping.py), [tests](../tests/test_controller_objects.py), two synthetic tree fixtures, architecture/API matrix/this tracker | E-014/E-015: accepted 36 object/mapping tests; 166 total passing; zero guarded attempts | No blocker for accepted A scope; real compatibility/schema validation, destination preflight, and production imports remain unimplemented/unqualified; B's separate extension does not weaken A | Preserve accepted A and its strict existing-target resolver |
 | CCV-004-B | [Planning validator](../src/cc_vision_import/controller_planning.py), [comparison/plans](../src/cc_vision_import/controller_comparison.py), shared credential-field classification in [objects](../src/cc_vision_import/controller_objects.py), [artifact serialization](../src/cc_vision_import/artifacts.py), [comparison tests](../tests/test_controller_comparison.py), [artifact tests](../tests/test_configuration_contracts.py), architecture/this tracker | E-018/E-019: owner accepted all 212 prior tests + eight serialization regressions; 220 total pass; zero guarded attempts | No blocker for accepted offline scope; historical ordering loss cannot be reconstructed; hashes cannot transfer to reserialized data; semantics/completeness not live-qualified; no actual creation/ID binding/import | Preserve accepted B; await separate authorization; do not begin C |
 | CCV-004-C1 | [Adapters](../src/cc_vision_import/controller_exports.py), [tests](../tests/test_controller_exports.py), [synthetic responses](../tests/fixtures/controller-export-responses.json), architecture/API matrix/this tracker | E-020/E-021: owner accepted 244 tests and five guarded review probes; zero guarded attempts | No confirmed acceptance blocker; real schemas/completeness/credential portability unverified; incomplete artifacts rejected; flat root context required; historical loss unrecoverable | Preserve accepted C1; await separate authorization; do not begin C2 |
+| CCV-004-C2 | [Reconciliation](../src/cc_vision_import/controller_reconciliation.py), [access policy](../src/cc_vision_import/controller_access_policy.py), [shared planning](../src/cc_vision_import/controller_planning.py), [objects](../src/cc_vision_import/controller_objects.py), [comparison](../src/cc_vision_import/controller_comparison.py), [generic plans](../src/cc_vision_import/plans.py), related tests/docs | E-022 through E-026: owner accepted 291-test evidence, zero guarded attempts, and both HIGH corrections; final full run 88.461 seconds, exit 0; no remaining confirmed acceptance blockers | Real schemas/completeness/portability unverified; evidence catalogue not authenticated; unbound evidence and generic controller plans are ineligible; old affected plans require regeneration; no live capability | Preserve accepted offline C2 and mandatory limitations; await separate authorization; stop before C3 |
 | CCV-005 | Proposed LDAP module and tests; related docs | None; not started | Roles/groups/policies and scope/device-lock policy | Resolve authorization-preserving mappings |
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
 | CCV-007 | Proposed orchestration/comparison/reporting and tests; related docs | None; not started | Verified module contracts and approval workflow | Integrate only approved capabilities |
@@ -522,6 +630,592 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-026 - CCV-004-C2 owner acceptance, 2026-11-18
+
+- **Task / objective:** CCV-004-C2, record owner acceptance of the completed
+  offline-only device reconciliation and planning-safety scope.
+- **Priority / dependencies:** P1; accepted A/B/C1, C2 implementation and
+  verification E-022/E-023/E-024, and both HIGH corrections verified in E-025.
+- **Approval:** explicit project-owner decision on 2026-11-18.
+- **Implementation:** complete for the accepted offline-only scope, including
+  both HIGH-severity safety corrections.
+- **Verification:** owner accepted 291 passing automated tests, zero guarded
+  network attempts, both HIGH findings corrected and verified, and no remaining
+  confirmed acceptance blockers.
+- **Files affected by this acceptance record:** this tracker and
+  [DECISIONS.md](DECISIONS.md) only; no application or test changes.
+
+Accepted functionality:
+
+- Explicit device-detail/access reconciliation.
+- Qualified one-to-one identity associations.
+- Universal device-access acknowledgement enforcement.
+- Stale acknowledgement rejection.
+- Protected source provenance.
+- Safe integration with controller-specific planning.
+- Explicit rejection of generic controller planning.
+- Validated comparison exclusions.
+
+Accepted test evidence: E-025's final command,
+`python -B -m unittest discover -s tests -q`, with `PYTHONPATH=src`:
+**291 tests passed in 88.461 seconds**, exit 0, **zero guarded network attempts**.
+All 286 prior cases were retained with documented affected-path expectations
+updated; five regression methods were added. The 15 Python-level network guards
+are not OS-level isolation. These are existing verification results; no tests
+were rerun for this documentation-only owner-acceptance update.
+
+Mandatory limitations:
+
+- No live product compatibility is established.
+- Access completeness and credential portability remain unverified.
+- Acknowledgement authorizes offline planning only.
+- No real import execution is authorized.
+- Previously generated generic controller plans must be regenerated using
+  controller-specific APIs.
+- No production configuration changes are authorized.
+
+This decision supersedes earlier C2 review/owner-acceptance-pending labels only
+for the completed offline scope; historical implementation/test checkpoints are
+retained. It does not accept broader CCV-004 functionality or authorize APIs,
+real HTTP/secret backends, live verification, Git operations, or C3.
+
+**Known acceptance blockers:** none remaining confirmed in the accepted scope.
+Live schemas, evidence catalogue authenticity, access completeness, and credential
+portability remain qualification limitations, not claims resolved by acceptance.
+**Next action:** preserve accepted C2 and its evidence/limitations; await separate
+authorization. CCV-004-C3 remains unauthorized and not started.
+
+### E-025 - CCV-004-C2 acceptance-blocking planning corrections, 2026-11-18
+
+Historical correction checkpoint: E-026 records subsequent owner acceptance of
+the completed offline scope, superseding the pending labels below.
+
+- **Task / objective:** CCV-004-C2, correct both confirmed HIGH offline
+  planning-safety findings without expanding reconciliation or execution scope.
+- **Priority / dependencies:** P1; E-022/E-023/E-024, controller object/mapping
+  validation, universal acknowledgement, order-preserving artifacts, and
+  deterministic plan integrity.
+- **Approval:** explicit owner selection of both HIGH corrections on
+  2026-11-18, following the read-only review and ranked findings.
+- **Implementation:** implemented; no files created or deleted.
+- **Verification:** selected correction criteria passed; 291 offline tests pass.
+  C2 correction review and owner acceptance remain pending.
+
+Confirmed starting defects:
+
+1. A fully acknowledged C2 artifact passed the generic access-policy check.
+   The generic planner then accepted a MISSING root mapping as CREATE, although
+   the shared controller planner reported `root_unresolved`. Generic verification
+   accepted the resulting candidate with its retained source bytes and digest.
+   Thus an acknowledgement-only generic check did not enforce controller safety.
+2. The opt-in acknowledgement comparison rule removed two same-named fields from
+   arbitrary root/site configuration, even though only device provenance receives
+   access-policy validation. Unknown configuration differences could become SKIP
+   and pass controller plan recomputation.
+
+The read-only review ran all 286 tests successfully in 60.623 seconds and used
+two additional guarded probes to reproduce these defects in 0.182 seconds.
+Passing those probes demonstrated the defects, not safe planning.
+
+Files modified:
+
+- [plans.py](../src/cc_vision_import/plans.py): replace the insufficient
+  acknowledgement-only generic check with explicit `controller_planning_required`
+  rejection at the shared assembly boundary for Cyber Controller
+  `controller-objects`. This covers creation, parsing, verification, validation,
+  and serialization, including self-consistent historical schema-1 envelopes.
+- [controller_comparison.py](../src/cc_vision_import/controller_comparison.py):
+  confine acknowledgement metadata exclusions to controller devices, after the
+  existing shared validator admits comparison. Root/site fields with identical
+  names remain unknown order-sensitive configuration, not local device metadata.
+- [test_controller_reconciliation.py](../tests/test_controller_reconciliation.py):
+  three new focused regressions; update existing generic-path assertions to
+  require explicit rejection, and extend invalid device-metadata cases to assert
+  comparison remains BLOCKED. A shared test request helper avoids duplicating the
+  generic request shape.
+- [test_planning_contracts.py](../tests/test_planning_contracts.py): one new
+  positive regression preserving generic Cyber Controller non-controller domains.
+- [test_controller_comparison.py](../tests/test_controller_comparison.py):
+  one additional regression explicitly rejects forged controller root CREATE
+  actions with stale or correctly recomputed hashes, for resolved and missing
+  root mappings. Legitimate SKIP/BLOCKED candidates continue to verify.
+- [test_controller_objects.py](../tests/test_controller_objects.py): update the
+  earlier A-path integration regression to require generic rejection and
+  demonstrate verified controller-specific planning from resolved mappings.
+- [ARCHITECTURE.md](ARCHITECTURE.md), this tracker: supported boundaries,
+  compatibility implications, authorization, and actual evidence.
+
+Permanent regression evidence:
+
+- Fully acknowledged source artifacts are still rejected by generic planning,
+  both with ordinary resolved mappings and with a forbidden root CREATE.
+- A self-consistent, correctly rehashed historical generic controller candidate
+  is rejected by parsing, verification, validation, and both serialization methods.
+  A Vision-labeled synthetic generic candidate is used only to construct this
+  local test envelope; no product/schema compatibility is implied.
+- Unknown root and site fields remain comparison inputs in both Physical and
+  Organization trees. Changes inside `acknowledgement`, changes to the same-named
+  source hash field, and dictionary-order-only changes produce CONFLICT after
+  standard artifact roundtrip. Identical configurations remain SKIP, current
+  conflict plans verify, and prior SKIP plans reject changed inputs.
+- Malformed device provenance cannot use the opt-in rule to obtain SKIP.
+- Existing generic Vision fixtures and other generic domains remain supported.
+  Earlier A/B, C1 recursive/flat, and C2 negative planning cases all retain the
+  shared policy boundary and cannot re-enter generic planning.
+
+Actual tests and diagnostics:
+
+1. The four newly selected regression methods were run before production changes:
+   negative cases reproduced the defects; the non-controller-domain positive case
+   passed. The old validator incorrectly returned no issues, exposing an
+   issue-index access in the new negative test; its assertion was made explicit.
+2. Targeted command:
+   `python -B -m unittest -q test_controller_reconciliation test_planning_contracts test_controller_comparison`
+   with source/tests on `PYTHONPATH`: **116 tests passed in 14.230 seconds**.
+3. First complete correction run: 290 tests in 38.099 seconds, one error in the
+   earlier A regression that still expected a generic controller candidate.
+   That directly dependent test now verifies explicit rejection and the supported
+   controller-specific route instead.
+4. Initial complete passing correction command:
+   `python -B -m unittest discover -s tests -q`
+   with `PYTHONPATH=src`: **290 tests passed in 64.149 seconds**, exit 0.
+   All 286 prior cases are retained, with directly affected expectations updated;
+   four new methods add the acceptance regressions. Reconciliation has 45 methods.
+5. Pylance file diagnostics: no diagnostics in the two changed production modules
+   or the three changed test modules. The last two test edits were included in
+   the final suite and subsequent diagnostic checks.
+6. **Zero guarded network attempts**: all 15 socket/DNS/HTTP/URL guards remained
+   uncalled. Guards are Python-level assertions, not OS-level network isolation.
+7. The owner's explicit two-finding authorization on 2026-11-18 was checked
+   against all seven requested regression requirements. No further application
+   changes were necessary. One permanent controller-schema-2 forgery regression
+   was added alongside the existing generic-envelope tests:
+   `test_forged_and_rehashed_root_creates_fail_controller_verification`.
+   It first verifies legitimate existing-root and blocked missing-root candidates,
+   then proves root CREATE is rejected for both mapping states, before and after
+   recomputing the plan ID/integrity digest. The rehashed forged model passes its
+   own envelope-integrity check but still fails retained-input verification.
+   The unchanged suite additionally covers unknown root/site metadata conflicts,
+   invalid device exclusions, generic bypass rejection, and unrelated-domain
+   compatibility. Fresh complete command:
+   `python -B -m unittest discover -s tests -q`
+   with `PYTHONPATH=src`: **291 tests passed in 88.461 seconds**, exit 0,
+   **zero guarded network attempts**. All 286 prior cases remain, with the
+   previously documented affected-path expectations, plus five added methods.
+   Pylance reports no diagnostics in the additional changed test module.
+   This follow-up modified only that test module and this tracker; no API,
+   configuration write, legacy modification, installation, Git operation, or
+   C3 work was performed.
+
+Compatibility and remaining gates:
+
+- Artifact schema 1, controller plan schema 2, policy IDs, serialization format,
+  and hash algorithms remain unchanged. The corrections restore the intended
+  boundary and exclusion scope rather than introducing another format.
+- Generic Cyber Controller controller envelopes are explicitly unsupported,
+  even if previously valid or acknowledged. Regenerate through controller
+  comparison/verification with retained inventories and declarations.
+- Old controller plans that hid unknown root/site differences fail recomputation;
+  regenerate them. Retained artifacts and diagnostic information are not deleted.
+- No new API evidence or endpoint, product capability, backend, dependency,
+  execution path, credential provider, Git operation, or legacy change was added.
+- Evidence catalogue authenticity, official schemas, access completeness,
+  credential portability, and live compatibility remain unverified. No offline
+  acknowledgement or candidate plan authorizes execution.
+- **Known correction blockers:** none observed in the completed tests.
+- **Next action:** review the two corrections and seek C2 owner acceptance.
+  Stop before C3 and all live/backend work.
+
+### E-024 - CCV-004-C2 shared planning boundary enforcement, 2026-11-18
+
+Historical checkpoint: E-025 supersedes its generic acknowledgement-only check
+with explicit rejection of controller artifacts at generic planning boundaries.
+
+- **Task / objective:** CCV-004-C2, enforce the owner-approved universal
+  acknowledgement scope at the shared controller planning validator, not only
+  at semantic comparison.
+- **Priority / dependencies:** P1; E-022/E-023, existing normalized controller
+  contracts, qualified identity mapping, bound access policy, and plan integrity.
+- **Approval:** explicit owner Option 1 confirmation and shared-boundary
+  requirements on 2026-11-18; offline-only C2.
+- **Implementation:** implemented.
+- **Verification:** all 286 offline tests pass; review/owner acceptance pending.
+
+Confirmed starting limitation: comparison and generic planning already enforced
+the bound policy, but direct `validate_controller_planning` calls did not.
+Calling the shared validator alone could therefore report valid entries for
+unacknowledged access. This task moves enforcement into that boundary and
+retains the independent generic policy check.
+
+Files modified; none created:
+
+- [controller_planning.py](../src/cc_vision_import/controller_planning.py):
+  accept the existing typed acknowledgement tuple, validate its qualified
+  identities/declarations, and attach source/mapped-destination policy and
+  credential issues directly to planning entries.
+- [controller_comparison.py](../src/cc_vision_import/controller_comparison.py):
+  forward declarations to the shared validator and consume its issue codes;
+  remove the duplicate comparison-only acknowledgement/credential gate.
+- [controller_objects.py](../src/cc_vision_import/controller_objects.py):
+  share the existing object-level credential-uncertainty check without including
+  identity labels as configuration values.
+- [controller_access_policy.py](../src/cc_vision_import/controller_access_policy.py):
+  independently reject empty/null access and uncertain device credentials, so
+  matching acknowledgement declarations cannot override unsafe input in either
+  controller or generic planning.
+- [controller_reconciliation.py](../src/cc_vision_import/controller_reconciliation.py):
+  avoid duplicate issue reports when structural and shared policy checks identify
+  the same per-device failure.
+- [test_controller_reconciliation.py](../tests/test_controller_reconciliation.py):
+  four focused boundary regressions and explicit qualified cross-tree fixtures.
+- [ARCHITECTURE.md](ARCHITECTURE.md), this tracker.
+
+Policy and compatibility:
+
+1. All devices carrying access must satisfy the same gate, regardless of
+   A/B normalization, C1 recursive/flat export, or C2 reconciliation origin.
+   The existing binding to qualified controller/tree/device/native identity,
+   ordered source/access/input data, policy version, and protected opaque
+   evidence remains unchanged. Configuration changes invalidate acknowledgement.
+2. Direct validator results become invalid for missing/stale acknowledgement;
+   comparison emits BLOCKED for affected devices/dependencies. Source-only
+   consent cannot authorize the destination or another same-name/native-ID
+   object in a different tree. Explicit identity mappings remain mandatory.
+3. Acknowledgement cannot override invalid configuration, missing fields,
+   parent/identity conflicts, empty/null access, raw/masked credentials,
+   unresolved sensitive references, or unsupported comparison rules/
+   transformations. Structural errors still reject; policy failures are
+   explicitly reported. No data is deleted or silently repaired.
+4. No schema or policy-version change was necessary: artifact schema 1,
+   controller plan schema 2, provenance schema 2, existing hashing/serialization,
+   and access policy `qualified-offline-device-access-v1` are retained.
+   Existing comparison/verification acknowledgement parameters are unchanged.
+   The shared validator gains the same optional keyword; omission no longer
+   grants valid device-access entries. No blanket grandfathering of old inputs.
+5. Generic Cyber Controller planning retains its conservative whole-candidate
+   block on policy failure; it cannot bypass the universal rule. The strict
+   existing-target resolver remains an identity resolver, not a planning or
+   access-approval path. No new HTTP/API/CLI operation or transformation exists.
+6. Original artifacts/export data remain protected and unchanged. Missing
+   acknowledgement blocks eligibility, not diagnostic retention. Structural
+   validation, offline acknowledgement, official verification, and live
+   compatibility remain separate; no completeness/portability/execution claim.
+
+New negative coverage:
+
+- Both trees through A/B-normalized inventories, C1 recursive exports, C1 flat
+  exports, and C2 unacknowledged reconciliation. Each runs direct shared
+  validation, controller comparison/verification, and generic planning.
+  Device actions are BLOCKED; standard artifact bytes remain unchanged.
+- Current acknowledgements make direct validation valid; changed source or
+  destination access makes the retained declarations stale.
+- Same names, addresses, and native IDs in Physical/Organization remain
+  independently qualified. A Physical/source acknowledgement cannot authorize
+  Organization or the destination; explicitly acknowledging both Physical
+  identities leaves only that tree eligible.
+- Empty access, masks, null/unresolved credentials, missing names, invalid
+  parents, conflicting native identities, and raw passwords remain
+  invalid/rejected despite supplied acknowledgements.
+
+Actual targeted command:
+
+```powershell
+$env:PYTHONPATH = (Join-Path (Get-Location).Path 'src') + [IO.Path]::PathSeparator + (Join-Path (Get-Location).Path 'tests')
+python -B -m unittest test_controller_reconciliation test_controller_comparison -q
+```
+
+**95 tests passed in 8.876 seconds**, exit `0`, before the final independent
+empty-access/credential policy tightening and issue deduplication.
+
+Final complete offline command:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m unittest discover -s tests -q
+```
+
+**286 tests passed in 67.928 seconds**, exit `0`: all 282 previous cases plus
+four new shared-boundary tests; no earlier regression expectations were relaxed.
+Pylance diagnostics are clear for all six modified Python files. Syntax checks
+passed; Pylance signature analysis found the statically resolved validator call
+compatible with the added optional keyword. Dynamic test call sites were
+exercised by the suite.
+
+**Network evidence:** every new case uses the existing 15-entry fail-fast
+socket/DNS/HTTP guard before application imports; cleanup asserts no guarded
+entry point was called. **Zero guarded network attempts**, no product API
+requests. This is test-guard evidence, not OS isolation.
+
+**Remaining limitations / next action:** real schema/access requirements,
+evidence-catalogue authenticity, access completeness, and portability remain
+unverified. Unknown secrets disguised in unrecognized text remain a producer
+classification obligation. Seek C2 technical review/owner acceptance; preserve
+retained snapshots/declarations and replan after changes. No Git operations,
+dependency installation, legacy execution/modification, real imports/exports,
+configuration writes, or C3 work. **C3 is not started.**
+
+### E-023 - CCV-004-C2 bound access acknowledgement policy, 2026-11-18
+
+Historical bound-policy checkpoint; E-024 subsequently moves its controller gate
+into the shared planning validator and adds negative coverage for all origins.
+
+- **Task / priority:** CCV-004-C2 policy clarification, P1.
+- **Dependencies:** E-022 reconciliation, existing controller/artifact/plan
+  integrity contracts, owner-approved Option 1.
+- **Approval:** explicit owner clarification on 2026-11-18, followed by scope
+  selection requiring the gate for all controller devices carrying access,
+  including direct C1/A/B artifacts.
+- **Implementation:** implemented; provenance local schema 2, access policy
+  `qualified-offline-device-access-v1`.
+- **Verification:** 282 offline tests passed; technical review and owner
+  acceptance pending. Policy approval is not implementation acceptance.
+
+Files created:
+
+- [controller_access_policy.py](../src/cc_vision_import/controller_access_policy.py).
+
+Files modified:
+
+- [controller_reconciliation.py](../src/cc_vision_import/controller_reconciliation.py):
+  typed bound acknowledgement instead of bare evidence reference; preserve
+  structurally valid previews separately from policy eligibility.
+- [controller_comparison.py](../src/cc_vision_import/controller_comparison.py):
+  universal source/destination access gates, optional protected acknowledgement
+  declarations, fixed policy version in plan metadata, and explicit local
+  metadata comparison rule.
+- [plans.py](../src/cc_vision_import/plans.py): generic Cyber Controller artifact
+  policy gate; no silent generic-planner bypass.
+- [test_controller_reconciliation.py](../tests/test_controller_reconciliation.py):
+  11 new cases plus updated C2 acknowledgement workflow.
+- [offline_support.py](../tests/offline_support.py),
+  [test_controller_comparison.py](../tests/test_controller_comparison.py), and
+  [test_controller_exports.py](../tests/test_controller_exports.py): existing
+  comparison scenarios now supply explicit, freshly reviewed synthetic
+  acknowledgements; no production auto-acknowledgement behavior.
+- [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md), this tracker.
+  No new static API evidence, endpoint, or capability; API matrix unchanged.
+
+Implementation and safety:
+
+1. `DeviceAccessAcknowledgement` binds controller/tree/device/native identity,
+   normalized source snapshot SHA-256, ordered access/input SHA-256, access
+   policy version, and protected opaque evidence reference. Operators explicitly
+   create it with `acknowledge_device_access`; reconciliation never infers consent.
+2. Source binding retains all normalized source data/metadata and configuration
+   order, not transport whitespace or cached validation status. C2 access binding
+   includes effective and original tree access, complete supplied detail/access,
+   and associated record references. Direct acknowledgement binds effective access
+   and the full source snapshot. Policy is checked on every comparison.
+3. C2 planning reconstructs the original source snapshot from protected
+   provenance. Changed source data, access, ordered fields/arrays/types, or bound
+   inputs invalidate old acknowledgements. Source/destination gates run before
+   semantic rules; removing/mismatching policy metadata cannot turn a blocked
+   action into SKIP.
+4. Structurally valid but unacknowledged/mismatched/stale devices produce
+   per-device BLOCKED controller actions, including after serialization.
+   Structural invalidity remains invalid and preserves diagnostic configuration.
+   The acknowledgement cannot repair missing fields/parents, conflicting
+   identities/configuration, raw/masked credentials, or unresolved references.
+5. Evidence references accept only `evidence-` plus 32 lowercase hexadecimal
+   characters, as an opaque local catalogue identifier. They are protected
+   artifact/declaration data, hidden from default representations and summaries.
+   Raw address/URL/freeform credential/token examples fail without echoing input.
+   Catalogue ownership/content is not read or authenticated. Operators must
+   assign identifiers independently of secrets; syntactically disguised secrets
+   cannot be detected generically.
+6. Non-C2 access requires explicit external declarations through comparison/
+   verification's `device_access_acknowledgements` tuple. Those declarations
+   are digest-bound and deterministically ordered, not emitted raw in plans.
+   Old direct callers without declarations now receive BLOCKED as approved.
+7. New opt-in rule `validated-offline-access-acknowledgement-v1` excludes only
+   C2's local acknowledgement and source snapshot hash from semantic equality;
+   exact field paths/local contract evidence are reported. All operational/
+   unknown/access/detail data remains compared; every field remains snapshot-
+   integrity-bound. Without this explicit rule, local metadata differences
+   conservatively produce CONFLICT.
+8. Generic schema-1 planning has no external acknowledgement tuple: it
+   conservatively blocks the whole Cyber Controller controller-artifact
+   candidate if any required access acknowledgement fails. Vision-labeled
+   generic synthetic artifacts are not treated as Cyber Controller schemas.
+   No Vision support is inferred.
+9. Artifact schema 1 and controller plan schema 2 remain; C2 provenance schema 1/
+   bare evidence references cannot establish eligibility. Rebuild previews from
+   retained originals and explicitly acknowledge them. Updated policy/declaration
+   hashes require plan regeneration; old plans fail recomputation, not silent
+   upgrade. No import execution follows from acknowledgement.
+
+Actual final verification:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m unittest discover -s tests -v
+```
+
+**282 tests passed in 50.840 seconds**, exit `0`: all 271 prior scenarios plus
+11 new acknowledgement cases. Prior comparison/export fixtures were explicitly
+adapted to the owner-approved universal gate; assertions retain their original
+comparison/fidelity/dependency purposes. Intermediate checks exposed an invalid
+synthetic generic-request destination shape and an overbroad generic gate that
+tried to parse Vision-labeled fixtures as Cyber Controller; both were corrected
+before the final passing suite.
+
+New cases cover missing, valid, mismatched device/controller/tree, stale access/
+source/order/type/input, post-reconciliation mutation, legacy/policy mismatch,
+protected evidence rejection, unsafe-input non-override, generic planner bypass,
+and direct non-C2 acknowledgement enforcement/renewal. Existing tests retain
+SKIP/CONFLICT/CREATE, deterministic integrity, unknown-field/ordering fidelity,
+duplicate identity safety, and credential checks under explicit declarations.
+Pylance diagnostics are clear for all changed/new Python files; syntax checks
+passed for the new policy and changed comparison module.
+
+**Network:** zero guarded attempts under the existing 15-entry socket/DNS/HTTP
+guard; no API requests, real backend, or legacy execution/modification. Test
+guards are not an OS sandbox. No dependency installation, Git operation,
+configuration write, real import/export, or C3 work.
+
+**Remaining limitations:** structural validity, offline acknowledgement,
+official product/schema verification, and live-tested compatibility are separate.
+Evidence is a protected offline assertion, not an authenticated approval
+signature. Neither nonempty access nor acknowledgement proves completeness or
+portability. Unknown secrets disguised in unrecognized text remain a producer
+classification obligation. No live compatibility or execution authorization.
+
+**Next action:** technical review and owner acceptance of the clarified C2 scope.
+Preserve original snapshots/acknowledgement declarations and regenerate plans
+after changes. Stop before C3.
+
+### E-022 - CCV-004-C2 offline device reconciliation, 2026-11-18
+
+Historical initial C2 checkpoint; E-023 supersedes the bare evidence gate and
+whole-artifact acknowledgement handling with the clarified bound policy.
+
+- **Task:** CCV-004-C2, reusable offline association of normalized tree devices
+  with supplied detail and device-access records.
+- **Priority / dependencies:** P1; accepted C1/A/B contracts, source-observed
+  downloader behavior, explicit qualified associations and owner-selected
+  per-device evidence gate.
+- **Approval:** authorized offline-only on 2026-11-18; owner selected required
+  per-device acknowledgement/evidence reference in the clarification form.
+- **Implementation:** implemented.
+- **Verification:** authorized offline criteria passed; technical review and
+  owner acceptance pending. No live verification or compatibility claim.
+
+Files created:
+
+- [controller_reconciliation.py](../src/cc_vision_import/controller_reconciliation.py).
+- [test_controller_reconciliation.py](../tests/test_controller_reconciliation.py).
+
+Files modified:
+
+- [controller_objects.py](../src/cc_vision_import/controller_objects.py) and
+  [controller_comparison.py](../src/cc_vision_import/controller_comparison.py):
+  share the existing credential-uncertainty test without changing comparison
+  behavior.
+- [ARCHITECTURE.md](ARCHITECTURE.md), [API_MATRIX.md](API_MATRIX.md), this tracker.
+
+Read-only legacy findings:
+
+- OD 110-142 obtains tree device native IDs, types, addresses, and containment
+  relationships.
+- OD 145-163 extracts `deviceSetup.deviceAccess` from the existing by-IP detail
+  response, deletes access `ormID`, and updates only the first matching flat
+  device by IP.
+- No detail-level ID/type/class or additional response schema is inspected by
+  that code. Address uniqueness, cross-tree equivalence, complete access keys,
+  and credential portability are not established. C2 neither performs the
+  request nor copies the ID deletion or by-IP join.
+
+Implemented rules and integration:
+
+1. Reuse existing normalized devices/references/artifacts and export-result
+   wrapper. Only `0.0-test` enabled. No competing device schema or client.
+2. Explicit one-to-one controller/tree/device/native-ID associations to local
+   opaque detail/access record IDs. No name/IP inference or cross-tree merging.
+   Duplicate IPs remain separate with explicit associations. Unmatched ambiguous
+   IP references produce a dedicated error; they never choose a target.
+3. Reject duplicate/unmatched/missing referenced records, conflicting identities,
+   types, addresses, parents, access sources, and overlapping configuration.
+   Exact JSON comparison retains dictionary/array order, types, and null.
+   Conflicts never choose or overwrite a supplied value.
+4. Preserve tree configuration and full detail/access payloads in reserved
+   `configuration.offlineDeviceReconciliation`, local schema 1. Include record
+   references, original tree access location/value, offline evidence, and
+   unverified completeness. Unknown detail attributes are retained as provenance,
+   not projected into guessed product settings. Reserved/reconciled inputs
+   require review rather than implicit reapplication.
+5. Fill only absent tree access. Explicit null/empty/missing access remains
+   incomplete or conflicts; existing access retains its location and settings.
+   Raw credentials are rejected; approved-shaped references/null placeholders
+   are retained but block eligibility along with masks. Ordinary null does not
+   automatically block. All result/error representations remain payload-safe.
+6. Only C1's `incomplete_device_access` invalid status may enter reconciliation
+   for structural revalidation. Missing details, incomplete access, uncertain
+   credentials, or absent per-device evidence keep the resulting artifact
+   invalid after serialization; ordinary controller parsing/planning rejects it.
+   Other invalid source statuses are rejected, not cleared.
+7. Valid output feeds unchanged explicit destination mapping, acknowledged exact
+   comparison, CREATE dependencies, deterministic schema-2 plan generation and
+   verification. Complete provenance/evidence is integrity-bound, not excluded
+   from comparison. No destination ID assignment, write, or execution exists.
+
+Actual tests:
+
+```powershell
+$env:PYTHONPATH = (Join-Path (Get-Location).Path 'src') + [IO.Path]::PathSeparator + (Join-Path (Get-Location).Path 'tests')
+python -B -m unittest test_controller_reconciliation -v
+```
+
+Initial focused run: **26 tests passed**, **0.945 seconds**, exit `0`.
+One permanent external-sorting case and additional assertions/subcases were
+then added.
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m unittest discover -s tests -v
+```
+
+Final full run after the last application/test edit:
+**271 tests passed in 45.367 seconds**, exit `0`, retaining all **244**
+existing tests plus **27** new cases. An earlier full run also passed 271 tests
+in 56.759 seconds before original tree-access provenance was added.
+Pylance per-file diagnostics are clear for all four changed/new Python files;
+syntax checks also passed.
+
+Coverage includes successful C1 repair without input mutation, missing details,
+duplicate IPs, ambiguous/unmatched/duplicate records, attribute/type/native-ID
+conflicts, same native ID in different trees, unknown nested fields, independent
+access responses, existing/null/missing/empty access, evidence gating, raw
+credentials and masked/unresolved/null credential blocks, ordinary null,
+ordered dictionary/array/type/missing-null differences, redacted result/
+association/error representations, and reserved provenance rejection.
+The full mocked path runs for both trees:
+synthetic tree -> C1 artifact -> explicit detail association -> reconciliation
+-> validated standard serialization/parsing -> comparison -> candidate plan
+-> integrity verification. Tests cover SKIP/CONFLICT/CREATE, unassigned
+destination IDs, evidence/configuration tampering, and externally sorted
+configuration invalidating retained plans.
+
+**Network evidence:** every new case inherits the existing fail-fast 15-entry
+socket/DNS/HTTP guard before application imports; cleanup asserts no guarded
+entry point was called. **Zero guarded network attempts** across the passing
+suite; no product API requests. This is Python test-guard evidence, not
+OS-level isolation or protection from arbitrary trusted executable backends.
+
+**Remaining limitations / blockers:** no authoritative real detail schemas,
+required access-field list, complete/paged inventory evidence, cross-tree
+equivalence rule, or credential portability evidence. An opaque evidence
+reference acknowledges offline reconciliation; it is not read/authenticated
+and does not prove complete access. Unknown secrets disguised in unrecognized
+arbitrary text cannot be generically detected. Provenance/record/evidence
+differences can conservatively cause CONFLICT even when selected settings match.
+No new API capability, backend, CLI, real export/import, or configuration write
+was added. Legacy sources were read only; no dependencies or Git operations.
+
+**Next action:** obtain C2 technical review and owner acceptance. A possible C3
+proposal is offline reconciliation reporting/orchestration and approved-schema
+evidence validation, retaining all mapping/credential/plan-integrity gates.
+That proposal is not authorization. **C3 is not started.**
 
 ### E-021 - CCV-004-C1 owner acceptance, 2026-11-18
 
@@ -2115,12 +2809,35 @@ Recursive/explicit-context flat adapters and the mock-client bridge preserve
 existing object/artifact contracts; incomplete device-access artifacts remain
 data-preserving but rejected for planning. Completeness is always unverified.
 See E-020/E-021 for implementation, review evidence, owner acceptance, and limits.
-Stop before C2, CCV-009, real HTTP backend development, or live work without
+C2 was subsequently authorized offline-only on 2026-11-18 and is now
+implemented/offline-verified with both acceptance-review corrections:
+291 tests pass (all 286 prior cases retained with affected expectations updated
+and five new regressions),
+zero guarded attempts. Explicit qualified associations and bound per-device
+offline acknowledgements gate all controller device-access planning at the shared
+validator, including direct A/B/C1 inputs. Comparison consumes shared results;
+generic planning now explicitly rejects Cyber Controller controller artifacts.
+The acknowledgement comparison rule excludes metadata only on policy-validated
+devices, preserving unknown root/site differences.
+Missing/stale acknowledgements produce per-device BLOCKED
+actions; structurally invalid inputs remain invalid. Policy version and source/
+access hashes are retained and checked. Explicit associations gate
+reconciliation; original tree configuration and supplied details/access survive
+in integrity-bound provenance. Incomplete results remain invalid and cannot
+enter controller planning. Access completeness/credential portability remain
+unverified. The owner accepted C2's completed offline-only scope on 2026-11-18:
+291 tests passed, zero guarded attempts, both HIGH findings corrected and
+verified, and no remaining confirmed acceptance blockers.
+See E-022/E-023/E-024/E-025/E-026. Previously generated generic controller plans
+must be regenerated using controller-specific APIs. Acknowledgement authorizes
+offline planning only, not real imports or production configuration changes.
+Stop before C3, CCV-009, real HTTP backend development, or live work without
 separate authorization.**
 
-Recommended next action: preserve accepted A/B/C1, their evidence and limitations,
-and the unchanged strict resolver. Await separate owner authorization for any
-further milestone. Do not begin C2; credential migration remains separately gated.
+Recommended next action: preserve accepted A/B/C1/C2, their evidence and
+limitations, both planning corrections, and the unchanged strict resolver.
+Await separate authorization for further work. Do not begin C3; credential
+migration remains separately gated.
 Real API schemas and credential portability remain unverified; nonempty access
 does not establish completeness. No live compatibility or real export/import
 execution is authorized.

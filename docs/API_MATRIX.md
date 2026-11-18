@@ -1,6 +1,6 @@
 # Legacy API Evidence Matrix
 
-Date: 2026-11-17
+Date: 2026-11-18
 Evidence levels: source-observed endpoints; separately scoped offline mock
 coverage for authentication and three reads. No official/live qualification.
 
@@ -215,6 +215,40 @@ requirements. In particular, nonempty access does not prove complete access
 configuration. Local adapter/mock integration coverage is recorded separately in
 [E-020](PROGRESS.md#e-020---ccv-004-c1-offline-export-adapters-2026-11-18);
 none of it establishes live compatibility.
+
+## Device-detail reconciliation evidence - CCV-004-C2
+
+Read-only reinspection of OD `extract_sites_and_devices` (110-142),
+`extract_device_access_data` (145-163), and `main` (180-202) confirms:
+
+- Native tree device IDs come from `meIdentifier.managedElementID`; `type`
+  and `managementIp` are selected from tree nodes, and containment supplies
+  `parentOrmID`.
+- The existing API-06 by-IP request is followed by extraction of
+  `deviceSetup.deviceAccess`. The script deletes access `ormID`, joins by
+  `managementIp`, updates the first match, and stops.
+- It does **not** inspect detail-response native device ID, type, class, other
+  attributes, or controller/tree provenance. It proves neither address
+  uniqueness nor a relationship between access `ormID` and tree device ID.
+
+These are refinements of existing source evidence, not additional endpoints.
+The [C2 reconciler](../src/cc_vision_import/controller_reconciliation.py)
+accepts supplied synthetic data with explicit qualified associations; it does
+not implement API-06 or copy the by-IP merge/deletion behavior. Detail aliases,
+record envelopes, independent access payloads, and per-device evidence references
+are local offline contracts, not documented vendor schemas.
+Unknown attributes/access IDs are preserved. Recognized credential material
+must use existing safe contracts, and unresolved/masked/null credential values
+block eligibility. An evidence reference acknowledges offline reconciliation;
+it does not certify complete access or credential portability.
+
+Mock coverage: 27 new reconciliation tests; 271 total offline tests passed,
+zero guarded network attempts; see
+[E-022](PROGRESS.md#e-022---ccv-004-c2-offline-device-reconciliation-2026-11-18).
+API-06 remains source-observed only at the HTTP/schema compatibility level:
+no client/backend, official documentation review, live testing, real
+product/version capability, or Vision support is added. Operation counts
+remain 16 records / 12 concrete operations; production stays default-deny.
 
 ## Evidence needed next
 

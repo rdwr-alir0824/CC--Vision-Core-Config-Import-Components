@@ -6,7 +6,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from offline_support import OfflineTestCase
+from offline_support import OfflineTestCase, device_access_acknowledgements
 
 
 class ControllerExportTests(OfflineTestCase):
@@ -64,6 +64,7 @@ class ControllerExportTests(OfflineTestCase):
             source, destination, mappings,
             complete_trees=(source.objects[0].reference.tree,),
             semantics_known_for=tuple(item.reference for item in source.objects),
+            device_access_acknowledgements=device_access_acknowledgements(source, destination),
         )
 
     def test_recursive_adapters_preserve_hierarchy_objects_and_separate_trees(self) -> None:
@@ -125,6 +126,7 @@ class ControllerExportTests(OfflineTestCase):
                         json.loads(plan.to_json()), source, destination, mappings,
                         complete_trees=(tree,),
                         semantics_known_for=tuple(item.reference for item in source.objects),
+                        device_access_acknowledgements=device_access_acknowledgements(source, destination),
                     )
                     self.assertEqual(verified, plan)
                     self.assertEqual(plan.to_json(), self.plan(source, destination, list(reversed(mappings))).to_json())

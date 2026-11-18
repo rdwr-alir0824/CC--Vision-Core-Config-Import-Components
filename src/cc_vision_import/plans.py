@@ -172,6 +172,11 @@ def _assemble(
     mappings: tuple[IdentityMapping, ...], proposals: tuple[ActionProposal, ...],
 ) -> MigrationPlan:
     reader = ContractReader("plan")
+    if domain == "controller-objects" and source.source.product == "cyber-controller":
+        reader.fail(
+            "controller_planning_required", "$.domain",
+            "Cyber Controller objects require controller-specific planning and verification.",
+        )
     mapping_by_id = {item.mapping_id: item for item in mappings}
     if len(mapping_by_id) != len(mappings):
         reader.fail("duplicate_mapping", "$.mappings", "Mapping identifiers must be unique.")

@@ -13,6 +13,12 @@ dependencies, and deterministic redacted candidate plans/summaries.
 That offline-only B scope is owner-accepted. Separately authorized CCV-004-C1
 adds offline adapters for supplied recursive trees and context-qualified legacy
 flat exports, reusing those contracts and their order-preserving serialization.
+Its offline-only scope is owner-accepted. Separately authorized CCV-004-C2
+adds explicitly associated offline device-detail/access reconciliation, with
+per-device evidence acknowledgement and preserved provenance.
+Its acceptance-review corrections reject Cyber Controller controller artifacts
+at generic planning boundaries and confine acknowledgement comparison exclusions
+to policy-validated devices. Unknown root/site configuration remains comparable.
 No concrete HTTP backend, production secret resolver,
 online execution, or real product/version compatibility is established.
 
@@ -491,7 +497,7 @@ test guards establish zero guarded attempts, not OS-level isolation.
 The workflow sanitizes existing parser chains at its own boundary; direct calls
 to older profile/plan parsers have not been changed by this milestone.
 The separately authorized CCV-004-A/B and C1 offline contracts are described
-below. C1 adds no client operation; C2 and all live/backend development remain
+below. C1/C2 add no client operation; all live/backend development and C3 remain
 unauthorized.
 
 ## Implemented offline controller objects and identity mapping - CCV-004-A
@@ -638,7 +644,8 @@ overwrite/delete behavior, or credentials/secret resolution.
 ### Separate controller planning validator
 
 [controller_planning.py](../src/cc_vision_import/controller_planning.py) provides
-`validate_controller_planning(source, destination, mappings, complete_trees=())`.
+`validate_controller_planning(source, destination, mappings, complete_trees=(),
+device_access_acknowledgements=())`.
 It revalidates/copies normalized inventories and reuses the existing explicit
 mapping parser, identity types, and dependency-order validator.
 `resolve_controller_mappings` remains unchanged and still rejects missing
@@ -647,6 +654,19 @@ targets for operations requiring existing destination identities.
 - Require distinct declared source/destination contexts and exact source
   index/qualified identity/domain/product-version bindings for supplied mappings.
   Malformed records, duplicate mapping IDs/indices, and cycles fail structurally.
+- The shared validator enforces the universal C2 access policy for every device
+  carrying access, whether normalized directly by A/B, exported through C1's
+  recursive/flat adapters, or reconciled by C2. Source and mapped destination
+  acknowledgements must bind qualified identity, relevant source/access data,
+  policy version, and protected opaque evidence. Missing/stale acknowledgements
+  make affected entries invalid; comparison consumes those entries to emit
+  BLOCKED. Direct validator calls cannot bypass the gate by omitting comparison.
+  Malformed/duplicate/unknown acknowledgement declarations are rejected.
+- Access policy independently rejects empty/null access and uncertain device
+  credentials, regardless of acknowledgement hashes. The validator also retains
+  credential-uncertainty checks for all controller objects and mapped targets.
+  No acknowledgement overrides configuration/hierarchy/identity errors or
+  enables an unsupported transformation. Original artifacts remain unchanged.
 - Every represented source root must explicitly resolve to an existing
   destination root in the matching tree. A missing/unresolved root cannot become
   CREATE; affected dependents are blocked, without blocking the other tree.
@@ -966,17 +986,249 @@ Full offline suite: **244 tests passed**, retaining all **220** existing tests
 plus **24** adapter regressions, with **zero guarded network attempts**.
 Actual commands/results are in
 [E-020](PROGRESS.md#e-020---ccv-004-c1-offline-export-adapters-2026-11-18).
-C1 is implemented and offline-verified; technical review/owner acceptance remain
-pending. No legacy script was executed/modified and no API was contacted.
+C1's implemented offline-only scope is owner-accepted on 2026-11-18; see
+[E-021](PROGRESS.md#e-021---ccv-004-c1-owner-acceptance-2026-11-18).
+No legacy script was executed/modified and no API was contacted.
 
 Limitations: flat files cannot restore root/configuration/access fields already
 discarded by legacy code; earlier lost ordering cannot be reconstructed.
 Source-root context, offline inventories, reference approval, and completeness
 assertions are trusted inputs, not authenticated evidence. Unknown secrets
 disguised in arbitrary unrecognized text cannot be generically detected.
-No by-IP enrichment, device detail adapter/client, live export, real version
-schema qualification, configuration writes, credential migration, production
-connectivity, or C2 is implemented.
+C1 itself adds no by-IP enrichment or detail client. The separately authorized
+C2 component below reconciles supplied data only. Live export, real-version
+qualification, configuration writes, credential migration, and production
+connectivity remain unimplemented.
+
+## Implemented offline device-detail reconciliation - CCV-004-C2
+
+[controller_reconciliation.py](../src/cc_vision_import/controller_reconciliation.py)
+reuses `ControllerDevice`, `SourceObjectReference`, `ControllerExportResult`,
+schema-1 controller artifacts, and the unchanged schema-2 comparison/plan APIs.
+It introduces no competing device model, endpoint/client, HTTP backend, IO,
+secret resolution, CLI operation, or execution path. Only `0.0-test` is enabled.
+
+### Input, identity, and conflict contracts
+
+`reconcile_controller_devices(artifact, details, accesses, associations)` accepts
+a controller artifact, two arrays of local record envelopes
+`{"record_id": "opaque-reference", "payload": {...}}`, and a tuple of
+`DeviceReconciliationAssociation` records:
+
+- `source`: explicit controller/tree/device-kind/native-ID reference.
+- `detail_record`: exactly one supplied detail record per device.
+- `access_record`: optional separately supplied access record.
+- `acknowledgement`: optional `DeviceAccessAcknowledgement` binding the qualified
+  device, normalized source snapshot hash, ordered access/input hash, policy
+  version, and a protected opaque evidence reference. Missing or stale
+  acknowledgement blocks planning, not structural inventory parsing.
+
+Record envelopes and associations are **local synthetic contracts**, not vendor
+response schemas or capability declarations. Detail payloads may contain the
+source-observed `deviceSetup.deviceAccess` representation or the already
+supported top-level `deviceAccess`; separate access payloads are bare dictionaries.
+Native identifiers/type/address fields in detail responses are not established
+by the legacy downloader. If supplied, locally recognized `ormID`, `id`,
+`meIdentifier`, `parentOrmID`, `name`, `type`, and `managementIp` must agree
+with the qualified tree object; they never choose it.
+
+Every supplied record must be associated exactly once. Duplicate record IDs,
+reused detail/access records, duplicate device associations, missing referenced
+records, unknown controller/tree/device targets, and unmatched records fail.
+Unmatched address references with multiple possible devices receive
+`ambiguous_ip_reference`; this is diagnostic only, never a by-IP association.
+Duplicate IPs/names are allowed with distinct qualified associations. Devices
+are never automatically merged between Physical and Organization.
+
+Overlapping configuration must match exactly, including nested member/array
+order, JSON types, and null. There is no recursive union, conflict preference,
+parent rewrite, or overwrite. Detail child objects and simultaneous top-level/
+nested access are rejected. Tree, detail, and separately supplied access must
+agree when multiple locations supply values. Explicit null is not absence:
+only absent tree access may be filled; null is never silently replaced.
+Existing non-absent tree access retains its original location/value.
+
+### Preservation and artifact eligibility
+
+The original tree configuration is retained. Additional detail attributes are
+not projected into guessed product fields. Each associated device's existing
+`configuration` gains one reserved provenance member,
+`offlineDeviceReconciliation`, with local `schema_version=2`, record references,
+the complete detail and separate-access payloads, original `tree_access`
+location/value, source snapshot hash, versioned acknowledgement,
+`scope="offline-planning-only"`, and
+`completeness="unverified"`. Unknown fields and native access IDs are retained
+without deletion. Input record/dictionary order is retained inside payloads;
+devices keep their original inventory order regardless of record order.
+
+The namespace is not an alternate artifact format. Existing schema-1
+order-preserving controller serialization handles it; exact comparison and
+schema-2 hashes include it. Consequently provenance/record changes can
+conservatively cause CONFLICT or invalidate acknowledgement and a retained plan.
+The explicit opt-in `validated-offline-access-acknowledgement-v1` comparison rule
+excludes only the local acknowledgement and source snapshot hash from semantic
+equality for devices after shared planning policy gating. It does not interpret
+same-named root/site fields as device provenance: those unknown configuration
+fields remain order-sensitive comparison inputs. Malformed or unacknowledged
+device provenance remains BLOCKED, never eligible for this exclusion.
+Its two field paths and local contract evidence
+appear in the comparison policy. It never excludes access, detail, unknown
+configuration, or original tree-access data. Full snapshots still bind all
+metadata, and no exclusions are automatic. Without that rule, independently
+bound controller-local metadata may conservatively cause CONFLICT.
+Already reconciled/reserved-name input is explicitly rejected; re-reconciliation
+needs separate review rather than silently replacing provenance.
+
+C2 may inspect a C1 artifact marked invalid **only** for
+`incomplete_device_access`. It first reparses the entire normalized structure,
+then recomputes every device's reconciliation requirements. Other invalid
+statuses cannot be cleared. Missing device associations, absent/null/empty
+access, or uncertain credentials produce
+an explicit invalid result with positional issues; all objects and safely
+associated supplied data remain available in the protected artifact.
+Standard serialization retains invalid status; `to_inventory()` and ordinary
+controller parsing reject it, preventing controller planning.
+Acknowledgement-only failures instead preserve a structurally valid artifact/
+inventory, while the result reports policy issues. Controller comparison emits
+BLOCKED for affected devices (and dependent actions), including after roundtrip.
+Conflicting,
+malformed, or ambiguously associated input instead raises a fixed-message
+contract error without returning a partial success; caller inputs are unmodified.
+
+Recognized raw credentials are rejected, not redacted or exported. Contract-valid
+secret references and null credential placeholders are preserved but **block**
+eligibility, as do recognized masks. The existing comparison uncertainty test
+is shared from the controller contracts, without changing its behavior.
+Ordinary noncredential null values do not automatically block. No access
+completeness/credential portability claim follows from nonempty settings or an
+evidence reference. Evidence labels are checked for shape, not fetched,
+authenticated, or certified against vendor requirements.
+
+The valid result still requires B's explicit independent destination mappings,
+per-object semantic acknowledgements, resolved roots, confirmed MISSING and
+destination completeness declarations for CREATE, and parent dependencies.
+No destination ID is invented or assigned.
+
+### Bound access acknowledgement policy
+
+[controller_access_policy.py](../src/cc_vision_import/controller_access_policy.py)
+implements `qualified-offline-device-access-v1`. The owner approved Option 1
+and explicitly selected its application to **all controller devices carrying
+device-access configuration**, not only C2-enriched devices. Existing direct
+C1/A/B planning callers must now supply explicit acknowledgements.
+
+Acknowledgement is a separate operator action:
+
+1. Reconcile without acknowledgement to inspect a protected preview.
+2. Explicitly call `acknowledge_device_access(source_artifact, preview_artifact,
+   qualified_device, evidence_reference=...)` for each reviewed device.
+3. Supply the returned acknowledgement in its association and reconcile again.
+   The reconciliation code never creates acknowledgements automatically.
+
+For direct normalized inventories without C2 metadata, pass the same artifact
+as source and preview; supply the resulting tuple through the shared validator,
+controller comparison, or verification `device_access_acknowledgements` parameter.
+Comparison delegates acknowledgement validation and credential gating to the
+shared validator rather than maintaining a comparison-only gate. The verifier
+requires the retained declarations; their complete contents are digest-bound,
+but evidence references and raw identities are not included in redacted plans.
+Duplicate/unknown acknowledgement identities are rejected.
+
+The source hash covers the structurally normalized source snapshot (including
+controller/tree identities, all objects, metadata, and ordered configuration),
+not arbitrary input whitespace or cached validation status. The access hash
+covers effective access location/value plus C2's complete detail payload,
+separate access, record references, and original tree-access data when present.
+Changes to values, types, field/array order, missing/null distinctions, or bound
+inputs invalidate prior acknowledgement. Planning rechecks these hashes,
+qualified identity, and policy version; it reconstructs the original C2 source
+snapshot from retained provenance to detect post-reconciliation mutation.
+
+Evidence references must be local opaque catalogue identifiers of the exact form
+`evidence-` plus 32 lowercase hexadecimal characters. Use a newly assigned local
+identifier whose protected catalogue entry points to evidence; never encode or
+reuse credentials, session tokens, device addresses, URLs, or configuration as
+the identifier. Format checks reject freeform values and raw address/URL/token
+strings; they cannot authenticate catalogue ownership or detect a secret
+deliberately disguised as a permitted identifier. Callers remain responsible
+for protected catalogue storage and classification. References are hidden from
+default representations and operator summaries; explicit artifact access remains
+protected, not a redacted report.
+
+The policy distinguishes structural validity, offline acknowledgement, official
+schema verification, and live compatibility. No acknowledgement can repair bad
+identity/parents, missing required fields, incomplete access, raw/masked
+credentials, or unresolved sensitive references. Nonempty access and operator
+acknowledgement do not establish completeness or portability, and never
+authorize import execution.
+
+Generic schema-1 planning lacks the destination inventory, tree-completeness
+declarations, and shared controller validation needed to enforce controller
+safety. Checking access acknowledgement alone cannot make that path safe.
+Its shared assembly boundary therefore explicitly rejects every
+`controller-objects` artifact or plan whose declared source product is
+`cyber-controller`, regardless of access acknowledgement or cached validation
+status, with `controller_planning_required`. The same check covers creation,
+parsing, verification, validation, and generic plan serialization. Validation
+returns the standard invalid result; other boundaries raise a secret-safe
+contract error. Even a self-consistent historical schema-1 envelope with a
+correct digest cannot re-enter through parsing or verification.
+
+Use controller-specific comparison and `verify_controller_plan` with retained
+source/destination inventories and declarations instead. Those APIs provide
+affected-device BLOCKED classifications and preserve incomplete diagnostic data.
+Other generic domains, including synthetic Cyber Controller domains, and
+Vision-labeled generic synthetic contracts remain unchanged; no Vision schema
+compatibility is inferred. Product/domain declarations remain offline inputs,
+not authenticated evidence about the origin of arbitrary supplied data.
+
+Compatibility: artifact schema 1 and controller plan schema 2 remain in use.
+C2 provenance schema 1 and bare evidence strings no longer establish planning
+eligibility; rebuild a preview from retained original inputs and explicitly
+acknowledge it. Old plans lacking the updated policy metadata/declarations are
+rejected by recomputation; they must be regenerated, not treated as approvals.
+The subsequent shared-boundary enforcement adds no schema, policy-version, hash,
+or serialization-format change. Existing comparison callers retain their
+acknowledgement parameter and behavior; direct validator callers must now pass
+current declarations for devices carrying access instead of receiving valid
+entries without them. The strict existing-target identity resolver is unchanged.
+The acceptance-review corrections also add no schema, policy-version, hash, or
+serialization-format change. Previously generated generic Cyber Controller
+controller plans are now explicitly unsupported; regenerate through the
+controller-specific APIs rather than treating a generic envelope as approval.
+Retained controller plans that hid root/site configuration differences under the
+acknowledgement rule fail recomputation and must likewise be regenerated.
+These corrections establish neither live compatibility nor import authorization.
+
+### Verification and limitations
+
+[42 guarded reconciliation tests](../tests/test_controller_reconciliation.py)
+derive synthetic details/access from the existing synthetic tree fixtures.
+They demonstrate C1 export -> normalized artifact -> explicit reconciliation ->
+standard serialization/parsing -> comparison -> candidate plan -> verification,
+for both trees, SKIP/CONFLICT/CREATE, evidence/configuration tampering, and
+external sorting against retained inputs. Missing/ambiguous/duplicate/conflicting
+records, secret rejection, incomplete access, exact types/order/nulls, qualified
+identities, redacted results, and non-mutation are covered.
+
+Initial C2 verification passed 271 tests; the clarified universal policy passed
+282 tests. Shared-boundary enforcement passed **286 tests** (all 282 prior cases
+plus four new boundary regressions), with zero
+guarded network attempts. Existing comparison/export test fixtures now
+explicitly acknowledge reviewed synthetic access rather than bypassing the
+gate. The new negative cases exercise direct shared validation, controller
+comparison/verification, and generic planning for A/B-normalized, C1 recursive/
+flat, and C2 inputs in both trees; they preserve input bytes and prove that
+same-name/native-ID devices in different trees cannot share acknowledgement.
+Source/destination staleness and unsafe/invalid data remain blocked/rejected.
+See [E-024](PROGRESS.md#e-024---ccv-004-c2-shared-planning-boundary-enforcement-2026-11-18)
+and the prior [E-023](PROGRESS.md#e-023---ccv-004-c2-bound-access-acknowledgement-policy-2026-11-18).
+Python guards are test evidence, not OS-level isolation. Real detail IDs/classes,
+required access fields, per-version schemas, pagination/completeness, cross-tree
+device equivalence, and portable credentials remain unverified. Unknown secrets
+disguised as unrecognized arbitrary text cannot be generically detected.
+C2 is implemented/offline-verified, not owner-accepted; C3 and live work remain
+unauthorized.
 
 ## Proposed migration modules
 

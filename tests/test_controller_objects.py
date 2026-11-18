@@ -523,7 +523,7 @@ class ControllerObjectTests(OfflineTestCase):
         self.assertNotIn("synthetic-sensitive-state-marker", "".join(traceback.format_exception(error)))
         self.assertIsNone(error.__context__)
 
-    def test_resolved_mappings_feed_existing_offline_plans_without_write_authority(self) -> None:
+    def test_resolved_mappings_require_controller_specific_offline_plans(self) -> None:
         source, destination = self.inventories()
         mappings = self.m.resolve_controller_mappings(source, destination, self.mappings(source, destination))
         request = {
@@ -539,10 +539,12 @@ class ControllerObjectTests(OfflineTestCase):
             } for index, item in enumerate(mappings.mappings)],
         }
         artifact = source.to_artifact().to_json().encode("utf-8")
-        plan = self.plans.create_plan(artifact, request)
-        self.assertEqual(plan.stage, "offline-candidate")
-        self.assertTrue(all(action.kind == "blocked" and not action.changes for action in plan.actions))
+        self.error("controller_planning_required", self.plans.create_plan, artifact, request)
+        comparison = importlib.import_module("cc_vision_import.controller_comparison")
+        plan = comparison.compare_controller_inventories(source, destination, request["mappings"])
+        self.assertEqual(plan.stage, "offline-controller-candidate")
+        self.assertTrue(all(action.kind == "blocked" for action in plan.actions))
         self.assertEqual(
-            self.plans.verify_plan(json.loads(plan.to_json()), artifact, request["destination"], plan.integrity_sha256),
+            comparison.verify_controller_plan(plan.to_dict(), source, destination, request["mappings"]),
             plan,
         )

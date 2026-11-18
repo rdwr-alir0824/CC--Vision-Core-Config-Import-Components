@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import importlib
 import io
 import json
@@ -8,7 +9,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
 
-from offline_support import OfflineTestCase
+from offline_support import OfflineTestCase, device_access_acknowledgements
 
 
 class ControllerComparisonTests(OfflineTestCase):
@@ -79,6 +80,7 @@ class ControllerComparisonTests(OfflineTestCase):
             complete_trees=tuple(sorted({item.reference.tree for item in self.destination.objects})) if complete else (),
             semantics_known_for=tuple(item.reference for item in self.source.objects) if known else (),
             comparison_rules=self.provenance_rules if rules is None else rules,
+            device_access_acknowledgements=device_access_acknowledgements(self.source, self.destination),
         )
 
     def actions(self, plan):
@@ -97,6 +99,7 @@ class ControllerComparisonTests(OfflineTestCase):
             complete_trees=tuple(sorted({item.reference.tree for item in self.destination.objects})),
             semantics_known_for=tuple(item.reference for item in self.source.objects),
             comparison_rules=self.provenance_rules,
+            device_access_acknowledgements=device_access_acknowledgements(self.source, self.destination),
         )
 
     def error(self, code, function, *args, **kwargs):
@@ -202,6 +205,51 @@ class ControllerComparisonTests(OfflineTestCase):
                 actions = self.actions(self.plan(records=records))
                 self.assertIn("root_unresolved", actions[0].issue_codes)
                 self.assertTrue(all(item.kind == "blocked" for item in actions.values()))
+
+    def test_forged_and_rehashed_root_creates_fail_controller_verification(self) -> None:
+        keywords = {
+            "complete_trees": (self.o.TreeName.PHYSICAL,),
+            "semantics_known_for": tuple(item.reference for item in self.source.objects),
+            "comparison_rules": self.provenance_rules,
+            "device_access_acknowledgements": device_access_acknowledgements(self.source, self.destination),
+        }
+
+        def digest(value):
+            encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
+            return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+        for root_missing in (False, True):
+            records = copy.deepcopy(self.records)
+            if root_missing:
+                records[0].update(state="missing", destination=None)
+            plan = self.plan(records=records)
+            self.assertEqual(self.actions(plan)[0].kind, "blocked" if root_missing else "skip")
+            self.c.verify_controller_plan(plan.to_dict(), self.source, self.destination, records, **keywords)
+            actions = tuple(
+                replace(
+                    item, kind=self.c.ActionKind.CREATE, comparison=self.c.Comparison.MISSING,
+                    destination_index=None, issue_codes=(),
+                ) if item.source_index == 0 else item
+                for item in plan.actions
+            )
+            for rehashed in (False, True):
+                with self.subTest(root_missing=root_missing, rehashed=rehashed):
+                    forged = replace(plan, actions=actions)
+                    if rehashed:
+                        body = asdict(forged)
+                        del body["plan_id"], body["integrity_sha256"]
+                        plan_id = "controller-plan-" + digest(body)
+                        forged = replace(
+                            forged, plan_id=plan_id,
+                            integrity_sha256=digest({"plan_id": plan_id, **body}),
+                        )
+                        payload = forged.to_dict()
+                    else:
+                        payload = asdict(forged)
+                    self.error(
+                        "integrity_mismatch", self.c.verify_controller_plan,
+                        payload, self.source, self.destination, records, **keywords,
+                    )
 
     def test_missing_root_in_one_tree_does_not_block_the_other_tree(self) -> None:
         self.combine_trees()
@@ -377,6 +425,7 @@ class ControllerComparisonTests(OfflineTestCase):
             "complete_trees": (self.o.TreeName.PHYSICAL,),
             "semantics_known_for": tuple(item.reference for item in self.source.objects),
             "comparison_rules": self.provenance_rules,
+            "device_access_acknowledgements": device_access_acknowledgements(self.source, self.destination),
         }
         verified = self.c.verify_controller_plan(plan.to_dict(), self.source, self.destination, self.records, **keywords)
         self.assertEqual(verified, plan)
