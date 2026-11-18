@@ -2,9 +2,10 @@
 
 Date: 2026-11-17  
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
-foundation and contracts implemented; CCV-003-A shared transport and CCV-003-B
-authentication/session management mock-tested. No concrete HTTP backend,
-production secret resolver, product API client, or online execution.
+foundation and contracts implemented; CCV-003-A/B transport and authentication
+mock-tested; CCV-003-C adds synthetic-version read clients and a mocked
+read-to-plan workflow. No concrete HTTP backend, production secret resolver,
+online execution, or real product/version compatibility is established.
 
 The owner approved ADR-001 through ADR-009 and the documented architectural
 amendments. Concrete implementation/storage details remain open where noted;
@@ -36,6 +37,8 @@ Application code lives separately under [src/cc_vision_import](../src/cc_vision_
 CCV-001 created documentation only; CCV-002-A/B/C implement the offline subset
 described below. CCV-003-A adds backend-independent transport mechanics;
 CCV-003-B adds mock-only authentication strategies and local session ownership.
+CCV-003-C connects those components to three source-observed reads and the
+existing artifact/mapping/offline-plan contracts, using injected fake backends.
 Legacy sources remain read-only and are never imported or executed.
 
 ## Responsibilities and interfaces
@@ -81,8 +84,8 @@ secret backend remain undecided.
 [Transport contracts and mechanics](../src/cc_vision_import/transport.py) use only
 the standard library. At A's checkpoint authentication/session work was outside
 scope; the separately authorized B implementation is described below. There is
-no default or concrete HTTP backend, production HTTP dependency, CLI wiring,
-product operation catalogue, or migration operation.
+no default or concrete HTTP backend, production HTTP dependency, or online CLI
+operation. C's separate synthetic capability catalogue does not enable migration.
 
 ### Interfaces and injection
 
@@ -195,8 +198,9 @@ remain future work.
 [Authentication contracts/strategies](../src/cc_vision_import/authentication.py)
 and [session ownership](../src/cc_vision_import/sessions.py) build on the unchanged
 CCV-003-A transport. This subtask has mock evidence only, not product/version
-qualification. No real backend, secret-store integration, CLI operation,
-configuration migration, remote logout, or CCV-003-C implementation is present.
+qualification. B itself adds no real backend, secret-store integration, CLI
+operation, configuration migration, or remote logout. C's separately authorized
+mock client integration is described below.
 
 ### Typed contracts and evidence boundaries
 
@@ -312,8 +316,8 @@ A future backend must actually isolate cookie jars, enforce TLS/timeouts, avoid
 internal retry/redirect/auth-renewal behavior, close local resources, and discard
 session secrets on `close`. Neither those real IO behaviors nor genuine server
 authentication are proven by the protocol. This milestone implements no backend
-or production resolver. The API matrix remains a static source-evidence baseline;
-the mock results here do not certify its product/version capabilities.
+or production resolver. The API matrix separately records source evidence and
+mock coverage; neither establishes real product/version compatibility.
 
 ### Verification
 
@@ -322,6 +326,158 @@ responses, a fake owned session backend, injected resolver/clock, and the existi
 transport/network guards. All 60 existing regressions are retained unchanged.
 Actual commands, results, static checks, restrictions, and limits are recorded in
 [E-008](PROGRESS.md#e-008---ccv-003-b-offline-verification-2026-11-17).
+
+## Implemented mock product clients and integration - CCV-003-C
+
+### Capability and product boundaries
+
+[Mock declarations](../src/cc_vision_import/mock_capabilities.py) define a closed
+tuple of three development/test operations, separate from the empty production
+`VERIFIED_CAPABILITIES` catalogue in
+[capabilities.py](../src/cc_vision_import/capabilities.py).
+Each records product, exact version, operation,
+fixed URL segments, API-matrix evidence record, source-observed evidence, a
+`synthetic-mock-only` qualification, and a `synthetic-unverified` response schema.
+Official-documentation, live-testing, and compatibility flags remain false.
+
+The owner explicitly approved **`0.0-test` only** for these mock capabilities
+because the legacy evidence establishes no supported product versions. This is
+an application-owned synthetic marker, not a Radware release or compatibility
+range. Unknown products, every other version, cross-product operations,
+arbitrary trees, and unresolved scheduler operations fail closed. There is no
+wildcard version match, registration fallback, version discovery, or claim that
+missing evidence proves vendor non-support. Profile syntax validation and B's
+generic authentication contracts remain independent of C's client capability
+gates.
+
+Default catalogue lookup never falls back to mock entries and rejects
+`0.0-test` even if it is mistakenly added to the production catalogue.
+`mock_only=True` explicitly selects synthetic metadata; operational access also
+requires an injected backend implementing the nominal `MockSessionBackend`
+contract. Client construction and every read check that backend declaration,
+including after role reinitialization. An arbitrary backend with an `is_mock`
+attribute is not sufficient.
+
+The workflow's `SessionManager(..., mock_only=True)` rejects unmarked backends
+before the affected role's credential resolution/authentication and cleans up
+newly rejected closeable instances through the existing sanitized path.
+Ordinary session-manager defaults remain unchanged for the existing generic
+authentication contracts. Neither a mock-policy flag alone nor a future real
+HTTP adapter implementing only the ordinary protocol gains synthetic API access.
+The nominal mock contract is a trusted development assertion, not OS-level
+isolation; network adapters must never implement/register as that contract.
+
+[Product clients](../src/cc_vision_import/product_clients.py) expose separate
+typed read interfaces:
+
+| Client | Public operation | Source evidence |
+| --- | --- | --- |
+| `CyberControllerClient` | `export_physical_tree()` | API-02, GET `/mgmt/system/config/tree/Physical` |
+| `CyberControllerClient` | `export_organization_tree()` | API-03, GET `/mgmt/system/config/tree/Organization` |
+| `VisionClient` | `list_ldap_permissions()` | API-10, GET `/mgmt/system/config/itemlist/ldapobjectpermission` |
+
+Each client borrows a caller-owned manager/role, checks the product/version
+binding at construction and before every read, and forwards GET through the
+existing session/transport stack. It neither owns cleanup nor authenticates,
+renews, invents logout, exposes writes, or discovers extra endpoints. HTTP 401
+expires only the affected role; other authentication/transport errors retain
+their existing structured categories. Unsupported capability, session mismatch,
+and malformed API shape have fixed `ProductClientError` categories without raw
+payloads, credentials, or supplied version strings. No logging is introduced.
+
+### Synthetic response assumptions and artifact boundary
+
+These shapes are deliberately unverified, not vendor API schemas:
+
+- Physical/Organization: a JSON object with `meIdentifier.managedElementID`
+  containing nonblank text and `children` containing child objects with the
+  same minimum shape. The mock parser checks descendants and limits tree depth
+  to 64. No managed-element class, device access, pagination, or completeness
+  semantics are inferred.
+- LDAP: a JSON array containing objects, including an empty array. No permission
+  field interpretation, scope broadening, device-lock changes, or pagination
+  behavior is implemented.
+- Strict JSON syntax/UTF-8 failures retain the transport's malformed-response
+  category. Valid JSON with the wrong minimum shape raises a client error;
+  malformed data never becomes an empty success.
+
+`ReadResult` hides its opaque objects from representations.
+`to_artifact(exported_at=...)` uses the existing schema-1 parser, reference-only
+secret policy, deep copying, and offline-validation contract. A tree is retained
+as **one opaque root object**, not flattened into portable sites/devices. LDAP
+entries remain separate objects. The domain is the synthetic capability name.
+Caller-supplied export time is required; the exporter identifies a synthetic
+mock client. Full JSON-value/secret checks occur at the artifact boundary,
+including rejection of numeric overflow decoded as infinity. Validation status
+`valid` means offline contract validity only.
+
+### Minimal read-to-plan workflow
+
+[build_mock_plan](../src/cc_vision_import/mock_workflow.py) requires synthetic
+source/destination declarations, a selected read capability, an explicit planning
+request and export timestamp, mandatory connection/read timeouts, an injected
+backend factory, and an injected secret resolver. No backend or resolver is
+constructed by default.
+
+1. Load and validate separate profiles; require both secret references; reject
+   unsupported source operation or either product/version before backend creation.
+2. Own distinct role backends in a context-managed `SessionManager` and authenticate
+   with the existing distinct product strategies. Shared backend identity is
+   rejected by B's ownership rules.
+3. Read source data through the selected product client. Destination is
+   authenticated independently, but **no destination inventory/preflight is
+   performed**.
+4. Construct and explicitly validate a schema-1 artifact, serialize exact bytes,
+   and call the existing `create_plan` with caller-declared mappings/actions.
+   The plan destination must match the authenticated destination profile's
+   product/version/origin. Controller identity remains a supplied assertion.
+   Profile/planning contract errors are re-raised outside their handlers with
+   only the structured validation result, removing raw URL-parser exception
+   chains (including supplied invalid-port text).
+5. Return the artifact and offline candidate plan only after context cleanup.
+   Unresolved/ambiguous mappings remain blocked; missing mapping records fail.
+   No identity extraction, comparison, or real cross-product conversion is
+   inferred. Synthetic known-semantics/comparison declarations are not API proof.
+6. `MockWorkflowResult.summary()` returns counts, plan status, fixed offline
+   stage, mock-only/compatibility flags, and zero executed writes. Result
+   representations hide artifact/plan contents. Summary serialization contains
+   no identifiers, origins, references, credentials, cookies, or response bodies.
+
+Raw artifact/plan access is explicit and is **not** a redacted report. Do not
+serialize whole result dataclasses or arbitrary opaque API payloads as logs.
+The existing generic artifact policy cannot detect secrets disguised as arbitrary
+free text; producers remain responsible for classification. Protected reprs do
+not erase credentials from Python memory.
+
+The workflow adds no CLI mode, automatic authentication renewal, configuration
+write, simulated apply/verification, approval mechanism, or remote logout.
+Read retries remain disabled in its configurations; client callers may separately
+use A's explicitly bounded GET policy. Authentication POSTs are never replayed.
+All initialized roles receive local cleanup on success/failure; cleanup failures
+remain sanitized errors, not successful results. Failed local close cannot
+guarantee resource release and follows B's existing failure semantics.
+
+### Verification and limitations
+
+[Client tests](../tests/test_product_clients.py) and
+[mocked integration tests](../tests/test_mocked_integration.py) exercise all
+three reads and each read-to-plan path using in-memory fakes and the shared
+15-entry fail-fast network guard. They test authentication/application rejection,
+local/HTTP expiration, independent roles/cookies, unsupported capabilities,
+malformed responses, absent/unresolved/ambiguous mappings, shared-backend
+rejection, sanitized cleanup failure, invalid-port parser chaining, and
+raw/encoded-secret redaction.
+Actual full-suite evidence is recorded in [E-010](PROGRESS.md#e-010---ccv-003-c-mocked-client-and-integration-verification-2026-11-17).
+
+No live compatibility is established. Cyber Controller authentication still has
+only source-observed HTTP-200 acceptance, not application-status validation.
+Real TLS/timeouts/cookie isolation/response disposal remain future trusted-adapter
+obligations. An injected backend is executable trusted code, not sandboxed by
+these interfaces; this repository provides no concrete network backend. Python
+test guards establish zero guarded attempts, not OS-level isolation.
+The workflow sanitizes existing parser chains at its own boundary; direct calls
+to older profile/plan parsers have not been changed by this milestone.
+CCV-004 and all live/backend development require separate authorization.
 
 ## Proposed migration modules
 
@@ -765,7 +921,8 @@ Status: **Architectural direction approved** (ADR-009); recovery not implemented
 - Require post-import evidence before marking a migration verified complete.
 - Live integration and production acceptance require separate authorization.
 
-CCV-001 was static only. CCV-002-A/B/C and CCV-003-A/B verification cover offline
+CCV-001 was static only. CCV-002-A/B/C and CCV-003-A/B/C verification cover offline
 local behavior, not APIs or product compatibility. The next gate is owner review
-of CCV-003-B and explicit authorization of a bounded follow-on task. Do not begin
-CCV-003-C or live operations.
+of CCV-003-C's narrow mock-only read-to-plan scope, followed by separate
+authorization and evidence for a bounded follow-on task. Do not begin CCV-004,
+real HTTP backend development, or live operations.

@@ -1,7 +1,8 @@
 # Legacy API Evidence Matrix
 
 Date: 2026-11-17
-Evidence level: static source inspection only.
+Evidence levels: source-observed endpoints; separately scoped offline mock
+coverage for authentication and three reads. No official/live qualification.
 
 ## Counting and evidence rules
 
@@ -18,10 +19,11 @@ Evidence level: static source inspection only.
   concrete source-selected paths, not an unrestricted `{tree_type}` capability.
 
 Every row is **source-observed**. For every row: official documentation **not
-reviewed**, mock testing **not performed**, live testing **not performed**, and
-supported versions **unknown**. Script labels suggest product intent; they do not
-certify compatibility. No official endpoint, logout path, polling path, or
-capability is inferred from convention.
+reviewed**, live testing **not performed**, and real supported versions
+**unknown**. Mock coverage exists only where explicitly recorded below; all
+other records remain mock-untested. Script labels suggest product intent; they
+do not certify compatibility. No official endpoint, logout path, polling path,
+or capability is inferred from convention.
 
 ## Source references
 
@@ -95,6 +97,63 @@ below denotes a configuration reference, **not an API endpoint**.
 - Official compatibility, pagination, rate limits, idempotency, async status,
   permission requirements, error schemas, and secrets behavior remain unknown.
 
+## Implemented offline mock coverage - CCV-003-A/B/C
+
+The owner approved an explicitly synthetic **`0.0-test`** marker for C's client
+capability declarations. It is not a vendor release or supported-version claim.
+Every other version and unknown/cross-product capability is rejected by these
+clients. Scheduler references remain unavailable; no arbitrary tree operation
+is exposed.
+
+### Enforced synthetic-only boundary
+
+- `0.0-test` is reserved for mocked development/testing, never a supported
+  Vision or Cyber Controller release.
+- Synthetic declarations live separately in
+  [mock_capabilities.py](../src/cc_vision_import/mock_capabilities.py).
+  [capabilities.py](../src/cc_vision_import/capabilities.py) has an empty
+  `VERIFIED_CAPABILITIES` catalogue. Default lookup uses that production
+  catalogue only, with no synthetic fallback. It rejects `0.0-test` even if a
+  synthetic entry is mistakenly placed there.
+- Explicit `mock_only=True` selects mock metadata only; it is not permission
+  to perform IO. Clients additionally require an injected backend explicitly
+  implementing the nominal
+  [MockSessionBackend](../src/cc_vision_import/sessions.py) contract, checked
+  at construction and before every read. A general injected backend or an
+  `is_mock` attribute is insufficient.
+- The mock workflow enforces `SessionManager(..., mock_only=True)` for both
+  roles: a non-mock factory result is rejected and locally cleaned up before
+  that role resolves credentials or sends authentication/API requests.
+- No real version is enabled in either catalogue. A future real HTTP adapter
+  implementing only the normal backend protocol receives no synthetic
+  permissions. It must never implement/register as `MockSessionBackend`.
+  Future production capabilities require separately approved evidence and
+  explicit implementation; mock entries must not be copied into production.
+- The nominal mock declaration is a trusted developer assertion, not a sandbox
+  or proof of arbitrary injected code's behavior. Only in-memory fakes belong
+  behind it. No concrete HTTP backend is implemented.
+
+Boundary regressions and full-suite evidence are recorded in
+[E-011](PROGRESS.md#e-011---ccv-003-c-synthetic-backend-boundary-2026-11-17).
+
+| Record | Implemented mock behavior | Evidence and limits |
+| --- | --- | --- |
+| API-01 | B's distinct Vision JSON-status and Cyber Controller HTTP-200-only strategies; independent managed roles and local cleanup | Authentication/session tests and C integration tests. No cookie/token/server-TTL schema, remote logout, renewal, or genuine authentication qualification. Controller HTTP-200-only evidence remains deliberately weak. |
+| API-02 | `CyberControllerClient.export_physical_tree()`; GET through injected managed transport | Client and read-to-plan integration mocks only. Synthetic minimum tree shape: object with nonblank `meIdentifier.managedElementID` and recursive `children` object array; depth bounded to 64. No portable site/device transformation or completeness claim. |
+| API-03 | `CyberControllerClient.export_organization_tree()`; separate explicit operation | Same synthetic minimum shape as the Physical mock, not proof both real schemas are equivalent. Independently asserted exact path and integration case. |
+| API-10 | `VisionClient.list_ldap_permissions()` | Mock array of opaque objects; empty list permitted. No field semantics, pagination, permission changes, or LDAP migration implementation. |
+
+Tests: [authentication/session](../tests/test_authentication.py),
+[clients](../tests/test_product_clients.py), and
+[mocked integration](../tests/test_mocked_integration.py).
+Mock declarations are in [mock_capabilities.py](../src/cc_vision_import/mock_capabilities.py);
+production/default lookup is in [capabilities.py](../src/cc_vision_import/capabilities.py).
+Full command/results and zero guarded attempts are recorded in
+[E-010](PROGRESS.md#e-010---ccv-003-c-mocked-client-and-integration-verification-2026-11-17).
+Evidence classifications remain separate: **source-observed + mock-tested does
+not mean officially documented, live-tested, or compatible**. The baseline
+endpoint counts and supported real versions have not changed.
+
 ## Evidence needed next
 
 1. Approve target products, source/destination versions, and migration directions.
@@ -102,7 +161,8 @@ below denotes a configuration reference, **not an API endpoint**.
    section/link, and what each reference establishes.
 3. Supply sanitized scheduler API path configuration and representative synthetic
    or sanitized response schemas. Never supply credentials or live exports here.
-4. Add offline mocked contract evidence after implementation is authorized.
+4. Extend scoped mock contracts only after separate authorization/evidence;
+   current authentication/read mock coverage is recorded above.
 5. Only under separate authorization, record lab tests with product/version,
    operation ID, date, expected/actual result, and sanitized evidence location.
 

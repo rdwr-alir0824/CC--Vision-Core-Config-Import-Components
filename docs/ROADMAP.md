@@ -1,8 +1,10 @@
 # Development Roadmap
 
 Date: 2026-11-17  
-Status: **Proposed — pending owner approval**; only CCV-001 documentation
-amendments are authorized.
+Status: **CCV-001 architectural baseline approved; CCV-002 completion confirmed
+by the owner; CCV-003-A/B/C implemented mock-only scope owner-accepted on
+2026-11-17.** Future milestones remain proposed/not authorized. Live product
+compatibility and qualification are explicitly pending.
 
 Priorities: P0 = foundation/safety gate; P1 = initial migration functionality;
 P2 = release-readiness expansion. Ordering does not authorize implementation.
@@ -16,9 +18,9 @@ runtime or API certification.
 
 | ID | Milestone | Priority | Dependencies | Current state |
 | --- | --- | --- | --- | --- |
-| CCV-001 | Project Foundation | P0 | CCV-000 | In progress; review amendments documented, owner approval pending. |
-| CCV-002 | Application skeleton, profiles, and offline contracts | P0 | CCV-001 approval; runtime/tooling decisions | Not started; not authorized. |
-| CCV-003 | Shared transport, product clients, sessions, and mocked migration slice | P0 | CCV-002; approved evidence for selected client operations | Not started; not authorized. |
+| CCV-001 | Project Foundation | P0 | CCV-000 | Static baseline and architectural direction owner-approved, 2026-11-17; deferred evidence remains in tracker. |
+| CCV-002 | Application skeleton, profiles, and offline contracts | P0 | CCV-001 approval; runtime/tooling decisions | A/B/C implemented and offline-verified; parent completion/local commit confirmed by owner, not inspected here. |
+| CCV-003 | Shared transport, product clients, sessions, and mocked read-to-plan slice | P0 | CCV-002; source evidence; explicit synthetic version/backend restrictions | Implemented mock-only A/B/C scope owner-accepted, 2026-11-17; 130 tests, zero guarded attempts, no blocking review defects; live qualification pending. |
 | CCV-004 | Controller objects, device access, credential transformation | P1 | CCV-002, CCV-003; identity and secret-policy decisions | Not started; not authorized. |
 | CCV-005 | LDAP permission migration | P1 | CCV-002, CCV-003; approved destination reference mappings | Not started; not authorized. |
 | CCV-006 | Scheduled-task migration | P1 | CCV-002, CCV-003; resolved paths and task-type contracts | Not started; not authorized. |
@@ -33,7 +35,9 @@ entire discovery workstream to finish before a module starts.
 
 ## Readiness-driven sequencing and early workflow
 
-Status: **Proposed — pending owner approval**.
+Status: **Architectural direction approved on 2026-11-17**; each implementation
+slice still requires separate authorization. CCV-003 acceptance is limited to
+the narrower implemented scope below.
 
 Keep detailed sequencing within and across CCV-004/005/006 flexible until each
 selected slice has verified API/schema readiness: approved source/documentation
@@ -42,14 +46,17 @@ identity/dependency rules, and explicit unresolved-capability boundaries. This
 readiness does not imply live compatibility. Record the evidence and obtain
 approval for the selected scope before implementation.
 
-Shared artifact/plan/result contracts begin in CCV-002. CCV-003 introduces a
-minimal mocked end-to-end migration workflow for one readiness-selected domain
-slice, rather than delaying all workflow feedback until CCV-007. Mocked service
-responses exercise export, offline validation/planning, online-preflight logic,
-approval, create/skip/conflict handling, apply, verification, and journaling.
-All requests remain intercepted; "online" here describes the modeled stage,
-not permission for actual network access. No real credentials or writes are used.
-Synthetic contracts must not be presented as evidence of a vendor API capability.
+Shared artifact/plan/result contracts were implemented in CCV-002. The narrower
+CCV-003 authorization and acceptance connect simulated sessions and three
+source-observed reads to versioned artifacts, explicit mappings, offline
+candidate planning, integrity checks, cleanup, and a redacted summary.
+All backend responses and credentials are synthetic; no real backend or write
+path exists. Synthetic contracts are not evidence of vendor compatibility.
+
+The original broader proposal to model online preflight, approval, apply,
+post-import verification, partial-import reconciliation, and durable journaling
+is **deferred**, not part of CCV-003's accepted implementation. Those stages
+require separate scope/authorization even if a future proposal remains mocked.
 
 CCV-007 extends that slice across the readiness-verified modules approved for
 integration; it need not wait for every proposed domain. Deferred modules and
@@ -106,26 +113,56 @@ registry; review contracts against legacy shapes before broad implementation.
 
 ## CCV-003 - Transport, clients, and authentication
 
-Proposed deliverables: shared HTTP boundary, separate Vision/CC clients,
-capability tracking, redaction, session ownership, and one minimal mocked
-end-to-end migration slice selected by readiness.
+**Status: implemented mock-only scope accepted by the project owner on
+2026-11-17.** Acceptance covers A/B/C as implemented, not the original broader
+apply/verification/journaling proposal.
 
-Acceptance:
-- Offline tests cover TLS verification default, bounded timeouts, login failure,
-  session cleanup, malformed responses, and secret redaction.
-- Product/version capability mismatch blocks operations explicitly.
-- Mocked failures cannot trigger automatic write replay; indeterminate writes
-  are represented distinctly.
-- Login/logout behavior is based on approved evidence; unknown paths stay blocked.
-- Mock testing is recorded separately from vendor documentation and live testing.
-- The minimal workflow completes export through verification and a structured
-  result journal using synthetic inputs and mocked service responses only.
-- Demonstrate create-missing, skip-identical, report-differences, and
-  block-ambiguous defaults; no delete/overwrite occurs without separate approval.
-- Demonstrate artifact/plan integrity binding and one partial-import case:
-  reconcile an uncertain mocked write before retry, avoiding duplicate creation.
-- Assert no real network access during the mocked workflow. This evidence proves
-  local workflow behavior only, not product/version compatibility.
+Accepted deliverables:
+- **CCV-003-A:** injected HTTP transport foundation, secure configuration/TLS
+  defaults, mandatory connection/read timeouts, safe URLs/header/error handling,
+  bounded explicit GET retries, and no automatic write replay.
+- **CCV-003-B:** distinct source-observed product authentication strategies,
+  injected secret resolution, independent source/destination sessions,
+  expiration/local cleanup, sanitized failures, and the reviewed initialization
+  cleanup correction. No automatic authentication renewal or invented logout.
+- **CCV-003-C:** separate Cyber Controller Physical/Organization and Vision LDAP
+  read interfaces, strict product/version/backend gates, and a synthetic
+  declaration/session/read/artifact/validation/mapping/offline-plan/summary
+  workflow using existing application contracts.
+- Synthetic `0.0-test` declarations remain separate from the empty production
+  capability catalogue and usable only through explicitly declared mock
+  backends. Default production lookup rejects synthetic and unapproved real
+  versions; a future ordinary HTTP adapter gains no synthetic permissions.
+
+Accepted evidence:
+- Final technical review: **no blocking defects identified**.
+- `python -B -m unittest discover -s tests -v`: **130 tests passed** in
+  **37.927 seconds**, with the source directory on `PYTHONPATH`.
+- **Zero guarded network attempts** across 15 socket/DNS/HTTP/URL guards,
+  including invalid/error paths. This proves guarded Python-level offline
+  behavior, not OS-level isolation or real product compatibility.
+- Owner explicitly accepted the passing tests, zero guarded attempts,
+  nonblocking technical review, and synthetic/production isolation.
+- See [E-012](PROGRESS.md#e-012---ccv-003-owner-acceptance-2026-11-17) and the
+  [decision register](DECISIONS.md#owner-implementation-acceptance---ccv-003-2026-11-17).
+  These are existing review results; tests were not rerun for this
+  documentation-only acceptance recording.
+
+Remaining limits and gates:
+- Live Vision/Cyber Controller compatibility and qualification remain
+  **pending**; no real product/version is enabled or certified.
+- The nominal mock-backend declaration is a trusted developer assertion, not a
+  sandbox. No concrete HTTP backend or production secret provider exists.
+- Response shapes, destination identity/comparison, and semantic declarations
+  remain synthetic/unverified. Cyber Controller authentication retains its
+  source-observed HTTP-200-only limitation.
+- No destination inventory/preflight, product transformation, real migration
+  execution, approval/apply implementation, post-import verification, durable
+  journal, or partial-import recovery is implemented by this accepted slice.
+  Original broader mocked-stage proposals remain deferred.
+- Acceptance authorizes no live API requests, production connectivity, real
+  migration execution, external configuration changes, or claims of verified
+  Vision/CC compatibility. CCV-004 and further work require separate approval.
 
 Risks: product/version differences, expired sessions, and unknown logout/async
 semantics. No generic compatibility fallback or invented endpoint.
@@ -266,7 +303,9 @@ evidence-qualified records, sanitized inputs, and explicit approval gates.
 
 ## Immediate next action
 
-Review amendments are documented, not approved for implementation. Obtain owner
-approval of the amended roadmap/architecture, readiness gates, and open policies.
-Then explicitly authorize a bounded CCV-002 foundation task and, if desired, a
-separately scoped CCV-009 discovery task. Neither begins during this amendment.
+Preserve the owner-accepted CCV-003-A/B/C mock-only checkpoint and its 130-test,
+zero-guarded-attempt evidence. Await separate authorization before CCV-004 or
+any further implementation. Supported real versions, approved API/schema
+evidence, live compatibility, and qualification remain open gates; no live
+requests, production connectivity, real migration execution, or external
+configuration changes are authorized by this acceptance.

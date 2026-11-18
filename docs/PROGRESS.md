@@ -4,9 +4,11 @@ Last updated: 2026-11-17
 Authoritative checkpoint: **CCV-001 approved as the static baseline;
 CCV-002-A technically reviewed; CCV-002-B implemented and offline-verified.
 CCV-002-C completed and locally committed per owner confirmation;
-CCV-003-A mock-verified and technically reviewed;
-CCV-003-B implemented and mock-verified; review cleanup defect corrected with
-95 passing offline tests; CCV-003-C not started.**
+CCV-003-A/B/C implemented, offline-verified, and owner-accepted on 2026-11-17
+for their implemented mock-only scope. Acceptance evidence: 130 passing tests,
+zero guarded network attempts, no blocking technical-review defects, and
+synthetic capabilities isolated from production. Live compatibility and
+qualification remain pending; CCV-004 is not authorized or started.**
 
 ## Status rules
 
@@ -67,7 +69,7 @@ session ownership/expiry/local cleanup, an injectable resolver, mock tests, and
 architecture/progress documentation. Only offline test execution is authorized.
 No live connections, legacy execution, dependencies, real HTTP backend, production
 secret backend, configuration migration, or Git operations are authorized.
-CCV-003-C has not been authorized or started.
+At that checkpoint CCV-003-C had not been authorized or started.
 
 After read-only B review identified a rejected-backend cleanup defect, the owner
 authorized a bounded B correction: clean up newly created invalid closeable
@@ -75,7 +77,42 @@ backends without closing an already-owned instance, preserve initialization
 failure while sanitizing cleanup errors, add the requested permanent regressions,
 and update this tracker. Authorization remains offline/mock-only; no Git,
 dependencies, external configuration, legacy changes/execution, product requests,
-real HTTP backend, or CCV-003-C work is authorized.
+real HTTP backend, or CCV-003-C work was authorized by that correction.
+
+The owner subsequently authorized **CCV-003-C only**: separate product read
+clients, explicit capability declarations, injected mock integration of
+profiles/authentication/reads/artifacts/mappings/offline plans, required failure
+tests, and architecture/API-matrix/progress updates. On clarification, the owner
+selected **`synthetic-only`**: enable only the synthetic `0.0-test` version for
+mock clients; reject all other versions until approved compatibility evidence
+exists. The current scope supersedes the older broader mocked-apply roadmap
+proposal: no apply/verification path is added. No live requests, concrete HTTP
+backend, production writes, dependency installation, Git operations, legacy
+changes/execution, external configuration changes, or CCV-004 are authorized.
+
+The owner additionally required enforceable mock-only use of `0.0-test`,
+separate synthetic/production catalogues, rejection of unapproved real versions,
+and prevention of synthetic permission inheritance by a future HTTP backend.
+This is a CCV-003-C continuation, not authorization for real backends or CCV-004.
+
+### Owner acceptance of CCV-003-A/B/C - 2026-11-17
+
+The project owner explicitly approved completion of **CCV-003-A, CCV-003-B,
+and CCV-003-C for their implemented mock-only scope**. CCV-003 is accepted
+within that boundary, including the B cleanup correction and C's enforced
+synthetic capability/backend isolation. See E-012 for scope and evidence.
+
+Accepted evidence: **130 automated tests passed**, **zero guarded network
+attempts**, no blocking defects identified in final technical review, and
+synthetic capabilities remaining isolated from production.
+
+This acceptance does **not** authorize live API requests, production
+connectivity, real migration execution, changes to external configurations,
+or claims of verified Vision/Cyber Controller compatibility. Live compatibility
+and qualification remain explicitly pending. No concrete HTTP backend or
+CCV-004 work is authorized. Earlier owner-review/acceptance-pending labels in
+historical evidence entries are superseded by this acceptance record only for
+the implemented mock-only scope.
 
 ## Milestone tracker
 
@@ -87,9 +124,10 @@ real HTTP backend, or CCV-003-C work is authorized.
 | CCV-002-A | Minimal offline application foundation | P0 | CCV-001 approval; Python 3.13.14 and standard library | Approved and technically reviewed by owner | Implemented | Verified complete for authorized offline scope; regressions pass in B |
 | CCV-002-B | Offline profiles, versioned artifacts, metadata, and validation contracts | P0 | CCV-002-A technical review | Approved on 2026-11-17 | Implemented | Verified complete for authorized offline scope; see E-005 |
 | CCV-002-C | Offline mapping/action/plan/integrity and result contracts | P0 | CCV-002-B implementation/testing | Approved on 2026-11-17 | Implemented | Verified complete for authorized offline scope; see E-006 |
-| CCV-003 | Transport, clients, sessions, mocked end-to-end slice | P0 | CCV-002; approved evidence for selected client operations | A/B only authorized; remainder not authorized | A/B implemented; product clients/end-to-end slice not started | A/B mock-verified only; parent not complete |
-| CCV-003-A | Shared injectable HTTP transport and policies | P0 | CCV-002 completion confirmed by owner | Approved on 2026-11-17; mock-only; owner confirmed technical review | Implemented | Verified complete for authorized mock scope; see E-007 |
-| CCV-003-B | Authentication contracts, strategies, resolver interface, session ownership | P0 | CCV-003-A implementation/testing/technical review | Approved on 2026-11-17; mock-only; review correction authorized | Implemented; initialization cleanup defect corrected | 95 offline tests pass; see E-008 and E-009; owner acceptance pending |
+| CCV-003 | Transport, clients, sessions, mocked end-to-end slice | P0 | CCV-002; source evidence; explicitly synthetic version policy | Owner accepted A/B/C implemented mock-only scope on 2026-11-17 | Complete for accepted mock-only scope; C stops at offline planning, not the broader historical apply proposal | Accepted: 130 tests, zero guarded attempts, no blocking review defects; E-012; live qualification pending |
+| CCV-003-A | Shared injectable HTTP transport and policies | P0 | CCV-002 completion confirmed by owner | Owner accepted mock-only completion on 2026-11-17 | Implemented | Mock-only scope verified and accepted; E-007/E-012; regressions retained in 130-test suite |
+| CCV-003-B | Authentication contracts, strategies, resolver interface, session ownership | P0 | CCV-003-A implementation/testing/technical review | Owner accepted mock-only completion and correction on 2026-11-17 | Implemented; initialization cleanup defect corrected | Mock-only scope verified and accepted; E-008/E-009/E-012; regressions retained in 130-test suite |
+| CCV-003-C | Product read clients and mocked read-to-plan integration | P0 | CCV-003-A/B and 95-test baseline; source API evidence; approved synthetic version/backend gate | Owner accepted mock-only completion on 2026-11-17; `0.0-test` only with explicit mock backends | Implemented; separate mock/production catalogues and backend gate | Mock-only scope verified and accepted: 130 tests; E-010/E-011/E-012; live qualification pending |
 | CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | Not approved; planned | Not started | Not started |
 | CCV-005 | LDAP permissions | P1 | CCV-002, CCV-003; reference mappings | Not approved; planned | Not started | Not started |
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
@@ -110,9 +148,10 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-002-A | Six files in [package](../src/cc_vision_import/), [tests](../tests/test_foundation.py), this tracker | Nine offline unit tests passed; interpreter Python 3.13.14; see E-004 | No blocker for A; synthetic contract establishes no product compatibility | Stop; seek review and explicit authorization for the next subtask |
 | CCV-002-B | [Contracts](../src/cc_vision_import/contracts.py), [shared validation](../src/cc_vision_import/_contract_validation.py), [profiles](../src/cc_vision_import/profiles.py), [artifacts](../src/cc_vision_import/artifacts.py), registry/CLI, tests/fixtures, [architecture](ARCHITECTURE.md), this tracker | 22 offline tests passed; Python 3.13.14; see E-005 | No blocker for authorized B scope; real product schemas, compatibility, and secret-provider policy remain open | Stop for owner review; no C/003 implementation |
 | CCV-002-C | [Mappings](../src/cc_vision_import/mappings.py), [plans/actions](../src/cc_vision_import/plans.py), [results](../src/cc_vision_import/operations.py), shared helpers, registry/CLI, synthetic request/tests, architecture and this tracker | 39 offline tests pass on Python 3.13.14; see E-006 | No blocker for C's authorized contract scope; real identity/semantics/evidence provenance remain unverified | Preserve completed offline contracts |
-| CCV-003 | A/B source/tests/docs; later product clients and mocked workflow remain proposed | E-007 and E-008 cover A/B only | Approved API/schema evidence and separate authorization for remaining slices | Stop after B; parent not complete |
-| CCV-003-A | [Transport](../src/cc_vision_import/transport.py), [mock tests](../tests/test_transport.py), [architecture](ARCHITECTURE.md), this tracker | 60 offline tests passed (21 new plus 39 regressions); E-007; retained in E-008 | No blocker for mock scope; no concrete backend or live qualification | Preserve reviewed transport |
-| CCV-003-B | [Authentication](../src/cc_vision_import/authentication.py), [sessions](../src/cc_vision_import/sessions.py), [tests](../tests/test_authentication.py), [architecture](ARCHITECTURE.md), this tracker; correction modifies sessions/tests/tracker only | 95 offline tests pass: all 88 prior tests plus seven correction/coverage tests; E-008 and E-009 | Confirmed review defect corrected; real product authentication/compatibility, HTTP backend and secret backend remain unverified/unselected | Recommend mock-only acceptance after owner review; no CCV-003-C without separate authorization |
+| CCV-003 | A/B/C source/tests and directly related docs | E-007 through E-012; owner accepted 130-test mock-only evidence | Real product/version/schema qualification and any broader scope remain separate gates | Preserve accepted mock-only implementation; await separate authorization for further work |
+| CCV-003-A | [Transport](../src/cc_vision_import/transport.py), [mock tests](../tests/test_transport.py), [architecture](ARCHITECTURE.md), this tracker | 60-test implementation checkpoint; regressions retained in accepted 130-test suite; E-007/E-012 | No blocker for accepted mock scope; no concrete backend or live qualification | Preserve accepted transport and restrictions |
+| CCV-003-B | [Authentication](../src/cc_vision_import/authentication.py), [sessions](../src/cc_vision_import/sessions.py), [tests](../tests/test_authentication.py), [architecture](ARCHITECTURE.md), this tracker | 95-test correction checkpoint; regressions retained in accepted 130-test suite; E-008/E-009/E-012 | Review defect corrected; real authentication/compatibility and production HTTP/secret backends remain unqualified/unimplemented | Preserve accepted sessions and cleanup behavior |
+| CCV-003-C | [Production/default lookup](../src/cc_vision_import/capabilities.py), [mock declarations](../src/cc_vision_import/mock_capabilities.py), [session backend gate](../src/cc_vision_import/sessions.py), [clients](../src/cc_vision_import/product_clients.py), [mock workflow](../src/cc_vision_import/mock_workflow.py), [client tests](../tests/test_product_clients.py), [integration tests](../tests/test_mocked_integration.py), architecture/API matrix/this tracker | E-010/E-011/E-012: 130 passing tests, zero guarded attempts; final review found no blocking defects; owner accepted | No blocker for accepted mock scope; real versions/schemas, backend, destination inventory/comparison and production secret provider remain unqualified/unimplemented | Preserve synthetic-only boundary; await separate authorization; stop before CCV-004 |
 | CCV-004 | Proposed object/access/transformation modules and tests; related docs | None; not started | Destination identity, secret handling, tree behavior | Obtain approved mapping contracts |
 | CCV-005 | Proposed LDAP module and tests; related docs | None; not started | Roles/groups/policies and scope/device-lock policy | Resolve authorization-preserving mappings |
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
@@ -316,6 +355,281 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-012 - CCV-003 owner acceptance, 2026-11-17
+
+Decision: the project owner approved completion of **CCV-003-A/B/C for their
+implemented mock-only scope** on **2026-11-17**. Implementation, offline
+verification, technical review, and owner acceptance are complete for that
+bounded scope; live compatibility/qualification are not.
+
+Accepted implementation:
+
+- A: injected HTTP transport contracts, verified-TLS defaults, explicit
+  timeouts, safe URL/header/error handling, bounded opt-in GET retries, and
+  conservative uncertain-write classification without automatic write replay.
+- B: distinct source-observed Vision/Cyber Controller authentication strategies,
+  injectable secret resolution, independent source/destination sessions,
+  expiration/local cleanup, and the reviewed initialization-cleanup correction.
+- C: three source-observed read interfaces, synthetic declarations restricted
+  to explicitly injected mock backends, empty/default-deny production capability
+  catalogue, and a synthetic read-to-artifact/mapping/offline-plan workflow with
+  integrity checks and a redacted summary.
+
+Accepted evidence:
+
+- Final read-only technical review ran
+  `python -B -m unittest discover -s tests -v`, with the source directory on
+  `PYTHONPATH`: **130 tests passed**, exit `0`, **37.927 seconds**.
+- Every test asserted all 15 guarded socket/DNS/HTTP/URL entry points uncalled:
+  **zero guarded network attempts**.
+- No blocking defects were identified in final technical review.
+- Synthetic capabilities remain isolated from production: `0.0-test` is not a
+  real supported version, default production lookup rejects it, unapproved real
+  versions remain unavailable, and a normal future HTTP adapter receives no
+  synthetic permission automatically.
+- The owner explicitly cited the passing tests, zero guarded attempts,
+  nonblocking technical review, and production isolation in the acceptance.
+
+Remaining limitations/conditions:
+
+- No verified Vision/Cyber Controller product/version compatibility, live API
+  qualification, or production-readiness claim. Source evidence and mocks are
+  not vendor documentation or live-test evidence.
+- The mock-backend declaration remains a trusted developer assertion, not an
+  OS-level sandbox. Actual backend TLS/timeouts/cookie isolation/resource
+  disposal remain future qualification obligations; no concrete HTTP backend
+  or production secret provider exists.
+- Response shapes, identities, comparisons, and known-semantics assertions are
+  synthetic/unverified. No destination inventory/preflight, real transformation,
+  approval/apply workflow, migration execution, or durable execution journal is
+  implemented. The original broader mocked-apply roadmap proposal is deferred.
+- Cyber Controller authentication retains source-observed HTTP-200-only
+  acceptance. Raw artifacts/plans are not redacted reports; arbitrary free-text
+  secrets cannot be generically certified absent.
+- This approval does not authorize live API requests, production connectivity,
+  real migration execution, external configuration changes, or claims of
+  verified Vision/CC compatibility. CCV-004 and all broader/live work remain
+  not started and require separate authorization.
+
+Documentation-only recording: updated this tracker,
+[DECISIONS.md](DECISIONS.md), and [ROADMAP.md](ROADMAP.md).
+No application/test code changes, Git operations, external configuration
+changes, or live requests. Tests were **not rerun** for this documentation task;
+the results above are the completed acceptance-review evidence, not a new run.
+
+### E-011 - CCV-003-C synthetic backend boundary, 2026-11-17
+
+Scope: owner-authorized continuation of C to restrict synthetic version
+`0.0-test` to explicitly mocked development/testing. This supersedes E-010's
+catalogue placement and implicit trust of any injected client backend; its
+historical test results remain unchanged.
+
+Implementation:
+
+- Created [mock_capabilities.py](../src/cc_vision_import/mock_capabilities.py)
+  containing only the three synthetic operation declarations.
+- Modified [capabilities.py](../src/cc_vision_import/capabilities.py):
+  separate empty `VERIFIED_CAPABILITIES`, production-only default lookup, no
+  mock fallback, explicit `mock_only=True` metadata selection, and unconditional
+  production rejection of the reserved `0.0-test` marker. Unapproved real
+  versions remain unavailable in both modes. Generic declaration defaults no
+  longer imply synthetic qualification.
+- Modified [sessions.py](../src/cc_vision_import/sessions.py):
+  nominal abstract `MockSessionBackend` contract for in-memory fakes, a safe
+  per-role backend-kind query, and explicit `mock_only=True` initialization
+  policy. Policy alone cannot admit an unmarked backend. New rejected backends
+  use the existing ownership-safe, one-attempt sanitized cleanup path.
+  Normal manager defaults and existing authentication semantics are unchanged.
+- Modified [product_clients.py](../src/cc_vision_import/product_clients.py):
+  require the nominal mock backend at construction and before each read,
+  alongside existing product/version checks. Unsupported backend errors use
+  fixed category `mock_backend_required`, without payloads or credentials.
+- Modified [mock_workflow.py](../src/cc_vision_import/mock_workflow.py):
+  explicit mock metadata selection and strict mock-only manager policy for
+  source and destination, rejecting each unmarked result before that role's
+  secret resolution or authentication.
+- Modified [client tests](../tests/test_product_clients.py) and
+  [integration tests](../tests/test_mocked_integration.py): C's fakes explicitly
+  implement the nominal mock contract after network guards are installed.
+  Existing 95 baseline tests/fakes remain unchanged.
+- Updated [API_MATRIX.md](API_MATRIX.md), [ARCHITECTURE.md](ARCHITECTURE.md),
+  and this tracker. No endpoint, production capability, real backend, or write
+  operation was introduced.
+
+Six permanent boundary tests:
+
+1. Default production lookup rejects `0.0-test` for both products.
+2. An unmarked injected backend, even with `is_mock=True`, cannot construct
+   synthetic clients or dispatch requests.
+3. Representative unapproved real/other version declarations fail for both
+   products in both catalogue modes.
+4. Accidentally placing a synthetic declaration in the production catalogue
+   still cannot enable `0.0-test` through production lookup.
+5. Reinitializing a role with the same product/version but an unmarked backend
+   cannot reuse an existing client's synthetic permissions.
+6. Either workflow role rejects an unmarked backend before its authentication,
+   with one cleanup attempt and sanitized cleanup-failure subcases. A previously
+   initialized source is still closed if destination initialization fails.
+
+Actual verification:
+
+- Before implementation, ran
+  `python -B -m unittest discover -s tests -p test_product_clients.py -k synthetic -v`.
+  Both new regression methods failed as expected for both products: default
+  lookup and unmarked backends still admitted synthetic capabilities.
+- Focused run, with source/tests directories on `PYTHONPATH`:
+  `python -B -m unittest -v test_product_clients test_mocked_integration`.
+  **35 tests passed**, exit `0`, **16.579 seconds**.
+- Required full command, with
+  `$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'`:
+  `python -B -m unittest discover -s tests -v`.
+  **130 tests passed**, exit `0`, **42.033 seconds**:
+  all 124 previous tests retained plus six new boundary regressions.
+- All tests asserted the existing 15 guarded socket/DNS/HTTP/URL entry points
+  uncalled: **zero guarded external network attempts**, including denial and
+  cleanup-failure paths.
+- Pylance syntax checks passed for all seven affected Python files. Diagnostics
+  reported no errors/warnings; only the existing unused context-parameter hint
+  remains. Signature compatibility checks passed for resolved calls to the
+  modified session constructor and capability lookup functions.
+- No live/product/API connections, dependency installations, Git operations,
+  external configuration changes, or legacy execution/modification. Test
+  temporary directories are cleaned automatically; Python uses `-B`.
+
+Limitations and acceptance:
+
+`0.0-test` is never a genuine supported Vision/Cyber Controller version.
+The production catalogue is empty pending approved evidence and separately
+authorized implementation. A future real HTTP backend implementing the normal
+protocol receives no synthetic permission automatically and must never
+implement/register as `MockSessionBackend`. The nominal marker is a trusted
+developer assertion, not a sandbox against dishonest injected code; only
+in-memory mock implementations belong behind it. All E-010 product/schema,
+authentication, artifact, and operational limitations remain.
+
+Recommendation: accept this additional requirement for C's mock-only scope
+after owner review. **CCV-004, concrete HTTP backends, and live work remain
+not started and unauthorized.**
+
+### E-010 - CCV-003-C mocked client and integration verification, 2026-11-17
+
+Implementation:
+
+- Created [capabilities.py](../src/cc_vision_import/capabilities.py): exact
+  product/version/operation declarations for API-02, API-03, and API-10.
+  The approved `0.0-test` marker is synthetic only. All other versions, unknown
+  products/capabilities, arbitrary trees, scheduler operations, and cross-product
+  reads are rejected. Source evidence, synthetic schema assumptions, and absent
+  official/live compatibility are explicit.
+- Created [product_clients.py](../src/cc_vision_import/product_clients.py):
+  separate Vision LDAP listing and Cyber Controller Physical/Organization tree
+  interfaces, caller-owned managed session binding checks, GET-only forwarding,
+  fixed structured client errors, protected opaque read results, and schema-1
+  artifact construction through the existing validation/secret-reference policy.
+- Created [mock_workflow.py](../src/cc_vision_import/mock_workflow.py):
+  injected in-memory read-to-plan integration, separate profile/credential
+  references and sessions, explicit artifact validation, supplied identity
+  mappings/proposals, exact-byte plan binding, destination-profile consistency,
+  deterministic context cleanup, and a counts/status-only redacted summary.
+  Existing profile/planning contract errors are re-raised outside their handlers
+  with only safe structured results, removing raw parser exception chains.
+  There is no destination preflight, product matching, inferred identity,
+  transformation, execution, write simulation, or approval/apply implementation.
+- Created [test_product_clients.py](../tests/test_product_clients.py) and
+  [test_mocked_integration.py](../tests/test_mocked_integration.py):
+  **14 client tests + 15 integration tests**, with subcases. All use the existing
+  fake owned backend and 15-entry fail-fast network harness.
+- Modified [ARCHITECTURE.md](ARCHITECTURE.md),
+  [API_MATRIX.md](API_MATRIX.md), and this tracker. Existing source modules,
+  fixtures, and all 95 baseline tests were unchanged.
+
+Coverage:
+
+- Exact method/path assertions for all three reads; every read is demonstrated
+  through synthetic profile loading, both product-specific login strategies,
+  independent source/destination credentials and fake cookies, artifact
+  construction/validation, explicit qualified mappings, candidate planning,
+  integrity verification, summary production, and cleanup.
+- Authentication/HTTP/application rejection, expired-session/HTTP-401 handling,
+  local expiry before dispatch, and source expiration leaving destination
+  authenticated and independently usable. No renewal or configuration write
+  replay; only login POSTs and the selected source GET are issued.
+- Unsupported/unknown versions/capabilities rejected before workflow backend
+  creation or secret resolution; client product/version bindings rechecked.
+- Invalid UTF-8/JSON, duplicate JSON members, nonstandard numeric constants,
+  malformed LDAP/tree shapes and nested nodes, tree depth bounds, and raw
+  credential/nonfinite values rejected at the artifact boundary.
+- Missing mapping records fail; unresolved destination and ambiguous qualified
+  identities yield blocked candidate actions without inferred destination IDs.
+  Mismatched plan destination is rejected.
+- Raw/encoded Basic values, cookies, references, origins, identifiers, and API
+  payloads absent from application diagnostics/protected representations or the
+  summary; no application log/stdout/stderr output. Full artifacts/plans are
+  explicit non-redacted data, not default reports.
+- Success/failure context cleanup, shared backend ownership rejection without
+  double-close, and sanitized close failures while still closing the other role.
+- Invalid port text in source/destination profiles or a planning request cannot
+  escape through raw URL-parser exception context at the new workflow boundary.
+
+Actual verification:
+
+- Windows, Python **3.13.14**, existing standard-library environment only.
+- Initial focused command (with source and tests directories on `PYTHONPATH`):
+  `python -B -m unittest -v test_product_clients test_mocked_integration`.
+  **25 initial new tests passed**, exit `0`, **9.398 seconds**. Three additional
+  isolation/reference/ownership regressions were then added.
+- An intermediate full run passed **123 tests in 26.674 seconds**. A final
+  security regression then reproduced the pre-existing parser-chain exposure
+  through the new workflow (all three invalid-port subcases failed as expected).
+  After boundary sanitization, the focused command
+  `python -B -m unittest discover -s tests -p test_mocked_integration.py -k invalid_url_parser_context -v`
+  passed **1 test**, exit `0`, **0.351 seconds**.
+- Required final command, with
+  `$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'`:
+  `python -B -m unittest discover -s tests -v`.
+  **124 tests passed**, exit `0`, **25.609 seconds**:
+  **all 95 baseline tests + 29 new tests**.
+- Every test asserted all 15 guarded socket/DNS/HTTP/URL entry points uncalled
+  during cleanup: **zero guarded external network attempts**, including failure
+  paths. Fake send calls are in-memory method calls, not external API requests.
+- Pylance syntax checks passed for all five new Python files; source/client/test
+  diagnostics reported no errors or warnings. Syntax-tool calls initially
+  required an explicit workspace root and were rerun successfully with it.
+- No product connections, live API calls, concrete HTTP backend, dependency
+  installation, Git operations, external configuration edits, or legacy
+  execution/modification. Test temporary directories are cleaned automatically;
+  `-B` avoids bytecode caches.
+
+Remaining limitations:
+
+- No real version is enabled or qualified. The minimum response shapes are
+  synthetic/unverified; shared mock shapes do not prove interchangeable APIs.
+  No pagination, inventory completeness, portable tree/device conversion, or
+  destination comparison is established. A tree artifact retains one opaque root.
+- Cyber Controller login still models source-observed HTTP-200-only acceptance,
+  which cannot prove application-level authentication success.
+- Mapping identities, controller identity, comparisons, and known-semantics
+  flags remain explicit synthetic assertions. A valid offline candidate plan
+  grants no import authority and is not real migration readiness.
+- The injected factory/backend/resolver are trusted executable dependencies.
+  No concrete HTTP or production secret backend is provided. Actual TLS,
+  timeouts, cookie isolation, resource disposal, and server-session behavior
+  remain future adapter/qualification obligations. Python guards are not
+  OS-level network isolation.
+- Artifact key-based secret checks cannot detect secrets disguised as arbitrary
+  free text. Use synthetic data only; do not serialize raw result dataclasses,
+  artifacts/plans, callbacks, or debugger locals as redacted logs.
+  The new workflow sanitizes existing parser exception chains; direct use of
+  older profile/plan parsers remains unchanged and is outside this correction.
+- No remote logout, automatic authentication renewal, simulated or real migration
+  writes, approval workflow, online preflight, or CCV-004 implementation.
+
+Acceptance recommendation: **accept CCV-003-C for the authorized synthetic
+mock-only read-to-plan scope after owner review**. Implementation and offline
+verification passed; product compatibility/live readiness are not claimed.
+The older roadmap's broader simulated apply/verification/journaling proposal
+was not part of this narrower authorization and is not marked complete.
 
 ### E-009 - CCV-003-B initialization cleanup correction, 2026-11-17
 
@@ -751,8 +1065,10 @@ product/version compatibility, domain semantics, credentials, or live APIs.
 ## Missing information and blockers
 
 1. Owner approval is recorded for CCV-001, ADR-001 through ADR-009, CCV-002-A/B/C,
-   owner-confirmed CCV-002 completion, reviewed CCV-003-A, and mock-only CCV-003-B.
-   CCV-003-C/further subtasks and all live work require separate authorization.
+   owner-confirmed CCV-002 completion, and owner-accepted completion of
+   CCV-003-A/B/C for their implemented mock-only scope on 2026-11-17.
+   Live compatibility and qualification remain pending.
+   CCV-004/further scope and all live/backend work require separate authorization.
 2. Supported product/version pairs and permitted migration directions.
 3. Approved official API references and sanitized scheduler path configuration.
 4. Synthetic/sanitized schemas for representative objects, permissions, and tasks.
@@ -770,12 +1086,18 @@ external systems during offline contract development.
 
 ## Next-session checkpoint
 
-**CCV-003-B's mock-only implementation and review correction are complete;
-all 95 offline tests pass. Owner acceptance remains pending.
-Stop; do not begin CCV-003-C, CCV-009, or live work without separate authorization.**
+**CCV-003-A/B/C's implemented mock-only scope is owner-accepted on 2026-11-17.
+Acceptance evidence: 130 passing offline tests, zero guarded network attempts,
+no blocking review defects, and synthetic capabilities isolated from production.
+Live compatibility and qualification remain pending.
+Stop; do not begin CCV-004, CCV-009, real HTTP backend development, or live work
+without separate authorization.**
 
-Recommended next action: owner review/acceptance of the B correction and E-009,
-then separately define and authorize CCV-003-C with required product/version/API
-evidence. No real HTTP backend,
-production secret resolver, product API client, online preflight, product matching,
-approval system, durable execution journal, or migration execution is implemented.
+Recommended next action: preserve the accepted checkpoint and await separate
+authorization before any further implementation. A possible future scope is
+CCV-004's evidence-qualified controller-object identity/schema contracts and
+synthetic mapping tests; it is not started or authorized. Approved real product/version/schema
+evidence is needed before enabling corresponding real capabilities. No real HTTP
+backend, production secret resolver, destination inventory/preflight, product
+matching, approval system, durable execution journal, or migration execution is
+implemented. The broader original roadmap apply simulation remains deferred.

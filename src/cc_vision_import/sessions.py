@@ -2,6 +2,7 @@
 
 import math
 import time
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol, Self
@@ -14,7 +15,7 @@ from .authentication import (
     VisionAuthenticationStrategy,
 )
 from .transport import (
-    ErrorCategory, HttpBackend, HttpMethod, HttpResponse, HttpTransport,
+    BackendRequest, ErrorCategory, HttpBackend, HttpMethod, HttpResponse, HttpTransport,
     TransportConfig, TransportError,
 )
 
@@ -27,6 +28,16 @@ class SessionBackend(HttpBackend, Protocol):
         to one owner and maintain its own cookie jar; no ambient credentials.
         """
         ...
+
+
+class MockSessionBackend(ABC):
+    """Nominal opt-in for in-memory development/test backends, never network adapters."""
+
+    @abstractmethod
+    def send(self, request: BackendRequest) -> HttpResponse: ...
+
+    @abstractmethod
+    def close(self) -> None: ...
 
 
 def _call[T](
@@ -63,11 +74,14 @@ class _OwnedSession:
 class SessionManager:
     def __init__(
         self, backend_factory: Callable[[], SessionBackend], resolver: SecretResolver, *,
-        clock: Callable[[], float] = time.monotonic,
+        clock: Callable[[], float] = time.monotonic, mock_only: bool = False,
     ) -> None:
+        if type(mock_only) is not bool:
+            raise AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.INITIALIZATION))
         self._factory = backend_factory
         self._resolver = resolver
         self._clock = clock
+        self._mock_only = mock_only
         self._sessions: dict[SessionRole, _OwnedSession] = {}
 
     def __enter__(self) -> Self:
@@ -90,7 +104,10 @@ class SessionManager:
         if any(item.backend is backend for item in self._sessions.values()):
             raise AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.OWNERSHIP))
         close = getattr(backend, "close", None)
-        if not callable(getattr(backend, "send", None)) or not callable(close):
+        if (
+            not callable(getattr(backend, "send", None)) or not callable(close)
+            or self._mock_only and not isinstance(backend, MockSessionBackend)
+        ):
             error = AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.INITIALIZATION))
             if callable(close):
                 cleanup = _call(close, AuthenticationFailureCategory.CLEANUP)
@@ -117,6 +134,9 @@ class SessionManager:
         if not isinstance(role, SessionRole) or role not in self._sessions:
             raise AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.INVALID_STATE))
         return self._sessions[role]
+
+    def uses_mock_backend(self, role: SessionRole) -> bool:
+        return isinstance(self._session(role).backend, MockSessionBackend)
 
     def _now(self) -> float:
         value = _call(self._clock, AuthenticationFailureCategory.CLOCK)
