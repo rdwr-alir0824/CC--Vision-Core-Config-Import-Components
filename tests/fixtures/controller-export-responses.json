@@ -1,0 +1,101 @@
+{
+  "physical": {
+    "meIdentifier": {"managedElementID": "root-one", "managedElementClass": "synthetic-root"},
+    "unknownRoot": {"second": null, "first": [true, 1]},
+    "children": [
+      {
+        "name": "Region",
+        "meIdentifier": {"managedElementID": "site-one", "managedElementClass": "com.radware.insite.model.device.Site"},
+        "children": [
+          {
+            "name": "Nested",
+            "meIdentifier": {"managedElementID": "site-two", "managedElementClass": "com.radware.insite.model.device.Site"},
+            "unknownSite": {"second": 2, "first": 1},
+            "children": [
+              {
+                "name": "Device one",
+                "type": "synthetic-device-type",
+                "managementIp": "192.0.2.41",
+                "meIdentifier": {"managedElementID": "device-one", "managedElementClass": "com.radware.insite.model.device.Device"},
+                "deviceSetup": {
+                  "futureSetup": {"second": false, "first": 1},
+                  "deviceAccess": {
+                    "ormID": "retained-access-provenance",
+                    "connectionTimeout": 7,
+                    "futureAccess": {"second": [2, 1], "first": null}
+                  }
+                },
+                "unknownDevice": {"second": [{"second": null, "first": true}], "first": [1, false]},
+                "children": []
+              },
+              {
+                "name": "Device two",
+                "type": "another-synthetic-type",
+                "managementIp": "2001:db8::42",
+                "meIdentifier": {"managedElementID": "device-two", "managedElementClass": "com.radware.insite.model.device.Device"},
+                "deviceAccess": {"connectionTimeout": 9, "futureAccess": [null, true, 1]},
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "organization": {
+    "meIdentifier": {"managedElementID": "root-one", "managedElementClass": "synthetic-root"},
+    "organizationOnly": {"second": 2, "first": 1},
+    "children": [
+      {
+        "name": "Tenant",
+        "meIdentifier": {"managedElementID": "site-one", "managedElementClass": "com.radware.insite.model.device.Site"},
+        "children": [
+          {
+            "name": "Organization device",
+            "type": "synthetic-device-type",
+            "managementIp": "192.0.2.41",
+            "meIdentifier": {"managedElementID": "device-one", "managedElementClass": "com.radware.insite.model.device.Device"},
+            "deviceAccess": {"connectionTimeout": 7},
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "root": {
+    "meIdentifier": {"managedElementID": "root-one", "managedElementClass": "synthetic-root"},
+    "unknownRoot": {"second": null, "first": [true, 1]},
+    "children": []
+  },
+  "flat": {
+    "sites": [
+      {"name": "Region", "id": "site-one", "parent_site_name": "Synthetic root", "parentOrmID": "root-one", "futureSite": {"second": 2, "first": 1}},
+      {"name": "Nested", "id": "site-two", "parent_site_name": "Region", "parentOrmID": "site-one"}
+    ],
+    "devices": [
+      {"name": "Device one", "type": "synthetic-device-type", "managementIp": "192.0.2.41", "id": "device-one", "parentOrmID": "site-two", "deviceAccess": {"connectionTimeout": 7, "futureAccess": {"second": 2, "first": 1}}},
+      {"name": "Device two", "type": "another-synthetic-type", "managementIp": "2001:db8::42", "id": "device-two", "parentOrmID": "site-two", "deviceAccess": {"connectionTimeout": 9}, "futureDevice": [null, true, 1]}
+    ]
+  },
+  "missing_parent": {
+    "sites": [{"name": "Orphan", "id": "orphan", "parent_site_name": "Unknown", "parentOrmID": "absent-parent"}],
+    "devices": []
+  },
+  "duplicate_siblings": {
+    "meIdentifier": {"managedElementID": "root-one"},
+    "children": [
+      {"name": "Shared", "meIdentifier": {"managedElementID": "duplicate-a", "managedElementClass": "com.radware.insite.model.device.Site"}, "children": []},
+      {"name": "Shared", "meIdentifier": {"managedElementID": "duplicate-b", "managedElementClass": "com.radware.insite.model.device.Site"}, "children": []}
+    ]
+  },
+  "malformed": {
+    "meIdentifier": {"managedElementID": "root-one"},
+    "children": null
+  },
+  "incomplete_access": {
+    "meIdentifier": {"managedElementID": "root-one"},
+    "children": [
+      {"name": "Access unavailable", "type": "synthetic-device-type", "managementIp": "192.0.2.50", "meIdentifier": {"managedElementID": "device-one", "managedElementClass": "com.radware.insite.model.device.Device"}, "deviceSetup": {"futureField": null}, "children": []}
+    ]
+  }
+}
