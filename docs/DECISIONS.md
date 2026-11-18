@@ -24,13 +24,18 @@ authorized and its implemented offline-only scope was owner-accepted on
 **2026-11-18**, including the serialization-fidelity correction. See the
 separate dated acceptance records below.
 
+The owner separately accepted **CCV-004-C1's implemented offline-only scope on
+2026-11-18** after technical review. This includes legacy export adapters and
+their artifact/comparison/candidate-plan integration, not real export/import
+execution, live compatibility, or authorization to begin C2.
+
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
 | ADR-001 | Modular Python master CLI with explicit module registry | Architectural direction approved by owner, 2026-11-17 | CCV-002, CCV-007 |
 | ADR-002 | Product-specific clients over shared transport and explicit sessions | Direction approved; implemented CCV-003 mock-only scope accepted, 2026-11-17 | CCV-003 |
-| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; A offline scope accepted, 2026-11-17; B offline comparison/CREATE planning and integrity-bound plans accepted, 2026-11-18 | CCV-002, CCV-004 |
+| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; A offline scope accepted, 2026-11-17; B comparison/planning and C1 adapter/artifact/candidate-plan integration accepted offline-only, 2026-11-18 | CCV-002, CCV-004 |
 | ADR-004 | Separate offline planning, online preflight, approval, apply, and verification | Direction approved, 2026-11-17; B offline planning accepted, 2026-11-18; live/apply stages not authorized | CCV-002, CCV-007 |
-| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; A preservation/Option 1 accepted, 2026-11-17; B acknowledged comparison and serialization-fidelity correction accepted, 2026-11-18 | CCV-004 through CCV-006 |
+| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; A preservation/Option 1 accepted, 2026-11-17; B comparison/serialization correction and C1 hierarchy/provenance/fidelity controls accepted offline-only, 2026-11-18 | CCV-004 through CCV-006 |
 | ADR-006 | Capability/evidence gating by product and version | Direction approved; synthetic isolation accepted, 2026-11-17; real qualification pending | CCV-003, CCV-008 |
 | ADR-007 | Secure transport and externalized secrets with redacted reporting | Direction approved; implemented CCV-003 mock-only controls accepted, 2026-11-17 | CCV-002, CCV-003 |
 | ADR-008 | Initial utility exclusions and offline-first verification | Direction approved; CCV-003 offline acceptance recorded, 2026-11-17; live qualification pending | CCV-001 through CCV-008 |
@@ -175,6 +180,59 @@ Conditions and limitations:
 
 CCV-004-C remains **not authorized and not started**. No application-code
 changes or Git operations are part of this acceptance record.
+
+That statement records the boundary of the earlier B acceptance. The separate
+C1 authorization and acceptance below supersede it only for C1's stated scope.
+
+## Owner implementation acceptance - CCV-004-C1, 2026-11-18
+
+**Owner:** project owner, by explicit decision in the project conversation.
+**Decision:** accept **CCV-004-C1 for its implemented offline-only scope**
+under the existing artifact, fidelity, and operation-gating ADRs. This is
+implementation acceptance, not live API/schema qualification.
+
+Accepted functionality:
+
+- Recursive Cyber Controller export adapters.
+- Flat export adapters requiring explicit source-root/controller/tree context.
+- Hierarchy and source-native provenance preservation.
+- Versioned artifact generation and order-preserving controller serialization.
+- Offline comparison integration and deterministic candidate-plan generation.
+
+Accepted evidence:
+
+- **244 automated tests passed** and **five additional guarded review probes
+  passed**.
+- **Zero guarded network attempts**.
+- No confirmed acceptance-blocking defects.
+- Configuration preservation verified; incomplete exports fail safely.
+- Legacy scripts remain unchanged.
+
+The final read-only review ran
+`python -B -m unittest discover -s tests -v`, source on `PYTHONPATH`;
+244 passes, exit `0`, **41.198 seconds**. Five additional read-only guarded
+probes passed in **0.229 seconds**, covering incomplete flat access, generic
+planning of invalid artifacts, independent destination identities/cross-tree
+rejection, serialization/integrity, and copy/report safety.
+See [E-021](PROGRESS.md#e-021---ccv-004-c1-owner-acceptance-2026-11-18).
+These are existing review results, not tests rerun for this documentation update.
+
+Limitations:
+
+- Real API schemas remain unverified.
+- Nonempty device access does not establish completeness.
+- Credential portability remains unverified.
+- No live product compatibility is claimed.
+- No real export/import execution is authorized.
+
+Physical/Organization identities, explicit destination mappings, incomplete-
+artifact rejection, secret protection, and the synthetic-only capability
+boundary remain unchanged. No live connectivity, configuration writes, new
+production capabilities, or broader controller/credential implementation follows
+from this acceptance.
+
+CCV-004-C2 remains **not authorized and not started**. Only this register and the
+progress tracker are updated; no application code or Git operations are involved.
 
 ## ADR-001 - Modular Python controller
 

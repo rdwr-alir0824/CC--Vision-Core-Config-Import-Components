@@ -190,6 +190,32 @@ Initial evidence is in
 the superseding name-policy evidence/results are in
 [E-014](PROGRESS.md#e-014---ccv-004-a-option-1-duplicate-name-clarification-2026-11-17).
 
+## Legacy representation adapters - CCV-004-C1
+
+Read-only reinspection of OD/OC/OU adds these representation-loss/context
+observations, not new endpoints or official/live verification:
+
+| Static evidence | Confirmed source observation | C1 offline handling / limits |
+| --- | --- | --- |
+| OD `extract_sites_and_devices`, 110-142, and `main`, 189-222 | Recursive tree becomes flat `sites`/`devices`; selected name/type/address/id/parent fields retained, original root omitted, other configuration omitted | Recursive adapter preserves supplied unknown configuration. Flat adapter requires explicit source-root response and tree; it cannot recover discarded fields or infer roots from names. |
+| OD `extract_device_access_data`, 145-163 | Separate detail response's `deviceSetup.deviceAccess` attached as flat `deviceAccess`; source access `ormID` deleted and devices joined by IP | Preserve supplied embedded access and any access ID without deletion. No API-06 capability/client or by-IP join added. Missing/null/empty access yields invalid preserved artifact; all reported completeness remains unverified. |
+| OC upload and OU update | Name-based parent resolution, root fallback, source ID reused on updates | Neither unsafe behavior is inherited. Flat `parentOrmID` must resolve to a supplied same-tree source object/root; explicit independent destination mappings are still mandatory. |
+
+[Adapters](../src/cc_vision_import/controller_exports.py) consume supplied JSON
+objects or existing mock-client read results for API-02/API-03. Both operations
+retain their prior capability declarations and synthetic schema classifications.
+The adapter version gate is `0.0-test` only, not a real supported release.
+No Vision schema support is inferred. No product/version or API count changes:
+production remains default-deny; 16 records / 12 concrete operations remain the
+static baseline. API-06 is still source-observed only, not client-implemented.
+
+The flat root-only context, detailed typed fields, structural-access minimum,
+and response fixtures are explicit local/synthetic contracts, not vendor
+requirements. In particular, nonempty access does not prove complete access
+configuration. Local adapter/mock integration coverage is recorded separately in
+[E-020](PROGRESS.md#e-020---ccv-004-c1-offline-export-adapters-2026-11-18);
+none of it establishes live compatibility.
+
 ## Evidence needed next
 
 1. Approve target products, source/destination versions, and migration directions.

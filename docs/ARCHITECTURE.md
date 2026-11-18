@@ -10,6 +10,9 @@ and explicit mapping against a separate supplied destination inventory; that
 offline-only scope is owner-accepted. CCV-004-B adds a separate controller
 planning validator, acknowledged offline exact comparison, nested CREATE
 dependencies, and deterministic redacted candidate plans/summaries.
+That offline-only B scope is owner-accepted. Separately authorized CCV-004-C1
+adds offline adapters for supplied recursive trees and context-qualified legacy
+flat exports, reusing those contracts and their order-preserving serialization.
 No concrete HTTP backend, production secret resolver,
 online execution, or real product/version compatibility is established.
 
@@ -487,8 +490,9 @@ these interfaces; this repository provides no concrete network backend. Python
 test guards establish zero guarded attempts, not OS-level isolation.
 The workflow sanitizes existing parser chains at its own boundary; direct calls
 to older profile/plan parsers have not been changed by this milestone.
-The separately authorized CCV-004-A/B offline contracts are described below;
-CCV-004-C and all live/backend development remain unauthorized.
+The separately authorized CCV-004-A/B and C1 offline contracts are described
+below. C1 adds no client operation; C2 and all live/backend development remain
+unauthorized.
 
 ## Implemented offline controller objects and identity mapping - CCV-004-A
 
@@ -616,8 +620,9 @@ for the superseding duplicate-name policy and current focused/full-suite results
 Both trees' detailed node layouts, string-only device type/address assumptions,
 root classes, identifier aliases, duplicate rules, device-access portability,
 cross-tree device behavior, pagination/completeness, and destination provenance
-remain unverified against products. No adapter for the context-deficient legacy
-flat export is added. There is no automatic parent-name or by-IP lookup.
+remain unverified against products. A itself added no adapter for the
+context-deficient legacy flat export; the separately authorized C1 adapter below
+requires explicit source-root context. There is no automatic parent-name or by-IP lookup.
 Offline product/version declarations grant no capability: production remains
 default-deny and `0.0-test` remains restricted to mocked API development.
 CCV-004-B's separately authorized offline comparison/planning extension follows.
@@ -828,7 +833,150 @@ externally reformatted inputs of uncertain fidelity: keep them UNKNOWN/BLOCKED
 until trusted, order-preserving source snapshots can be supplied. The engine
 does not authenticate input provenance or detect transformations made before
 its input boundary without independently retained originals.
-CCV-004-C and live/backend work require separate authorization.
+The subsequently authorized C1 adapters are described below; C2 and
+live/backend work still require separate authorization.
+
+## Implemented offline legacy export adapters - CCV-004-C1
+
+The owner authorized C1 only on 2026-11-18.
+[controller_exports.py](../src/cc_vision_import/controller_exports.py) transforms
+supplied data, not live controllers. It adds no competing object model, HTTP
+backend, endpoint, API permission, automatic matcher, CLI command, or execution
+path. Raw adapters explicitly accept only synthetic version `0.0-test`.
+Real versions remain unsupported and the production capability catalogue stays
+empty. The existing mock-client backend/session gates are unchanged.
+
+### Source evidence and representation contracts
+
+Read-only inspection of the legacy downloader, uploader, and updater confirms:
+
+- Physical and Organization reads are separate recursive `children` trees.
+  Nodes use `meIdentifier.managedElementID`, exact Site/Device class names,
+  site/device `name`, and device `type`/`managementIp`.
+  Containment supplies the parent; optional native parent aliases must agree.
+- The downloader's flat file contains `sites` and `devices`. It records native
+  IDs as `id`, parents as `parentOrmID`, and extra site `parent_site_name`.
+  It omits the original root and discards fields outside its selected subset.
+- Device access is obtained separately from a by-IP detail response at
+  `deviceSetup.deviceAccess`, then attached to flat devices as `deviceAccess`.
+  The legacy script deletes access `ormID` and joins by address. C1 does neither:
+  no detail lookup or automatic enrichment is implemented.
+- The uploader's name lookup/root fallback and updater's source-ID reuse are
+  not copied. Parent names are preserved only as opaque provenance.
+
+These are source observations, not documented/live schemas. Root class,
+response completeness, required access keys, devices across both trees,
+address uniqueness, and server-side reference/credential semantics are unknown.
+Synthetic fixtures exercise local handling; they do not upgrade this evidence.
+
+### Adapters and explicit context
+
+- `adapt_tree_response(payload, controller_id, tree, version, exported_at)`
+  validates/copies JSON and reuses `normalize_tree`. Every source object is
+  retained or the entire operation fails explicitly. Unknown classes, malformed
+  JSON-compatible structures, missing fields, duplicate stable IDs, invalid
+  native aliases/parents, and credential values are never silently skipped.
+- `adapt_flat_export(payload, root_response, controller_id, tree, version,
+  exported_at)` requires an independently supplied **source** root response
+  with explicit native root identity and an empty `children` array. The flat
+  file alone cannot establish that root or tree and is not sufficient input.
+  A nonempty root response is rejected rather than silently dropping children.
+  This source root is not an implicit destination root mapping.
+- Flat parent references resolve against the complete supplied native-ID table,
+  including the explicit root. Site row ordering and parent-name strings never
+  choose parents. Missing/device/self/cyclic parents and duplicate IDs fail
+  through the existing hierarchy/dependency rules. No default/root fallback.
+- Flat site/device array order is retained as normalized object order (root,
+  sites, devices); the flat format has no original cross-array sibling order
+  to recover. Each record's native `id` and `parentOrmID`, parent-name provenance,
+  and unknown configuration fields are preserved. No managed-element class or
+  source/destination ID is invented. Known fields move into the existing typed
+  name/device/access contracts. Unknown envelope fields are rejected: C1 has no
+  safe model for relocating them into an arbitrary root's configuration.
+- `adapt_controller_read(ReadResult, controller_id, exported_at)` consumes one
+  existing Cyber Controller mock tree result and selects its explicit tree.
+  It checks the unaltered synthetic capability declaration against the existing
+  mock catalogue; Vision, non-tree operations, malformed envelopes, forged
+  declaration flags, and unsupported versions are rejected.
+  The data adapter is not proof of a backend's origin and grants no network
+  permission. Only the existing clients perform mock-backend/session checks.
+
+### Artifact fidelity, identity, and incomplete access
+
+`ControllerExportResult` contains an existing `ConfigurationArtifact` (hidden
+from default representation), a fixed-message positional validation result,
+the existing separate identity assessment, and evidence/completeness labels.
+It is a result wrapper, not another controller object schema.
+
+- Configuration dictionaries retain insertion order recursively, including
+  dictionaries inside arrays and device-access settings. JSON types, unknown
+  configuration, array order, and unknown-field absence/null remain distinct.
+  Controller artifact schema 1 and standard order-preserving `to_json()` are
+  reused. C1 never canonicalizes raw configuration or changes plan schema 2.
+- Generic artifact validation first validates/copies the entire supplied
+  response. Controller validation adds recognized usernames/login/SNMP fields.
+  Raw credentials and raw masked sensitive values fail with redacted errors;
+  no silent redaction, field deletion, secret lookup, or credential conversion.
+  Callers must supply contract-valid opaque secret references or null
+  placeholders. Their labels are retained, not resolved or certified as
+  production-authorized. The existing comparison engine blocks unresolved
+  references/null credentials/masks even when both sides use identical values.
+- Missing, explicit null, or empty device-access data produces
+  `incomplete_device_access`. All objects/settings remain in the returned
+  artifact, which is marked **invalid** and remains invalid after serialization.
+  `to_inventory()` and ordinary controller artifact parsing then fail closed.
+  The conservative scope is the whole incomplete artifact, not a silently
+  partial planning inventory. No empty access record is substituted.
+- A nonempty access dictionary establishes only structural availability.
+  `completeness="unverified"` is always reported, even with no local issues:
+  there is no authoritative required-field list or live completeness evidence.
+  Structural `validation.status="valid"` does not assert a complete export,
+  product compatibility, resolved credentials, or permission to compare.
+- Duplicate same-type sibling names are preserved in valid artifacts and
+  reported as `ambiguous_name` by `identity_assessment`, consistent with the
+  accepted A policy. Explicit qualified destination mappings may resolve them;
+  absent/unresolved/ambiguous mappings remain BLOCKED. Duplicate stable native
+  IDs are invalid; names never replace them.
+- `to_inventory()` reparses the protected artifact using the existing controller
+  contract. From there, strict identity mapping, per-object semantics
+  acknowledgement, resolved existing destination roots, confirmed MISSING and
+  declared-complete trees, and parent dependencies retain all B safety gates.
+
+### Verification and remaining scope
+
+[Adapter tests](../tests/test_controller_exports.py) and the
+[synthetic response collection](../tests/fixtures/controller-export-responses.json)
+exercise Physical/Organization, nested sites, multiple devices, unknown/order-
+sensitive fields, malformed nodes, missing parents, duplicate siblings, and
+incomplete access. Tests demonstrate:
+
+1. Synthetic response -> adapter -> normalized inventory -> artifact -> standard
+   JSON encode/decode -> comparison -> candidate plan -> schema-2 recomputation.
+2. Both representations and trees, explicit synthetic destination mappings,
+   unchanged SKIP for identical configuration, CONFLICT for dictionary/access/
+   array/type/null differences, and nested CREATE candidates without assigned
+   destination IDs.
+3. Injected in-memory source/destination mock sessions -> existing read client ->
+   adapter -> plan, with independent credentials and backend cleanup. A separate
+   malformed-node case confirms exception-safe cleanup after adapter failure.
+4. Invalid/incomplete artifacts remain rejected after roundtrip; credential
+   errors/report representations do not expose tested secret values/references.
+
+Full offline suite: **244 tests passed**, retaining all **220** existing tests
+plus **24** adapter regressions, with **zero guarded network attempts**.
+Actual commands/results are in
+[E-020](PROGRESS.md#e-020---ccv-004-c1-offline-export-adapters-2026-11-18).
+C1 is implemented and offline-verified; technical review/owner acceptance remain
+pending. No legacy script was executed/modified and no API was contacted.
+
+Limitations: flat files cannot restore root/configuration/access fields already
+discarded by legacy code; earlier lost ordering cannot be reconstructed.
+Source-root context, offline inventories, reference approval, and completeness
+assertions are trusted inputs, not authenticated evidence. Unknown secrets
+disguised in arbitrary unrecognized text cannot be generically detected.
+No by-IP enrichment, device detail adapter/client, live export, real version
+schema qualification, configuration writes, credential migration, production
+connectivity, or C2 is implemented.
 
 ## Proposed migration modules
 
@@ -1274,7 +1422,7 @@ Status: **Architectural direction approved** (ADR-009); recovery not implemented
 
 CCV-001 was static only. CCV-002-A/B/C and CCV-003-A/B/C verification cover offline
 local behavior, not APIs or product compatibility. CCV-003's implemented mock-only
-scope and CCV-004-A's offline-only scope are owner-accepted. CCV-004-B's
-separately authorized comparison/CREATE-planning scope is offline-verified;
-its next gate is technical review and owner acceptance. Do not begin CCV-004-C,
+scope and CCV-004-A/B's offline-only scopes are owner-accepted. Separately
+authorized CCV-004-C1 export adapters are implemented and offline-verified;
+their next gate is technical review and owner acceptance. Do not begin C2,
 real HTTP backend development, or live operations without separate authorization.
