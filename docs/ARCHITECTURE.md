@@ -2,7 +2,8 @@
 
 Date: 2026-11-17  
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
-foundation and contracts implemented; online components/execution not implemented.
+foundation and contracts implemented; CCV-003-A shared transport mock-tested.
+No concrete HTTP backend, product client, authentication, or online execution.
 
 The owner approved ADR-001 through ADR-009 and the documented architectural
 amendments. Concrete implementation/storage details remain open where noted;
@@ -32,7 +33,8 @@ Master CLI/controller
 
 Application code lives separately under [src/cc_vision_import](../src/cc_vision_import/).
 CCV-001 created documentation only; CCV-002-A/B/C implement the offline subset
-described below. Legacy sources remain read-only.
+described below. CCV-003-A adds backend-independent transport mechanics only.
+Legacy sources remain read-only.
 
 ## Responsibilities and interfaces
 
@@ -71,6 +73,119 @@ secret backend remain undecided.
    transport failure, malformed responses, and unsupported capability.
 8. Never automatically replay writes after authentication renewal or a timeout:
    first reconcile destination state or report an indeterminate outcome.
+
+## Implemented shared HTTP transport - CCV-003-A
+
+[Transport contracts and mechanics](../src/cc_vision_import/transport.py) use only
+the standard library. The owner authorized this subtask only; CCV-003-B and
+product/client/session implementation remain outside scope. There is no default
+or concrete HTTP backend, production HTTP dependency, CLI wiring, endpoint
+catalogue, authentication, or migration operation.
+
+### Interfaces and injection
+
+- `HttpTransport(TransportConfig(...), backend)` requires an injected `HttpBackend`.
+  The backend protocol exposes `send(BackendRequest) -> HttpResponse`.
+- `request(HttpMethod, segments, query=(), headers=None, body=None,
+  expect_json=False)` supports GET, POST, PUT, PATCH, and DELETE as generic HTTP
+  verbs, not evidence that either product supports any corresponding operation.
+- Bodies are explicit bytes; GET bodies are rejected. Responses carry status,
+  opaque bytes, and headers. Optional JSON expectation checks strict UTF-8 JSON,
+  rejecting duplicate members and nonfinite constants using the existing loader.
+  No product schema is inferred. Empty 204 responses are valid unless JSON was
+  explicitly required. A 202 response is HTTP acceptance, not operation completion.
+- The caller owns backend/session cleanup. A future adapter must eagerly consume
+  and release each response, enforce certificate/hostname checks and both
+  timeouts, and map library IO exceptions to `BackendFailure`. It must perform
+  exactly one attempt without redirects, internal retries, authentication
+  renewal, ambient proxy/auth behavior, or secret logging.
+
+The injected adapter is a trusted dependency. These obligations are a contract,
+not proof that an arbitrary adapter obeys them. No backend has been selected,
+implemented, or live-qualified in this milestone.
+
+### Security and configuration
+
+`TransportConfig` validates on construction and at transport initialization:
+
+- A supplied HTTPS origin, reusing existing offline origin validation. No DNS
+  resolution or default product address. Invalid-origin parser exception chains
+  are discarded so an invalid port or authority cannot disclose input.
+- TLS verification defaults to true; false and nonboolean substitutes are
+  rejected. Each dispatch uses a standard-library client `SSLContext` with
+  certificate verification and hostname checking, never an insecure fallback.
+- Optional `trusted_ca` must identify a local existing file accepted by the SSL
+  trust loader. Missing, unreadable, invalid-certificate, URL, and UNC paths fail
+  explicitly, including mixed-separator UNC forms before file access. Supplied
+  CA bundles select trust explicitly; they are not downloaded.
+- Required separate connection/read timeouts, finite and greater than zero,
+  each at most 300 seconds. Booleans are not numeric configuration.
+- GET retry count defaults to zero and accepts only integers from zero to three.
+- URL construction accepts tuples of separate path segments and query pairs,
+  not relative/absolute URL strings. Components are encoded independently;
+  dot traversal, separators, pre-encoded path segments, controls, and invalid
+  structures are rejected. Caller data cannot replace the configured origin.
+- Header syntax/control characters, case-insensitive duplicates, and overrides
+  of Host, Content-Length, Transfer-Encoding, or Connection are rejected before
+  dispatch. `redact_headers` masks **all** header values, including custom names,
+  cookies, authorization, proxy authorization, API keys, and session identifiers.
+
+URLs, bodies, headers, and CA paths are excluded from normal dataclass
+representations. Transport errors contain only fixed categories/messages,
+numeric status/attempt count, and a fixed underlying reason category. No raw
+backend exception, credential, header, URL, or response body is attached or logged;
+unexpected adapter exceptions are surfaced as sanitized `backend_failure`.
+Configuration errors retain the existing structured `ContractValidationError`
+shape. Raw requests/responses are necessarily available to the backend/caller;
+they are sensitive data, not safe logging objects. The transport emits no logs.
+Header names are retained by the redaction helper and must not themselves
+contain secrets.
+
+### Error and retry semantics
+
+| Category | Classification |
+| --- | --- |
+| `connection_failure` | Backend-reported connection IO failure on GET. |
+| `timeout` | Backend-reported timeout on GET; no implied wall-clock test. |
+| `tls_certificate_failure` | Backend-reported certificate/TLS failure on GET; never retried. |
+| `authentication_rejection` | HTTP 401; no login/renewal or replay. |
+| `authorization_failure` | HTTP 403; no scope broadening or replay. |
+| `http_error` | Other non-2xx final statuses, including redirects; no automatic redirect/retry. |
+| `malformed_response` | Invalid backend response/status/body type or explicitly expected invalid JSON. |
+| `indeterminate_write_outcome` | Any dispatched non-GET with IO/TLS/backend failure, malformed response/required JSON, HTTP 408, or HTTP 5xx. |
+| `backend_failure` | Unexpected backend exception, sanitized rather than leaked. |
+
+Indeterminate errors preserve the underlying fixed `reason` and available status.
+Even a connection/TLS failure is conservatively uncertain for writes because
+this interface has no independently verified "not sent" evidence. Other HTTP
+rejections retain their HTTP category but never authorize a replay or certify
+unchanged destination state.
+
+Only GET connection/timeout failures can retry when explicitly configured:
+at most four total attempts (one plus up to three retries), each with bounded
+timeouts. No backoff, Retry-After processing, HTTP-status retry, TLS retry,
+malformed-response retry, write retry, or automatic authentication renewal.
+Future clients must use GET only for genuinely safe reads. Reconciliation and
+separate authorization are required before considering another uncertain write;
+the transport cannot reconcile or grant permission.
+
+### Mock verification and limits
+
+[Fake-session tests](../tests/test_transport.py) cover successful verbs, timeout/
+connection/TLS failures, rejected configuration, HTTP classification, redaction,
+bounded retry, malformed responses, uncertain writes, and URL/header injection.
+They inherit the same fail-fast network guards as all 39 unchanged regression
+tests; no product address or actual endpoint is exercised. See
+[E-007](PROGRESS.md#e-007---ccv-003-a-offline-verification-2026-11-17) for actual
+commands/results.
+
+Mocks verify policy, forwarding, and classification, not a TLS handshake,
+elapsed network timeout, real CA deployment, or adapter compliance. Successful
+custom-CA forwarding uses a mocked trust loader; invalid CA data is rejected by
+the real standard-library loader. Python guards are not OS-level isolation:
+use trusted local CA files (including their filesystem links) and trusted
+adapters. Live qualification, resource limits for real response bodies,
+authentication, and product/version capability evidence remain future work.
 
 ## Proposed migration modules
 
@@ -514,6 +629,7 @@ Status: **Architectural direction approved** (ADR-009); recovery not implemented
 - Require post-import evidence before marking a migration verified complete.
 - Live integration and production acceptance require separate authorization.
 
-CCV-001 was static only. CCV-002-A/B/C verification covers offline local behavior,
-not APIs or product compatibility. The next gate is owner review and explicit
-authorization of a bounded follow-on task. Do not begin CCV-003.
+CCV-001 was static only. CCV-002-A/B/C and CCV-003-A verification cover offline
+local behavior, not APIs or product compatibility. The next gate is owner review
+of CCV-003-A and explicit authorization of a bounded follow-on task. Do not begin
+CCV-003-B or live operations.

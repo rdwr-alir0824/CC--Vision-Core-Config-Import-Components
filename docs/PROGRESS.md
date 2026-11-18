@@ -3,7 +3,8 @@
 Last updated: 2026-11-17  
 Authoritative checkpoint: **CCV-001 approved as the static baseline;
 CCV-002-A technically reviewed; CCV-002-B implemented and offline-verified.
-CCV-002-C implemented and offline-verified; CCV-003 not started.**
+CCV-002-C completed and locally committed per owner confirmation;
+CCV-003-A implemented and mock-verified; CCV-003-B not started.**
 
 ## Status rules
 
@@ -49,17 +50,26 @@ reporting, and offline tests. This is not authorization for matching against rea
 products, authentication, HTTP clients, preflight, import/export execution,
 dependency installation, Git operations, or CCV-003.
 
+The owner confirmed CCV-002 completed and preserved in a local commit (owner
+statement only; no Git inspection performed), then authorized **CCV-003-A only**:
+shared injectable HTTP transport, security/error/retry policies, fake-session
+tests, and updates to architecture and progress documentation. Authorization
+remains mock-only: no Vision/Cyber Controller contact, legacy execution, product
+authentication, actual migration, dependencies, invented endpoints, or Git
+operations. CCV-003-B is not authorized and has not begun.
+
 ## Milestone tracker
 
 | Task ID | Description | Priority | Dependencies | Approval status | Implementation status | Verification status |
 | --- | --- | --- | --- | --- | --- | --- |
 | CCV-000 | Static project context and legacy discovery | P0 | None | User confirmed discovery completed | Static discovery completed; no application implementation | Static inventory corroborated; no runtime/API verification |
 | CCV-001 | Project Foundation documentation | P0 | CCV-000 | Owner approved static baseline and ADR-001 through ADR-009 on 2026-11-17 | Static documentation complete | Owner-accepted static scope complete; no API/runtime certification; duplicate hashing deferred |
-| CCV-002 | Skeleton, profiles, offline contracts | P0 | CCV-001; remaining implementation decisions | A/B/C approved; no follow-on authorization | A/B/C implemented; parent acceptance pending | A/B/C offline-verified; no API certification or owner closeout claimed |
+| CCV-002 | Skeleton, profiles, offline contracts | P0 | CCV-001; remaining implementation decisions | A/B/C approved; owner confirmed parent completed before 003-A | A/B/C implemented; local commit reported by owner, not inspected | 39 offline regressions retained in A's transport verification; no API certification |
 | CCV-002-A | Minimal offline application foundation | P0 | CCV-001 approval; Python 3.13.14 and standard library | Approved and technically reviewed by owner | Implemented | Verified complete for authorized offline scope; regressions pass in B |
 | CCV-002-B | Offline profiles, versioned artifacts, metadata, and validation contracts | P0 | CCV-002-A technical review | Approved on 2026-11-17 | Implemented | Verified complete for authorized offline scope; see E-005 |
 | CCV-002-C | Offline mapping/action/plan/integrity and result contracts | P0 | CCV-002-B implementation/testing | Approved on 2026-11-17 | Implemented | Verified complete for authorized offline scope; see E-006 |
-| CCV-003 | Transport, clients, sessions, mocked end-to-end slice | P0 | CCV-002; approved evidence for selected client operations | Proposed — pending owner approval | Not started | Not started |
+| CCV-003 | Transport, clients, sessions, mocked end-to-end slice | P0 | CCV-002; approved evidence for selected client operations | A only authorized; remainder not authorized | A implemented; clients/sessions/end-to-end slice not started | A mock-verified only; parent not complete |
+| CCV-003-A | Shared injectable HTTP transport and policies | P0 | CCV-002 completion confirmed by owner | Approved on 2026-11-17; mock-only | Implemented | Verified complete for authorized mock scope; see E-007 |
 | CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | Not approved; planned | Not started | Not started |
 | CCV-005 | LDAP permissions | P1 | CCV-002, CCV-003; reference mappings | Not approved; planned | Not started | Not started |
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
@@ -76,11 +86,12 @@ entries identify implemented files. Test evidence is absent unless stated.
 | --- | --- | --- | --- | --- |
 | CCV-000 | Legacy reference inventory; no changes made in this phase | User completion statement and static enumeration; nine apparent duplicate pairs under amended review baseline | Duplicate byte equality not accepted as hash-verified; runtime not assessed | Keep legacy read-only; hash verification pending |
 | CCV-001 | [PROJECT](PROJECT.md), [ARCHITECTURE](ARCHITECTURE.md), [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), [PROGRESS](PROGRESS.md), [DECISIONS](DECISIONS.md) | Static evidence below; owner approval recorded above | Duplicate hashing remains a deferred evidence task, not part of this implementation | Preserve accepted static baseline and open questions |
-| CCV-002 | Source/test foundation and directly related docs | A/B/C evidence | Parent milestone acceptance and any follow-on scope need owner review | Do not begin CCV-003 automatically |
+| CCV-002 | Source/test foundation and directly related docs | A/B/C evidence; 39 regressions retained in E-007 | No blocker for completed offline scope; no product certification | Preserve existing behavior |
 | CCV-002-A | Six files in [package](../src/cc_vision_import/), [tests](../tests/test_foundation.py), this tracker | Nine offline unit tests passed; interpreter Python 3.13.14; see E-004 | No blocker for A; synthetic contract establishes no product compatibility | Stop; seek review and explicit authorization for the next subtask |
 | CCV-002-B | [Contracts](../src/cc_vision_import/contracts.py), [shared validation](../src/cc_vision_import/_contract_validation.py), [profiles](../src/cc_vision_import/profiles.py), [artifacts](../src/cc_vision_import/artifacts.py), registry/CLI, tests/fixtures, [architecture](ARCHITECTURE.md), this tracker | 22 offline tests passed; Python 3.13.14; see E-005 | No blocker for authorized B scope; real product schemas, compatibility, and secret-provider policy remain open | Stop for owner review; no C/003 implementation |
-| CCV-002-C | [Mappings](../src/cc_vision_import/mappings.py), [plans/actions](../src/cc_vision_import/plans.py), [results](../src/cc_vision_import/operations.py), shared helpers, registry/CLI, synthetic request/tests, architecture and this tracker | 39 offline tests pass on Python 3.13.14; see E-006 | No blocker for C's authorized contract scope; real identity/semantics/evidence provenance remain unverified | Stop for owner review and parent closeout; CCV-003 not started |
-| CCV-003 | Proposed transport/auth/client source, mocked workflow, and focused tests; related docs | None; not started | Foundation contracts and approved API/schema evidence for selected slice | Select readiness-verified slice; implement only after authorization |
+| CCV-002-C | [Mappings](../src/cc_vision_import/mappings.py), [plans/actions](../src/cc_vision_import/plans.py), [results](../src/cc_vision_import/operations.py), shared helpers, registry/CLI, synthetic request/tests, architecture and this tracker | 39 offline tests pass on Python 3.13.14; see E-006 | No blocker for C's authorized contract scope; real identity/semantics/evidence provenance remain unverified | Preserve completed offline contracts |
+| CCV-003 | A's transport/tests/docs; later auth/client source and mocked workflow remain proposed | E-007 covers A only | Approved API/schema evidence and separate authorization for remaining slices | Stop after A; parent not complete |
+| CCV-003-A | [Transport](../src/cc_vision_import/transport.py), [mock tests](../tests/test_transport.py), [architecture](ARCHITECTURE.md), this tracker | 60 offline tests passed (21 new plus 39 regressions); E-007 | No blocker for mock scope; no concrete backend or live qualification | Owner review; separately scope/authorize CCV-003-B before work |
 | CCV-004 | Proposed object/access/transformation modules and tests; related docs | None; not started | Destination identity, secret handling, tree behavior | Obtain approved mapping contracts |
 | CCV-005 | Proposed LDAP module and tests; related docs | None; not started | Roles/groups/policies and scope/device-lock policy | Resolve authorization-preserving mappings |
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
@@ -285,6 +296,78 @@ journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
 
+### E-007 - CCV-003-A offline verification, 2026-11-17
+
+Implementation/files:
+
+- Created [transport.py](../src/cc_vision_import/transport.py): method/error enums,
+  validated configuration, URL/header handling, backend request/response/protocol,
+  sanitized errors, optional strict JSON checks, and conservative retry mechanics.
+- Created [test_transport.py](../tests/test_transport.py): fake HTTP session and
+  response outcomes, using the existing offline test harness unchanged.
+- Modified [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker only. Existing
+  application contracts, CLI/registry, 39 regression tests, and legacy files were
+  not modified. No API endpoint or product capability was introduced.
+
+Verification:
+
+- Interpreter output: **Python 3.13.14**, Windows; standard library only.
+- Baseline command after setting
+  `$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'`:
+  `python -B -m unittest discover -s tests -v`.
+  **39 original tests passed**, exit `0`, 4.926 seconds, before implementation.
+- Focused initial run:
+  `python -B -m unittest discover -s tests -p test_transport.py -v`.
+  **20 tests passed**, exit `0`, 6.750 seconds, before final hardening/additional
+  remote-CA-path coverage.
+- Final full command: `python -B -m unittest discover -s tests -v`.
+  **60 tests passed**, exit `0`, **7.629 seconds**: all **39 unchanged regressions**
+  plus **21 transport tests**.
+- Covered all five verbs and exact forwarding; verified TLS context defaults and
+  explicit timeouts; connection/timeout/certificate category simulation;
+  configuration rejection; invalid real CA contents and mocked successful custom
+  CA forwarding; remote CA rejection before file inspection, including mixed
+  Windows separators; encoded URLs, traversal and header injection rejection.
+- Covered 401/403/other HTTP errors, redirects, 408 and 5xx uncertain writes,
+  malformed response/required JSON, empty 204 and accepted 202 responses, default
+  no-retry behavior, bounded GET-only connection/timeout retries, successful read
+  retry, no write replay, no TLS/status/JSON retry, no authentication renewal.
+- Redaction includes standard/custom request/response headers; representations
+  exclude sensitive data. Exception checks include formatted traceback and
+  context/cause exclusion for unexpected backend exceptions and invalid origins.
+- Every one of the 60 tests inherited all **15 fail-fast guards** for socket
+  creation/connect/send/bind, DNS, HTTP requests, and URL opening. Cleanup
+  asserted every guard uncalled: **zero guarded external network attempts**,
+  including invalid/error paths. Transport tests dispatched only to `FakeSession`.
+- Pylance file syntax checks passed for both new Python files. Final per-file
+  diagnostics for both returned empty item lists (no diagnostics). Initial syntax
+  tool calls needed an explicit workspace root; corrected calls succeeded.
+- No dependencies were installed; no Git operations, legacy execution, live
+  authentication, product connections, or migration operations were performed.
+  Tests clean temporary directories; `-B` suppresses bytecode caches.
+
+Acceptance:
+
+- [x] Injectable GET/POST/PUT/PATCH/DELETE mechanics without a concrete backend.
+- [x] Verified TLS by default, optional local CA, explicit bounded timeouts.
+- [x] Unsafe configuration/URL/header input rejected with structured errors.
+- [x] Required error categories and secret-safe redaction/reporting.
+- [x] Explicitly bounded safe-read retry policy; no automatic write replay.
+- [x] Indeterminate write outcomes preserve fixed underlying reasons.
+- [x] Mock tests and all 39 existing regressions pass with zero guarded attempts.
+- [x] Architecture, implementation limits, and actual test evidence recorded.
+
+Result: **CCV-003-A verified complete for the authorized mock-only scope**.
+No actual network timeout duration, TLS handshake, product compatibility, adapter
+compliance, or successful real custom-CA deployment is certified. The transport
+requires trusted future adapters to honor its single-attempt/TLS/timeout/cleanup
+contract. It has no production backend, authentication, reconciliation, approval
+gate, durable journal, or product operations. Python guards are not an OS-level
+sandbox; CA filesystem links and injected backends must be trusted.
+
+Next action: owner review of A and separate scope/authorization for CCV-003-B.
+**CCV-003-B and all live operations remain not started/not authorized.**
+
 ### E-006 - CCV-002-C offline verification, 2026-11-17
 
 - Interpreter: Python 3.13.14 on Windows; standard library only.
@@ -430,8 +513,9 @@ product/version compatibility, domain semantics, credentials, or live APIs.
 
 ## Missing information and blockers
 
-1. Owner approval is recorded for CCV-001, ADR-001 through ADR-009, and A/B/C;
-   parent milestone acceptance and CCV-003/follow-on scopes require review.
+1. Owner approval is recorded for CCV-001, ADR-001 through ADR-009, CCV-002-A/B/C,
+   owner-confirmed CCV-002 completion, and mock-only CCV-003-A. Further CCV-003
+   subtasks and all live work require separate authorization.
 2. Supported product/version pairs and permitted migration directions.
 3. Approved official API references and sanitized scheduler path configuration.
 4. Synthetic/sanitized schemas for representative objects, permissions, and tasks.
@@ -449,10 +533,10 @@ external systems during offline contract development.
 
 ## Next-session checkpoint
 
-**CCV-002-C is complete for its authorized offline contract scope. Stop; do not
-begin CCV-003 or CCV-009 without separate authorization.**
+**CCV-003-A is complete for its authorized mock-only shared transport scope.
+Stop; do not begin CCV-003-B, CCV-009, or live work without separate authorization.**
 
-Recommended next action: owner review of C, confirm the CCV-002 acceptance scope,
-and resolve API/schema readiness evidence before separately scoping CCV-003.
-No online preflight, product matching, approval system, durable execution journal,
-or migration execution has been implemented.
+Recommended next action: owner review of A, then separately define and authorize
+CCV-003-B with any required product/version/API evidence. No concrete HTTP backend,
+product authentication/client, online preflight, product matching, approval
+system, durable execution journal, or migration execution has been implemented.
