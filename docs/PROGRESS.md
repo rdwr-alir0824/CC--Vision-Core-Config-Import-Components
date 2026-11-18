@@ -1,6 +1,6 @@
 # Persistent Development Tracker
 
-Last updated: 2026-11-17  
+Last updated: 2026-11-18
 Authoritative checkpoint: **CCV-001 approved as the static baseline;
 CCV-002-A technically reviewed; CCV-002-B implemented and offline-verified.
 CCV-002-C completed and locally committed per owner confirmation;
@@ -10,10 +10,22 @@ zero guarded network attempts, no blocking technical-review defects, and
 synthetic capabilities isolated from production. Live compatibility and
 qualification remain pending. CCV-004-A's completed offline-only scope is
 owner-accepted on 2026-11-17: 166 tests passed (130 retained + 36 object/mapping
-tests), with zero guarded network attempts. Future CREATE planning is Category B:
-minor controller-specific contract extensions are accepted as planned CCV-004-B
-scope, not implemented in A. CCV-004-B implementation and all broader/live work
-remain unauthorized and not started.**
+tests), with zero guarded network attempts. The Category B controller extension
+was subsequently authorized as CCV-004-B on 2026-11-18 and is now implemented
+and offline-verified: 220 tests passed (all 212 prior tests retained + eight
+serialization regressions), zero guarded attempts. B adds separate planning validation, acknowledged exact comparison,
+nested CREATE dependencies, and redacted deterministic plans/summaries.
+The clarified v2 policy preserves configuration ordering, requires explicit
+evidence-backed exclusions, blocks credential uncertainty, and records policy/
+evidence in schema-2 controller plans; see E-017.
+The subsequent acceptance-blocking standard-serialization defect is corrected:
+controller artifact JSON now preserves dictionary order without changing
+other domains' sorted serialization; see E-018.
+B's implemented offline-only scope is **owner-accepted on 2026-11-18**:
+220 passing tests, zero guarded attempts, the false-SKIP defect corrected,
+order-sensitive controller configuration preserved, generic serialization
+compatibility maintained, and no blocking defects in the reviewed scope.
+See E-019. CCV-004-C and all live/backend work remain unauthorized and not started.**
 
 ## Status rules
 
@@ -163,6 +175,59 @@ validation, destination preflight, or production import functionality. Historica
 review/acceptance-pending labels are superseded only for A's completed offline
 scope. All live/backend work and B implementation remain separately gated.
 
+### CCV-004-B authorization and safety policy - 2026-11-18
+
+The owner authorized **CCV-004-B only**: separate offline controller planning
+validation and semantic comparison, CREATE/SKIP/CONFLICT/BLOCKED classification,
+explicit missing-target/root/dependency handling, redacted deterministic plans/
+summaries, focused tests, and architecture/progress updates. This implements the
+minor Category B extension accepted with A, without weakening its strict
+existing-target resolver.
+
+On clarification the owner selected:
+
+1. **Explicit offline policy acknowledgement per object**, default BLOCKED when
+   semantics are not acknowledged. The engine computes exact comparisons; the
+   declaration is not a caller-supplied comparison result or live compatibility.
+2. **Explicit MISSING mapping plus declared-complete destination tree** before
+   CREATE. Unknown/absent mappings never become MISSING from inventory absence.
+
+The additional Option 1 clarification requires full retained-field comparison,
+preserved unknown fields and meaningful ordering, no implicit server-managed
+exclusions, conservative credential handling, and visible policy/evidence.
+Acknowledgement authorizes offline comparison only. E-017 records the correction
+and supersedes E-016's initial policy behavior, not its historical test evidence.
+
+The final read-only acceptance review found that standard artifact key sorting
+could turn an ordering CONFLICT into SKIP before planning. The owner separately
+authorized a serialization-fidelity correction within B on 2026-11-18.
+E-018 records the domain-specific correction and full regression evidence.
+
+No live requests, real imports/exports, production configuration modifications,
+legacy changes/execution, Git operations, dependency installation, concrete HTTP
+backend, or CCV-004-C work is authorized. See E-016 for implementation/evidence.
+
+### CCV-004-B owner acceptance - 2026-11-18
+
+The owner explicitly approved **CCV-004-B for its implemented offline-only
+scope**, including the serialization-fidelity correction. Accepted capabilities
+are offline semantic comparison, CREATE/SKIP/CONFLICT/BLOCKED classification,
+explicit comparison-policy acknowledgement, missing-object planning, parent
+dependency validation, deterministic integrity-bound plans, and redacted reporting.
+
+Accepted evidence: **220 automated tests passed**, **zero guarded network
+attempts**, corrected false-SKIP serialization, preserved order-sensitive
+controller configuration, maintained generic serialization compatibility, and
+no blocking defects remaining in the reviewed scope. See E-018/E-019 and the
+[decision register](DECISIONS.md#owner-implementation-acceptance---ccv-004-b-2026-11-18).
+
+Historical ordering loss cannot be reconstructed; previously bound hashes
+cannot be reused for reserialized artifacts. Product-specific semantics remain
+unverified against live controllers, and destination completeness remains an
+offline assertion. No real migration execution or CCV-004-C is authorized.
+This acceptance supersedes earlier B review/acceptance-pending labels only for
+the implemented offline scope. No tests are rerun for this documentation update.
+
 ## Milestone tracker
 
 | Task ID | Description | Priority | Dependencies | Approval status | Implementation status | Verification status |
@@ -177,8 +242,9 @@ scope. All live/backend work and B implementation remain separately gated.
 | CCV-003-A | Shared injectable HTTP transport and policies | P0 | CCV-002 completion confirmed by owner | Owner accepted mock-only completion on 2026-11-17 | Implemented | Mock-only scope verified and accepted; E-007/E-012; regressions retained in 130-test suite |
 | CCV-003-B | Authentication contracts, strategies, resolver interface, session ownership | P0 | CCV-003-A implementation/testing/technical review | Owner accepted mock-only completion and correction on 2026-11-17 | Implemented; initialization cleanup defect corrected | Mock-only scope verified and accepted; E-008/E-009/E-012; regressions retained in 130-test suite |
 | CCV-003-C | Product read clients and mocked read-to-plan integration | P0 | CCV-003-A/B and 95-test baseline; source API evidence; approved synthetic version/backend gate | Owner accepted mock-only completion on 2026-11-17; `0.0-test` only with explicit mock backends | Implemented; separate mock/production catalogues and backend gate | Mock-only scope verified and accepted: 130 tests; E-010/E-011/E-012; live qualification pending |
-| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | A's offline-only completion accepted; B direction planned, implementation not authorized | A complete for accepted scope; remainder not started | A accepted; real schema/compatibility/credential qualification pending |
-| CCV-004-A | Controller object schemas, hierarchy, and explicit identity mapping | P1 | Accepted CCV-003; source observations; owner-approved Option 1 name policy | Owner accepted offline-only completion on 2026-11-17 | Complete for accepted offline scope; duplicates preserved, identity ambiguity separate | Accepted: 166 tests, zero guarded attempts; E-013/E-014/E-015; Category B CREATE-planning limitation deferred to planned B |
+| CCV-004 | Controller objects and credentials | P1 | CCV-002, CCV-003; identity/secret decisions | A/B offline scopes owner-accepted; remainder not authorized | A/B complete for accepted bounded offline scopes; remainder not started | A accepted 2026-11-17; B accepted 2026-11-18; real schema/compatibility/credential qualification pending |
+| CCV-004-A | Controller object schemas, hierarchy, and explicit identity mapping | P1 | Accepted CCV-003; source observations; owner-approved Option 1 name policy | Owner accepted offline-only completion on 2026-11-17 | Complete for accepted offline scope; duplicates preserved, identity ambiguity separate | Accepted: 166 tests, zero guarded attempts; E-013/E-014/E-015; Category B extension subsequently implemented in separately authorized B, E-016 |
+| CCV-004-B | Offline semantic comparison and CREATE planning | P1 | Accepted A; Category B assessment; explicit semantics/completeness policies | Owner accepted implemented offline-only scope on 2026-11-18, including serialization correction | Complete for accepted offline scope; separate validator, clarified policy, schema-2 plans, lossless standard controller serialization | Accepted: 220 tests, zero guarded attempts, no blocking reviewed defects; E-016 through E-019; live qualification pending |
 | CCV-005 | LDAP permissions | P1 | CCV-002, CCV-003; reference mappings | Not approved; planned | Not started | Not started |
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
 | CCV-007 | Integrated orchestration and reporting | P0 | CCV-003; readiness-verified subset of CCV-004/005/006 approved for integration | Proposed — pending owner approval | Not started | Not started |
@@ -202,8 +268,9 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-003-A | [Transport](../src/cc_vision_import/transport.py), [mock tests](../tests/test_transport.py), [architecture](ARCHITECTURE.md), this tracker | 60-test implementation checkpoint; regressions retained in accepted 130-test suite; E-007/E-012 | No blocker for accepted mock scope; no concrete backend or live qualification | Preserve accepted transport and restrictions |
 | CCV-003-B | [Authentication](../src/cc_vision_import/authentication.py), [sessions](../src/cc_vision_import/sessions.py), [tests](../tests/test_authentication.py), [architecture](ARCHITECTURE.md), this tracker | 95-test correction checkpoint; regressions retained in accepted 130-test suite; E-008/E-009/E-012 | Review defect corrected; real authentication/compatibility and production HTTP/secret backends remain unqualified/unimplemented | Preserve accepted sessions and cleanup behavior |
 | CCV-003-C | [Production/default lookup](../src/cc_vision_import/capabilities.py), [mock declarations](../src/cc_vision_import/mock_capabilities.py), [session backend gate](../src/cc_vision_import/sessions.py), [clients](../src/cc_vision_import/product_clients.py), [mock workflow](../src/cc_vision_import/mock_workflow.py), [client tests](../tests/test_product_clients.py), [integration tests](../tests/test_mocked_integration.py), architecture/API matrix/this tracker | E-010/E-011/E-012: 130 passing tests, zero guarded attempts; final review found no blocking defects; owner accepted | No blocker for accepted mock scope; real versions/schemas, backend, live destination inventory/comparison and production secret provider remain unqualified/unimplemented | Preserve accepted synthetic-only boundary; separately authorized A does not enable new API capabilities |
-| CCV-004 | A's object/mapping contracts and tests; related docs | A's E-013/E-014/E-015; broader scope unimplemented | Real schema/identity/secret qualification; Category B controller CREATE-planning extensions remain planned | Preserve A; obtain separate authorization before B implementation |
-| CCV-004-A | [Object contracts](../src/cc_vision_import/controller_objects.py), [mapping resolution](../src/cc_vision_import/controller_mapping.py), [tests](../tests/test_controller_objects.py), two synthetic tree fixtures, architecture/API matrix/this tracker | E-014/E-015: accepted 36 object/mapping tests; 166 total passing; zero guarded attempts | No blocker for accepted A scope; real compatibility/schema validation, destination preflight, production imports, and controller CREATE-planning extension remain unimplemented/unqualified | Preserve accepted A; do not begin B without authorization |
+| CCV-004 | A/B object/mapping/planning contracts and tests; related docs | E-013 through E-019; A/B offline scopes accepted; broader scope unimplemented | Real schema/identity/secret qualification and live operations | Preserve accepted A/B; stop before C |
+| CCV-004-A | [Object contracts](../src/cc_vision_import/controller_objects.py), [mapping resolution](../src/cc_vision_import/controller_mapping.py), [tests](../tests/test_controller_objects.py), two synthetic tree fixtures, architecture/API matrix/this tracker | E-014/E-015: accepted 36 object/mapping tests; 166 total passing; zero guarded attempts | No blocker for accepted A scope; real compatibility/schema validation, destination preflight, and production imports remain unimplemented/unqualified; B's separate extension does not weaken A | Preserve accepted A and its strict existing-target resolver |
+| CCV-004-B | [Planning validator](../src/cc_vision_import/controller_planning.py), [comparison/plans](../src/cc_vision_import/controller_comparison.py), shared credential-field classification in [objects](../src/cc_vision_import/controller_objects.py), [artifact serialization](../src/cc_vision_import/artifacts.py), [comparison tests](../tests/test_controller_comparison.py), [artifact tests](../tests/test_configuration_contracts.py), architecture/this tracker | E-018/E-019: owner accepted all 212 prior tests + eight serialization regressions; 220 total pass; zero guarded attempts | No blocker for accepted offline scope; historical ordering loss cannot be reconstructed; hashes cannot transfer to reserialized data; semantics/completeness not live-qualified; no actual creation/ID binding/import | Preserve accepted B; await separate authorization; do not begin C |
 | CCV-005 | Proposed LDAP module and tests; related docs | None; not started | Roles/groups/policies and scope/device-lock policy | Resolve authorization-preserving mappings |
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
 | CCV-007 | Proposed orchestration/comparison/reporting and tests; related docs | None; not started | Verified module contracts and approval workflow | Integrate only approved capabilities |
@@ -406,6 +473,378 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-019 - CCV-004-B owner acceptance, 2026-11-18
+
+Source: explicit owner decision in the project conversation on 2026-11-18.
+The owner approves **CCV-004-B for its implemented offline-only scope**.
+
+Accepted capabilities:
+
+- Offline semantic comparison and CREATE/SKIP/CONFLICT/BLOCKED classification.
+- Explicit comparison-policy acknowledgement.
+- Missing-object planning and parent dependency validation.
+- Deterministic integrity-bound plans and redacted reporting.
+
+Accepted evidence:
+
+- **220 automated tests passed**, **zero guarded network attempts**.
+- Confirmed false-SKIP serialization defect corrected.
+- Order-sensitive controller configuration preserved.
+- Generic serialization compatibility maintained.
+- **No blocking defects remain in the reviewed scope**, per owner acceptance.
+
+Implementation and verification evidence are retained in E-016/E-017/E-018.
+E-018's full-suite command was
+`python -B -m unittest discover -s tests -v`, source on `PYTHONPATH`;
+exit `0`, **77.180 seconds**, all 212 prior tests plus eight serialization
+regressions. These results were not rerun or independently re-reviewed for this
+documentation-only acceptance update.
+
+Remaining limitations:
+
+- Historical ordering lost through earlier serialization cannot be reconstructed.
+- Previously bound artifact hashes cannot be reused for reserialized data.
+- Product-specific comparison semantics remain unverified against live
+  controllers; acknowledgement grants offline comparison only.
+- Destination completeness is an offline assertion, not verified preflight.
+- No real migration execution is authorized. No live connectivity, API requests,
+  configuration writes, concrete backend, or broader product-compatibility
+  claims are authorized by this decision.
+
+Updated only this tracker and [DECISIONS.md](DECISIONS.md), recording the owner
+approval under the existing ADRs. Earlier B acceptance-pending labels are
+historical and superseded only for the implemented offline scope. No application
+code, legacy scripts, dependencies, external configuration, or Git operations
+were changed/performed. CCV-004-C remains **not authorized and not started**.
+
+### E-018 - CCV-004-B serialization fidelity correction, 2026-11-18
+
+Historical correction checkpoint; E-019 records the subsequent owner acceptance.
+
+Scope: owner-authorized correction of the final acceptance review's ordering
+defect, within B only. Supersedes E-017's standard-serializer limitation and
+the subsequent review blocker, not their historical evidence.
+
+Root cause:
+
+- `ConfigurationArtifact.to_json()` recursively sorted dictionary keys for every
+  domain. The controller engine deliberately compares retained dictionary order,
+  but standard artifact encoding erased it before the engine received snapshots.
+  A direct CONFLICT could therefore become SKIP, with a newly generated plan
+  verifying against the already-lossy input. E-017's roundtrip test used unsorted
+  dictionary encoding instead of exercising the actual standard serializer.
+
+Files modified:
+
+- [artifacts.py](../src/cc_vision_import/artifacts.py)
+- [test_controller_comparison.py](../tests/test_controller_comparison.py)
+- [test_configuration_contracts.py](../tests/test_configuration_contracts.py)
+- [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker
+
+Correction and dependencies:
+
+- The existing standard `to_json()` now disables key sorting only for the exact
+  `controller-objects` domain. Every retained dictionary, including nested
+  objects within arrays and normalized device-access configuration, keeps its
+  order. Other domains retain their previous sorted-key output.
+  No alternate serializer, mode switch, format, dependency, or schema is added.
+- Existing generic parsing validates/copies JSON without reordering dictionary
+  members; reparsed controller artifacts retain their domain and therefore use
+  the same safe serializer. Controller normalization, typed artifact conversion,
+  planning snapshot copies, ordered comparison/hashing, and schema-2 candidate
+  verification already preserve/bind order and require no code changes.
+- Pylance's resolved production caller is the mock workflow's artifact-to-generic
+  plan handoff. Its exact-byte binding and the existing mock integration tests
+  remain intact. Generic/controller plan-envelope sorting does not serialize raw
+  configuration. Existing strict identity resolution and all credential,
+  completeness, dependency, and default-BLOCKED policies are unchanged.
+- Controller artifact schema 1 and controller-plan schema 2 remain unchanged.
+  Controller artifact byte order may change intentionally. Generic plans still
+  require their exact originally bound bytes; reserialization is not permission
+  to reuse an old byte digest. Controller candidates retain the same identity
+  across a lossless standard roundtrip. Regenerate/reverify affected older
+  candidates from trusted originals rather than retroactively declaring lost
+  ordering safe.
+
+New permanent regression coverage (eight test methods):
+
+1. Standard artifact encoding/decoding cannot turn configuration-level
+   dictionary-order CONFLICT into SKIP; snapshot and plan identity are retained.
+2. Nested dictionary order, including dictionaries within arrays, survives
+   repeated generic artifact parsing/reserialization and controller parsing.
+3. Array order, exact bool/integer distinctions, and missing-versus-null remain
+   significant through standard serialization and candidate verification.
+4. Identical configurations, including an ordinary noncredential null and
+   unknown fields, stay SKIP with deterministic plan identity.
+5. Unsupported external sorting fails verification against independently
+   retained originals, in both directions: modified snapshots cannot verify the
+   original plan, and a candidate made from modified snapshots cannot verify
+   against the originals.
+6. Generic-domain serialization cannot bypass controller-domain validation:
+   controller parsing rejects that context explicitly.
+7. Unresolved credentials remain BLOCKED after standard serialization, with
+   secret references absent from plan JSON, summary, and representations.
+8. Noncontroller domains retain their exact sorted-key serialization behavior.
+
+The controller tests cover the complete supported workflow: source/destination
+inventories -> controller artifacts -> standard JSON -> generic artifact parse/
+reserialize -> controller parse -> comparison -> candidate JSON -> independent
+recomputation verification. Existing tests also retain array/null/type/security,
+generic artifact/plan integrity, schema-2 tampering, and older-schema rejection.
+
+Verification:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m unittest discover -s tests -v
+```
+
+- Full suite: **220 tests passed**, exit `0`, **77.180 seconds**: all **212
+  existing tests unchanged and passing**, plus **eight new regressions**.
+- Before the correction, the new standard-serializer tests reproduced false
+  SKIP for configuration-level order and nested order, including array members.
+  A targeted development run then passed 119 of 120 cases; its sole failure
+  caught the new noncontroller test accidentally using a controller-domain
+  fixture. That test now explicitly declares its synthetic generic domain and
+  passes in the final full run.
+- Pylance syntax checks passed for all three edited Python files; per-file
+  diagnostics were empty. No public Python signatures changed.
+- **Zero guarded network attempts**: existing 15-entry socket/DNS/HTTP/URL guards
+  remained uncalled, including cleanup assertions. No product API requests,
+  live connections, configuration writes, Git operations, dependency installs,
+  legacy changes/execution, external configuration changes, or C implementation.
+
+Remaining limitations and recommendation:
+
+- Already-sorted historical artifacts and arbitrary external JSON reformatting
+  cannot reveal their earlier dictionary order from content alone. Such paths
+  are unsupported for trusted exact-order inputs. Keep uncertain semantics
+  unacknowledged (UNKNOWN/BLOCKED) and recover trusted source snapshots first.
+  Verification detects changes relative to independently retained originals;
+  comparing two copies of already-lossy data cannot prove historical fidelity.
+  This correction does not introduce provenance authentication or a new artifact
+  schema to certify origins.
+- Local synthetic/offline evidence only; no verified product compatibility,
+  real backend, live destination preflight, credentials migration, write payloads,
+  actual creation/ID binding, approval system, or import execution.
+- The standard-serialization acceptance blocker is corrected and offline-
+  verified. Recommend final technical review and owner acceptance of B's
+  implemented offline scope; do not start C.
+
+### E-017 - CCV-004-B comparison policy clarification, 2026-11-18
+
+Historical policy checkpoint; E-018 supersedes its standard-serializer limitation
+after the final acceptance review identified the ordering blocker.
+
+Scope: implement the owner's additional Option 1 requirements within B only.
+This entry supersedes the initial comparison policy described in E-016.
+No new API/schema compatibility evidence or production capability is claimed.
+
+Files modified:
+
+- [controller_comparison.py](../src/cc_vision_import/controller_comparison.py)
+- [controller_objects.py](../src/cc_vision_import/controller_objects.py)
+  (shared controller credential-field classification; reference wrappers retain
+  their existing structural validation)
+- [test_controller_comparison.py](../tests/test_controller_comparison.py)
+- [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker
+
+No new files in this clarification. Strict mapping resolution, the separate
+planning validator, generic artifact/planning contracts, capability catalogues,
+CLI, legacy scripts, dependencies, and external configuration are unchanged.
+
+Implemented correction:
+
+- Per-object semantics acknowledgement still defaults empty/BLOCKED. Unknown
+  fields are preserved and compared in full; acknowledgement is explicitly
+  offline-only, never approval for configuration changes.
+- Removed implicit provenance exclusions. `comparison_rules=()` compares all
+  retained settings, including native identity aliases. A finite, explicitly
+  selected `validated-native-identity-provenance-v1` rule may exclude only the
+  three locally validated object/parent identity aliases. Rule evidence cites
+  native-binding and explicit planning-identity checks, not official product
+  documentation or live verification. Empty identifier containers, native extras,
+  device-access IDs, and arbitrary server-managed-looking fields stay significant.
+  Unknown/duplicate/non-enum rules fail with fixed redacted validation errors.
+- Ordered settings encoding preserves dictionary-member order, nested dictionary
+  order, list order, JSON types, and absent-versus-null distinctions. Full snapshot
+  hashes now bind order-preserving artifact dictionaries rather than sorted
+  generic artifact JSON. Plan-envelope canonicalization remains separate.
+- Both source and resolved destination are checked for credential uncertainty
+  before exclusions/comparison. Secret references, null credential fields,
+  explicit null device access, and recognized masks produce
+  `unresolved_credentials`/BLOCKED, including confirmed-MISSING candidates.
+  Equal references or masks never mean equivalent credentials. Raw/masked
+  sensitive-field strings remain structurally rejected without leaking values.
+  Per-object acknowledgement and identity rules cannot override this gate.
+- Schema-2 controller plans expose immutable policy/evidence/rule metadata,
+  exact excluded paths, ordering and credential policies, offline-only scope,
+  and per-action acknowledgement flags. Declaration/plan/integrity digests and
+  recomputation bind the selected policy and snapshots. Human-readable summaries
+  include fixed policy/evidence identifiers; no raw names/IDs/configuration or
+  secret references enter reports. Earlier schema-1 controller candidates must
+  be regenerated, not silently reinterpreted.
+- General B tests now explicitly select the identity rule and use an in-memory
+  credential-free synthetic baseline. Shared fixture files and all 166 pre-B
+  tests remain unchanged. Dedicated cases load the original credential-bearing
+  fixture, verify BLOCKED, preserve every reference, and check redacted reports.
+
+Verification:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m unittest discover -s tests -v
+```
+
+- Full suite: **212 tests passed**, exit `0`, **79.383 seconds**: all **166
+  pre-B regressions**, **30 initial B cases** adapted to the clarified policy,
+  and **16 additional policy regressions**.
+- Focused combined comparison/object/generic-planning run before the last
+  order-preserving roundtrip case: **98 tests passed**, exit `0`, **4.805 seconds**.
+  That final case is included in the successful complete run.
+- Three initial failing regressions reproduced implicit identity exclusions,
+  ignored configuration-member order, and equal unresolved references producing
+  SKIP. They now pass. Development validation also caught and corrected a
+  reference-wrapper classification regression before the final successful runs.
+- New coverage includes opt-in/default rule behavior and evidence; unknown
+  server-managed fields/native extras/access IDs; unknown/duplicate rules;
+  dictionary ordering and order-preserving artifact roundtrips; snapshot/plan
+  binding; null/masked/source-only/destination-only credentials; blocked CREATE;
+  original fixture/reference preservation; policy metadata; safe errors and
+  reports; and policy/order tampering rejected on recomputation.
+- Pylance syntax checks passed for all three edited Python files. Per-file
+  diagnostics were empty. Signature compatibility found the resolved internal
+  comparison caller compatible; dynamically imported test callers and the
+  verifier are exercised by the offline suite.
+- **Zero guarded network attempts**: the existing 15-entry network guards assert
+  every patched socket/DNS/HTTP/URL entry point was never called, including during
+  cleanup. No product connections, API requests, dependency installation, Git
+  operations, legacy execution/modification, or CCV-004-C implementation.
+  These assertions are test evidence, not an operating-system network sandbox.
+
+Remaining limitations:
+
+- All inventories, acknowledgements, completeness assertions, and rule evidence
+  are offline inputs/local contract evidence, not real product/schema validation.
+  No arbitrary field exclusions or order-insensitive configuration rules exist.
+- Preserve order when retaining controller snapshots: use artifact `to_dict()`
+  and JSON serialization without sorting keys. Unchanged generic artifact
+  `to_json()` sorts keys and cannot retain prior member order; already lost
+  ordering cannot be reconstructed by this engine.
+- Mask recognition is intentionally conservative and cannot identify every
+  secret disguised in arbitrary text. Literal mask-like values can also block.
+  No credential resolution, equivalence certification, or migration is supplied.
+- No real backend, live destination preflight, write payload generation, approval
+  or execution system, ID assignment/binding, import, overwrite, or deletion.
+  B technical review/owner acceptance remain pending; stop before C.
+
+### E-016 - CCV-004-B offline comparison and CREATE planning, 2026-11-18
+
+Historical initial checkpoint; E-017 supersedes its comparison-policy behavior.
+
+Scope: owner-authorized B only, with the explicit per-object semantics and
+per-tree completeness policies above. Supersedes historical B-not-authorized/
+not-started statements only for this bounded offline implementation.
+
+Files created:
+
+- [controller_planning.py](../src/cc_vision_import/controller_planning.py)
+- [controller_comparison.py](../src/cc_vision_import/controller_comparison.py)
+- [test_controller_comparison.py](../tests/test_controller_comparison.py)
+
+Files modified: [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker.
+Existing application/test files, strict resolver, generic planner, clients,
+capability catalogues, CLI, legacy scripts, dependencies, and external
+configuration are unchanged.
+
+Implementation:
+
+- Separate controller planning validator revalidates snapshots and supplied
+  mappings; requires exact qualified source/context bindings and explicitly
+  resolved existing destination roots. Structural malformed/duplicate records
+  and cycles fail. Absent records become diagnostic BLOCKED entries, never
+  inferred missing-target decisions.
+- Existing-target absence, unresolved/ambiguous mappings, incomplete evidence,
+  wrong tree/kind, collisions, inconsistent hierarchy/dependencies, and
+  existing-child relocation under planned parents block affected decisions.
+  Missing/conflicting prerequisites propagate blocking through parent/action
+  dependencies; unrelated branches/trees remain independent.
+- Non-root CREATE candidates require explicit MISSING, a declared-complete
+  destination tree, acknowledged semantics, and eligible existing/planned
+  parents. Nested CREATE parents are referenced through logical action labels.
+  Destination IDs are never fabricated, inferred, copied, or assigned; actual
+  creation/ID binding is outside this implementation.
+- Acknowledgement defaults empty. Exact normalized comparison includes names
+  as settings, device type/address, access origin/value, unknown configuration,
+  identifier extras, and opaque secret references. Unknown semantics block.
+  Equal acknowledged settings SKIP; differences CONFLICT, never overwrite.
+  JSON types/list order/absence versus null are preserved.
+- Only validated top-level `ormID`/`parentOrmID` and managed-element ID provenance
+  are omitted from a copied comparison projection; parent identity is checked
+  by qualified mapping. Original snapshots preserve every field and are fully
+  bound into plan hashes. Device-access `ormID` is not silently stripped.
+- Specialized immutable redacted controller plans reuse shared action/comparison
+  enums and dependency validation. Unlike generic plans containing raw mappings,
+  they expose only snapshot/declaration hashes, indexed actions/targets,
+  logical dependencies, classifications, and fixed reason codes. Original
+  configuration remains in separately retained input artifacts, not report text.
+- Deterministic canonical JSON, plan/integrity digests, self-integrity checking,
+  and recomputation verification bind both snapshots, explicit mappings,
+  completeness, semantics acknowledgements, policy version, and ordered actions.
+  Human-readable summaries contain per-tree counts and per-action safe reasons.
+  No execution/approval path, DELETE, overwrite, logging, or API call is added.
+
+Verification:
+
+```powershell
+$env:PYTHONPATH = Join-Path (Get-Location).Path 'src'
+python -B -m unittest discover -s tests -v
+```
+
+- Full suite: **196 tests passed**, exit `0`, **43.868 seconds**: **all 166
+  existing tests unchanged and passing**, plus **30 new comparison/planning
+  tests**.
+- Targeted combined run of the new module, A's object/mapping tests, and generic
+  planning contracts: **83 tests passed**, exit `0`, **2.131 seconds**.
+  The final full run additionally includes the refined exact JSON-type and
+  absent-versus-null comparison cases.
+- Covered CREATE/SKIP/CONFLICT/BLOCKED; unknown semantics and mappings; explicit
+  missing plus partial/per-tree completeness; unresolved/missing roots; nested
+  CREATEs; blocked/conflicting parents; no relocation; duplicate preservation;
+  collisions/cross-tree targets/dependencies; malformed/cyclic declarations;
+  deterministic/input-preserving behavior; safe plan/summary/repr output;
+  snapshot/policy binding; strict resolver rejection of MISSING; and safe errors.
+- A failing development regression exposed Python `True == 1` accepting a
+  type-altered verification payload. Verification now compares canonical JSON,
+  rejects that tampering and malformed/non-JSON payloads, and strips sensitive
+  parser contexts. This correction is included in the passing final suite.
+- Pylance syntax checks report no errors for the three new Python files;
+  per-file diagnostics report no issues.
+- Every test uses the existing 15-entry fail-fast network guard and asserts all
+  guarded targets uncalled: **zero guarded network attempts**. No product
+  requests/connections, real imports/exports, dependency installs, Git operations,
+  legacy execution/modification, external configuration changes, or C work.
+  Guards are Python-entry-point evidence, not OS-level sandbox isolation.
+
+Remaining limitations and next gate:
+
+- Semantics and completeness are explicit trusted offline assertions bound into
+  the plan, not independently established truth or destination preflight.
+  SKIP asserts normalized representation equality only, not live equivalence or
+  resolved credential equality. Unknown/free-text secret semantics remain open;
+  input artifacts retain existing null/reference-only credential validation.
+- No real schema/version compatibility, live completeness, capability extension,
+  credential migration, native write-payload generation, actual destination ID
+  binding, approval/apply/read-back execution, or durable journal. Plans are
+  candidate reports, not executable imports; hashes are not signatures.
+- New standalone APIs are not wired into the CLI, generic plan/result parser,
+  or C's accepted mock workflow. Use the controller-specific recomputation
+  verifier with independently retained inputs; do not interpret a redacted
+  controller candidate as a generic executable plan.
+- B's implemented offline acceptance criteria are verified; technical review
+  and owner acceptance remain pending. Preserve A's accepted scope. Stop before
+  CCV-004-C or live/backend work without separate authorization.
 
 ### E-015 - CCV-004-A owner acceptance, 2026-11-17
 
@@ -1379,8 +1818,9 @@ product/version compatibility, domain semantics, credentials, or live APIs.
    CCV-003-A/B/C for their implemented mock-only scope on 2026-11-17.
    Live compatibility and qualification remain pending.
    CCV-004-A's completed offline-only scope is owner-accepted on 2026-11-17.
-   Its Category B CREATE-planning extensions are planned B scope, not implemented;
-   B/further implementation and all live/backend work require separate authorization.
+   The Category B extension was separately authorized as B on 2026-11-18 and is
+   implemented/offline-verified; B review/acceptance remain pending.
+   C/further implementation and all live/backend work require separate authorization.
 2. Supported product/version pairs and permitted migration directions.
 3. Approved official API references and sanitized scheduler path configuration.
 4. Representative real-schema evidence: A adds synthetic controller schemas,
@@ -1407,18 +1847,28 @@ Accepted evidence: 166 passing tests, including all 130 regressions plus 36
 object/mapping tests, zero guarded attempts, preserved objects/configuration,
 safe duplicate-name ambiguity handling, explicit qualified mappings, no
 automatic source-ID reuse, and no legacy modifications.
-The Category B CREATE-planning limitation is accepted as planned CCV-004-B
-scope, not implemented or authorized to begin. Synthetic capabilities remain
-isolated; live compatibility/qualification remain pending.
-Stop before CCV-004-B, CCV-009, real HTTP backend development, or live work
+CCV-004-B's implemented offline-only scope is owner-accepted on 2026-11-18:
+220 tests passed, zero guarded attempts, no blocking reviewed defects. Separate planning
+validation supports acknowledged exact comparison and CREATE under mapped or
+planned parents, with explicit missing/completeness evidence, resolved existing
+roots, no assigned destination IDs, and redacted deterministic plans/summaries.
+Clarified policy v2 preserves ordering, requires explicit evidence-backed
+exclusions, blocks unresolved/masked credentials, and records policy/evidence
+in schema-2 controller plans; see E-017. E-018 corrects the subsequently discovered
+standard-serialization blocker: the existing controller artifact serializer
+preserves recursive dictionary order, while other domains retain sorted output.
+Owner approval and limitations are recorded in E-019. Synthetic capabilities
+remain isolated; live compatibility/qualification remain pending.
+Stop before CCV-004-C, CCV-009, real HTTP backend development, or live work
 without separate authorization.**
 
-Recommended next action: preserve the accepted A checkpoint and E-013/E-014/E-015
-evidence; await explicit authorization before B implementation. Planned B includes
-minor controller-specific CREATE-planning validation for explicitly missing
-objects, existing/planned parent dependencies, deferred destination IDs, and
-explicitly resolved existing roots. Credential migration remains separately
-gated. Approved real product/version/schema evidence is needed
+Recommended next action: preserve accepted A/B, their evidence and limitations,
+and the unchanged strict resolver. Await separate owner authorization for any
+further milestone. Do not begin C; credential migration remains separately gated.
+Historical ordering loss cannot be reconstructed, and previously bound hashes
+cannot be reused for reserialized artifacts. Product semantics remain unverified;
+destination completeness is an offline assertion, not live qualification.
+Approved real product/version/schema evidence is needed
 before enabling any real capability. No real HTTP backend, production secret
 resolver, live destination inventory/preflight, product matcher, approval system,
 durable execution journal, or migration execution is implemented. The broader

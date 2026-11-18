@@ -1,12 +1,15 @@
 # Master Application Architecture
 
-Date: 2026-11-17  
+Date: 2026-11-18
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
 foundation and contracts implemented; CCV-003-A/B transport and authentication
 mock-tested; CCV-003-C adds synthetic-version read clients and a mocked
 read-to-plan workflow. CCV-003's implemented mock-only scope is owner-accepted.
 CCV-004-A adds offline controller-object normalization, hierarchy validation,
-and explicit mapping against a separate supplied destination inventory.
+and explicit mapping against a separate supplied destination inventory; that
+offline-only scope is owner-accepted. CCV-004-B adds a separate controller
+planning validator, acknowledged offline exact comparison, nested CREATE
+dependencies, and deterministic redacted candidate plans/summaries.
 No concrete HTTP backend, production secret resolver,
 online execution, or real product/version compatibility is established.
 
@@ -44,6 +47,8 @@ CCV-003-C connects those components to three source-observed reads and the
 existing artifact/mapping/offline-plan contracts, using injected fake backends.
 CCV-004-A reuses those offline artifact/mapping contracts without changing
 authentication, clients, capabilities, transport, or the CLI/mock workflow.
+CCV-004-B adds standalone offline comparison/planning APIs; the strict resolver,
+generic planner, client workflow, and CLI remain unchanged.
 Legacy sources remain read-only and are never imported or executed.
 
 ## Responsibilities and interfaces
@@ -482,8 +487,8 @@ these interfaces; this repository provides no concrete network backend. Python
 test guards establish zero guarded attempts, not OS-level isolation.
 The workflow sanitizes existing parser chains at its own boundary; direct calls
 to older profile/plan parsers have not been changed by this milestone.
-The separately authorized CCV-004-A offline contracts are described below;
-CCV-004-B and all live/backend development remain unauthorized.
+The separately authorized CCV-004-A/B offline contracts are described below;
+CCV-004-C and all live/backend development remain unauthorized.
 
 ## Implemented offline controller objects and identity mapping - CCV-004-A
 
@@ -615,8 +620,215 @@ remain unverified against products. No adapter for the context-deficient legacy
 flat export is added. There is no automatic parent-name or by-IP lookup.
 Offline product/version declarations grant no capability: production remains
 default-deny and `0.0-test` remains restricted to mocked API development.
-CCV-004-B, credential transformation, real export/import, and live qualification
-require separate authorization.
+CCV-004-B's separately authorized offline comparison/planning extension follows.
+Credential transformation, real export/import, and live qualification remain
+separately gated.
+
+## Implemented offline semantic comparison and CREATE planning - CCV-004-B
+
+The owner authorized B on 2026-11-18, following A's acceptance and Category B
+architecture assessment. B adds no network adapter, API operation, import,
+overwrite/delete behavior, or credentials/secret resolution.
+
+### Separate controller planning validator
+
+[controller_planning.py](../src/cc_vision_import/controller_planning.py) provides
+`validate_controller_planning(source, destination, mappings, complete_trees=())`.
+It revalidates/copies normalized inventories and reuses the existing explicit
+mapping parser, identity types, and dependency-order validator.
+`resolve_controller_mappings` remains unchanged and still rejects missing
+targets for operations requiring existing destination identities.
+
+- Require distinct declared source/destination contexts and exact source
+  index/qualified identity/domain/product-version bindings for supplied mappings.
+  Malformed records, duplicate mapping IDs/indices, and cycles fail structurally.
+- Every represented source root must explicitly resolve to an existing
+  destination root in the matching tree. A missing/unresolved root cannot become
+  CREATE; affected dependents are blocked, without blocking the other tree.
+- Absent mapping records are reported as `mapping_absent`; unresolved/ambiguous
+  states stay blocked. An existing-target mapping whose target is absent is
+  `destination_absent`, not an inferred MISSING state.
+- Per owner policy clarification, CREATE needs **both an explicit MISSING
+  mapping and a declared-complete destination tree**. `complete_trees` defaults
+  empty, takes explicit tree enums, and may reference only trees with destination
+  roots present. These are bound offline assertions, not live completeness proof.
+  Existing explicitly mapped objects may still be compared in a partial tree.
+- Missing non-root objects may depend on a mapped existing parent or another
+  MISSING parent eligible for CREATE. Parent mappings/dependencies must agree
+  with the source hierarchy. Existing children cannot silently relocate beneath
+  a planned parent. Cross-tree targets/dependencies and target collisions block.
+- A mandatory parent edge is retained even when a supplied parent mapping is
+  absent/invalid, so blocking propagates; this never repairs that mapping or
+  grants permission. Extra valid dependencies are honored. Diagnostics are
+  positional fixed codes/messages; no names, IDs, or payloads are reported.
+
+### Explicit comparison semantics and conservative classification
+
+[controller_comparison.py](../src/cc_vision_import/controller_comparison.py)
+provides `compare_controller_inventories` with the same inventory/mapping/
+coverage inputs, `semantics_known_for=()`, and `comparison_rules=()`. The owner selected **per-object
+explicit offline policy acknowledgement**, rather than assuming unknown fields
+have portable product semantics. Acknowledgements identify qualified source
+references, are checked against the source inventory, and are bound into the
+plan. Default acknowledgement is empty: even identical data remains BLOCKED.
+
+For acknowledged objects, policy `acknowledged-normalized-exact-v2` compares
+all retained normalized settings exactly. The owner's 2026-11-18 clarification
+supersedes B's initial implicit exclusions, dictionary sorting, and opaque
+credential-reference equality:
+
+- Compare names as settings only after explicit identity mapping; never match
+  objects by name/address/order. Compare device type/address, access location/
+  value, unknown configuration, and native identifier extras.
+- No configuration fields are excluded by default. In particular, different
+  native identity aliases produce CONFLICT unless an explicit rule is selected;
+  conflicting prerequisites then block their dependents.
+- The only supported opt-in rule is
+  `ControllerComparisonRule.NATIVE_IDENTITY_PROVENANCE`
+  (`validated-native-identity-provenance-v1`). It excludes exactly top-level
+  configuration `ormID`/`parentOrmID` and
+  `configuration.meIdentifier.managedElementID` from a copied projection.
+  Evidence is **local offline contract validation**:
+  `controller_objects._native_bindings` checks each alias against its qualified
+  object/parent reference, and `validate_controller_planning` independently
+  checks destination identities and parent mappings. This is not official
+  evidence that arbitrary product fields are server-managed or ignorable.
+  No arbitrary exclusion paths or other server-managed-field rules are accepted.
+  Empty identifier containers, native classes/extras, and device-access `ormID`
+  remain significant. No source/artifact data is removed or rewritten.
+- Preserve unknown configuration dictionary-member order, nested dictionary
+  order, array order, JSON types, field absence versus null, and exact strings.
+  No sorting, case folding, address normalization, default substitution, or
+  inferred equivalence is applied to those settings. Known typed-record and
+  plan-envelope members are named contract fields, not unknown configuration;
+  canonical envelope encoding remains separate from ordered settings encoding.
+- Any unresolved secret reference, credential field containing null, explicit
+  null device-access value, or recognized mask marker blocks the affected
+  object's comparison and CREATE decision with `unresolved_credentials`.
+  Both source and resolved destination are checked before any exclusion rule.
+  Equal reference labels or equal masks never establish credential equivalence.
+  Existing structural validation still rejects raw credentials, including raw
+  masked values in sensitive fields. The shared controller credential-field
+  classifier is reused by structural checks and comparison.
+- Per-object acknowledgement authorizes offline representation comparison only,
+  not vendor compatibility, live equivalence, secret migration, or changes.
+
+| Classification | Conditions |
+| --- | --- |
+| CREATE | Explicit MISSING non-root mapping; destination tree declared complete; semantics acknowledged; no credential uncertainty; parent/dependencies eligible. |
+| SKIP | Existing explicitly resolved target; acknowledged full settings compare exactly equal under the recorded rules; no credential uncertainty; dependencies unblocked. |
+| CONFLICT | Existing explicitly resolved target; acknowledged settings differ. No update/overwrite is proposed. |
+| BLOCKED | Unknown semantics, unresolved/masked credentials, absent/unresolved/ambiguous mapping, incomplete missing-target evidence, invalid root/target/hierarchy/dependency/collision, or blocked/conflicting prerequisite. |
+
+Parents precede children. Conflicting/blocked prerequisites block dependents;
+unrelated branches/trees remain independently classifiable. All source objects,
+including duplicate names, remain represented. Destination-only objects are
+left untouched; no DELETE or overwrite action exists.
+
+### Redacted deterministic plans, summaries, and verification
+
+`ControllerMigrationPlan` is a controller-specific **redacted schema-2** envelope,
+stage `offline-controller-candidate`, not a replacement for the existing generic
+`MigrationPlan` contract (which intentionally carries raw qualified mappings).
+Shared action/comparison enums and graph validation are reused; specialized
+classification incorporates the additional controller safety gates.
+
+- One immutable action per source object: generated action label, source index,
+  optional destination snapshot index, tree/kind, semantics-acknowledgement flag, classification, comparison,
+  logical parent/dependency action labels, and fixed issue codes.
+- CREATE has no destination index or fabricated destination ID. A parent planned
+  for creation is referenced by its logical action label, never a placeholder
+  native ID. This is planning only; destination ID assignment/binding after
+  actual creation is not implemented.
+- Plans, summaries, and default representations contain no object names, native
+  IDs, raw mapping IDs, controller labels, addresses, configuration, usernames,
+  credentials, or secret references. Snapshot digests and positional references
+  let retained input artifacts carry the complete configuration separately.
+- Explicit `comparison_policy` metadata records policy ID, fixed policy/evidence
+  identifiers, selected rules, local rule-evidence identifiers, exact excluded
+  paths, order/credential policies, and offline-only authorization scope.
+  Summaries also expose policy/rule/evidence identifiers without payload data.
+- Order-preserving source/destination snapshot hashes bind all preserved fields,
+  including provenance excluded by an explicitly selected rule. A declaration digest binds
+  explicit mappings, tree completeness, acknowledgement indices, and policy.
+  Deterministic plan ID/integrity cover those digests and ordered actions.
+  Mapping record order does not change the result; snapshot indices/order are
+  intentionally bound, not automatically reidentified.
+- The standard `ConfigurationArtifact.to_json()` preserves dictionary-member
+  order recursively for domain `controller-objects`. This applies equally to
+  inventories converted with `to_artifact()` and controller artifacts reparsed
+  through the generic artifact parser. There is one supported controller JSON
+  serialization contract, without a mode switch or parallel format.
+  Other domains retain their existing recursively sorted-key serialization.
+  `to_dict()`, controller normalization/parsing, planning snapshot copies, and
+  standard Python JSON decoding preserve configuration ordering; plan-envelope
+  canonicalization does not contain or reorder raw configuration.
+- Serialize controller snapshots with that standard method, or retain the
+  order-preserving artifact dictionaries without reordering them. External
+  key sorting/canonicalization is not a supported controller serialization
+  path. Verification rejects reordered snapshots or candidates generated from
+  them when compared against independently retained original snapshots.
+  It cannot establish historical fidelity if both inputs were already lossy.
+- `to_json`/`to_dict` check internal integrity. `summary()` emits fixed per-tree
+  counts and per-action statuses/reason codes, explicitly denying execution.
+  `verify_controller_plan` recomputes from independently retained input snapshots
+  and declarations and compares canonical JSON, including JSON type distinctions.
+  Hashes are not signatures or authorization; no approval/import path is added.
+  Initial schema-1 controller candidates must be regenerated and reverified
+  under policy v2; they are not silently accepted as schema-2 plans.
+
+The new Python APIs are not wired into the CLI, API clients, generic plan/result
+parser, or accepted C mock workflow. Use their own recomputation verifier; a
+redacted controller candidate is not an executable import or generic plan file.
+No new production capability or product/version compatibility is enabled.
+
+### Verification and limitations
+
+[Comparison tests](../tests/test_controller_comparison.py) reuse A's synthetic
+tree fixtures and the existing 15-entry network guard. They cover all four
+classifications, per-object semantics, incomplete/per-tree coverage, root gates,
+absent/unknown/ambiguous mappings, duplicate preservation, nested CREATEs,
+parent conflict propagation, no relocation, collision/cross-tree/dependency
+errors, deterministic/redacted output, input preservation, and integrity.
+Additional policy regressions exercise default/no implicit exclusions, the
+finite evidence-backed opt-in rule, significant dictionary order and snapshot
+binding, unresolved/masked credentials, unchanged original fixtures, explicit
+policy metadata, and recomputation rejection after policy/order changes.
+The standard-serializer regressions additionally exercise inventories through
+controller artifacts, repeated serialization/generic parsing, comparison,
+schema-2 candidate JSON, and recomputation verification. Dictionary ordering at
+the configuration level and within nested objects/array members stays
+significant; identical data stays SKIP with unchanged snapshot/plan identity.
+Array/type/null distinctions, secret handling, unsupported domain rejection,
+lossy external reserialization rejection against retained originals, and
+noncontroller sorted-key compatibility are covered.
+See [E-018](PROGRESS.md#e-018---ccv-004-b-serialization-fidelity-correction-2026-11-18)
+for the final **220 passing tests** and zero guarded attempts. E-016/E-017
+retain the earlier implementation/policy evidence; E-018 corrects the
+acceptance-blocking standard-serialization defect discovered after E-017.
+
+Artifact schema 1 and controller-plan schema 2 are unchanged. Controller
+artifact JSON bytes may differ from earlier sorted output, so independently
+retained byte hashes must not be transferred to reserialized artifacts.
+Generic plans still bind their exact original input bytes; controller plans
+still bind their order-preserving normalized snapshots. Regenerate/reverify
+affected candidates rather than substituting newly encoded bytes.
+
+All semantics/completeness assertions and inventories remain trusted offline
+inputs. No live preflight, real schema qualification, production readiness,
+credential portability, native write-payload generation, actual ID binding,
+approval/apply/verification execution, or durable journal is established.
+Mask recognition is conservative, not a general detector of secrets concealed
+in arbitrary free text; recognizable literal markers may also block. Per-object
+acknowledgement cannot override credential uncertainty. No general field-order
+normalization or real-product server-managed-field exclusion rule is supplied.
+Historical sorted controller artifacts cannot recover their original member
+order from JSON alone. Do not acknowledge exact-order semantics for legacy or
+externally reformatted inputs of uncertain fidelity: keep them UNKNOWN/BLOCKED
+until trusted, order-preserving source snapshots can be supplied. The engine
+does not authenticate input provenance or detect transformations made before
+its input boundary without independently retained originals.
+CCV-004-C and live/backend work require separate authorization.
 
 ## Proposed migration modules
 
@@ -1062,7 +1274,7 @@ Status: **Architectural direction approved** (ADR-009); recovery not implemented
 
 CCV-001 was static only. CCV-002-A/B/C and CCV-003-A/B/C verification cover offline
 local behavior, not APIs or product compatibility. CCV-003's implemented mock-only
-scope is owner-accepted. CCV-004-A's separately authorized schemas/hierarchy/
-mapping scope is offline-verified; its next gate is technical review and owner
-acceptance. Do not begin CCV-004-B, real HTTP backend development, or live
-operations without separate authorization.
+scope and CCV-004-A's offline-only scope are owner-accepted. CCV-004-B's
+separately authorized comparison/CREATE-planning scope is offline-verified;
+its next gate is technical review and owner acceptance. Do not begin CCV-004-C,
+real HTTP backend development, or live operations without separate authorization.

@@ -128,6 +128,15 @@ class ConfigurationContractTests(OfflineTestCase):
         with self.assertRaises(self.contracts.ContractValidationError):
             replace(artifact, schema_version=2).to_json()
 
+    def test_noncontroller_artifact_serialization_retains_sorted_key_compatibility(self) -> None:
+        payload = self.fixture("artifact-v1")
+        payload["domain"] = "synthetic-generic"
+        payload["objects"][0]["futureVendorField"] = {"second": [2, 1], "first": None}
+        encoded = self.artifacts.parse_artifact(payload).to_json()
+        payload["objects"][0]["futureVendorField"] = {"first": None, "second": [2, 1]}
+        self.assertEqual(encoded, self.artifacts.parse_artifact(payload).to_json())
+        self.assertEqual(encoded, json.dumps(payload, allow_nan=False, sort_keys=True))
+
     def test_artifact_required_fields_and_unknown_envelope_are_explicit(self) -> None:
         for field in ("schema_version", "domain", "source", "metadata", "objects", "validation"):
             with self.subTest(field=field):

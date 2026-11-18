@@ -147,6 +147,17 @@ def _reference(value: object, reader: ContractReader, path: str) -> SourceObject
     )
 
 
+def is_controller_credential_field(key: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]", "", key.lower())
+    return normalized in ("pwd", "user", "login") or any(
+        marker in normalized for marker in (
+            "password", "passwd", "secret", "token", "credential", "community",
+            "cookie", "authorization", "privatekey", "apikey", "sessionid",
+            "username", "securityname", "passphrase", "authkey", "privkey",
+        )
+    )
+
+
 def _credential_references(value: JsonValue, reader: ContractReader, path: str) -> None:
     if isinstance(value, list):
         for index, item in enumerate(value):
@@ -154,12 +165,7 @@ def _credential_references(value: JsonValue, reader: ContractReader, path: str) 
     elif isinstance(value, dict):
         for index, (key, item) in enumerate(value.items()):
             item_path = f"{path}.fields[{index}]"
-            normalized = re.sub(r"[^a-z0-9]", "", key.lower())
-            sensitive = normalized in ("user", "login") or any(
-                marker in normalized
-                for marker in ("username", "securityname", "passphrase", "authkey", "privkey")
-            )
-            if sensitive and item is not None and not (
+            if key != "secret_ref" and is_controller_credential_field(key) and item is not None and not (
                 isinstance(item, dict) and item.keys() == {"secret_ref"}
             ):
                 reader.fail("secret_value_not_allowed", item_path, "Credential fields require null or a secret reference.")

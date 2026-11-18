@@ -1,6 +1,6 @@
 # Architecture Decision Register
 
-Date: 2026-11-17
+Date: 2026-11-18
 
 ## Approval rules
 
@@ -18,16 +18,19 @@ remain in force. Further milestones require separate authorization.
 
 The owner also accepted **CCV-004-A's completed offline-only scope on
 2026-11-17**, including Option 1 duplicate-name handling. Its Category B
-CREATE-planning limitation is accepted as planned CCV-004-B scope; this does
-not authorize or begin B implementation. See the separate acceptance record.
+CREATE-planning limitation was accepted as planned CCV-004-B scope; that A
+decision did not authorize B implementation. B was subsequently separately
+authorized and its implemented offline-only scope was owner-accepted on
+**2026-11-18**, including the serialization-fidelity correction. See the
+separate dated acceptance records below.
 
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
 | ADR-001 | Modular Python master CLI with explicit module registry | Architectural direction approved by owner, 2026-11-17 | CCV-002, CCV-007 |
 | ADR-002 | Product-specific clients over shared transport and explicit sessions | Direction approved; implemented CCV-003 mock-only scope accepted, 2026-11-17 | CCV-003 |
-| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; CCV-004-A offline scope accepted, 2026-11-17; Category B CREATE-planning extension remains planned B scope | CCV-002, CCV-004 |
-| ADR-004 | Separate offline planning, online preflight, approval, apply, and verification | Architectural direction approved by owner, 2026-11-17; live/apply stages not authorized | CCV-002, CCV-007 |
-| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; CCV-004-A preservation/Option 1 offline implementation accepted, 2026-11-17 | CCV-004 through CCV-006 |
+| ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; A offline scope accepted, 2026-11-17; B offline comparison/CREATE planning and integrity-bound plans accepted, 2026-11-18 | CCV-002, CCV-004 |
+| ADR-004 | Separate offline planning, online preflight, approval, apply, and verification | Direction approved, 2026-11-17; B offline planning accepted, 2026-11-18; live/apply stages not authorized | CCV-002, CCV-007 |
+| ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; A preservation/Option 1 accepted, 2026-11-17; B acknowledged comparison and serialization-fidelity correction accepted, 2026-11-18 | CCV-004 through CCV-006 |
 | ADR-006 | Capability/evidence gating by product and version | Direction approved; synthetic isolation accepted, 2026-11-17; real qualification pending | CCV-003, CCV-008 |
 | ADR-007 | Secure transport and externalized secrets with redacted reporting | Direction approved; implemented CCV-003 mock-only controls accepted, 2026-11-17 | CCV-002, CCV-003 |
 | ADR-008 | Initial utility exclusions and offline-first verification | Direction approved; CCV-003 offline acceptance recorded, 2026-11-17; live qualification pending | CCV-001 through CCV-008 |
@@ -121,6 +124,57 @@ compatibility. Live qualification remains pending.
 CCV-004-B implementation remains **not authorized and not started**. No live
 requests, real migrations, concrete backend, external configuration changes,
 application-code changes, or Git operations follow from this acceptance.
+
+The paragraph above records the boundary of the 2026-11-17 A decision.
+The later B authorization and acceptance below supersede that boundary only for
+B's explicitly stated offline scope.
+
+## Owner implementation acceptance - CCV-004-B, 2026-11-18
+
+**Owner:** project owner, by explicit decision in the project conversation.
+**Decision:** accept **CCV-004-B for its implemented offline-only scope** under
+ADR-003/ADR-004/ADR-005, including the reviewed serialization-fidelity correction.
+This is implementation acceptance, not live product qualification or migration
+execution authorization.
+
+Accepted capabilities:
+
+- Offline semantic comparison with CREATE/SKIP/CONFLICT/BLOCKED classification.
+- Explicit per-object comparison-policy acknowledgement; conservative handling
+  of unknown semantics and unresolved credentials.
+- Explicit missing-object planning and parent dependency validation, including
+  planned parents, independently resolved existing roots, and no fabricated
+  destination IDs. The strict existing-target resolver remains unchanged.
+- Deterministic integrity-bound schema-2 controller plans, recorded policy/
+  evidence, and redacted reporting.
+- Order-sensitive controller configuration preserved through the standard
+  artifact serialization path; unrelated generic sorted-key serialization
+  compatibility maintained.
+
+Accepted evidence: **220 automated tests passed**, **zero guarded network
+attempts**, the confirmed false-SKIP serialization defect corrected, and
+**no blocking defects remain in the reviewed scope**, as stated by the owner.
+The E-018 verification command was
+`python -B -m unittest discover -s tests -v`, with source on `PYTHONPATH`;
+exit `0`, **77.180 seconds**. These are existing verification results, not tests
+rerun for this documentation-only acceptance update.
+See [E-019](PROGRESS.md#e-019---ccv-004-b-owner-acceptance-2026-11-18)
+and the linked implementation evidence.
+
+Conditions and limitations:
+
+- Historical ordering lost through earlier serialization cannot be reconstructed.
+- Previously bound artifact hashes cannot be reused for reserialized data;
+  retain exact bound inputs or regenerate and reverify affected candidates.
+- Product-specific comparison semantics remain unverified against live
+  controllers. Policy acknowledgement is for offline comparison only.
+- Destination completeness is an offline assertion, not live preflight evidence.
+- No real migration execution, configuration writes, live connectivity, API
+  requests, or claims of verified Vision/Cyber Controller compatibility follow
+  from this acceptance. Broader controller/credential scope remains unaccepted.
+
+CCV-004-C remains **not authorized and not started**. No application-code
+changes or Git operations are part of this acceptance record.
 
 ## ADR-001 - Modular Python controller
 
