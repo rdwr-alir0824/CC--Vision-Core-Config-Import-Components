@@ -10,8 +10,13 @@ CCV-009-A static product compatibility/API discovery is owner-accepted
 (E-033). CCV-009-B offline documentation/schema qualification is separately
 authorized; E-035's technical review supported bounded offline tests.
 E-036 implements those subsets: 350 tests pass (321 existing + 29 new).
-No owner acceptance of B is recorded. Complete schema/runtime qualification remains blocked by
-provenance conflicts and incomplete contracts; production remains default-deny.**
+E-037 records B owner acceptance with non-blocking observations, offline only.
+Separately authorized CCV-010-A implements a concrete, explicitly injected
+standard-library HTTPS backend and offline compliance tests: E-038 records
+380 passing tests (350 retained + 30 new); actual network dispatch is untested.
+No A owner acceptance is recorded; CCV-010-B is unauthorized and not started.
+Complete schema/runtime qualification remains blocked by provenance conflicts
+and incomplete contracts; production remains default-deny.**
 Broader/future implementation remains proposed/not authorized. Live product
 compatibility and qualification are explicitly pending.
 
@@ -35,9 +40,11 @@ runtime or API certification.
 | CCV-006 | Scheduled-task migration | P1 | CCV-002, CCV-003; resolved paths and task-type contracts | Not started; not authorized. |
 | CCV-007 | Integrated orchestration, comparison, and reporting | P0 | CCV-003 mocked slice; readiness-verified subset of CCV-004/005/006 approved for integration | Not started; not authorized. |
 | CCV-008 | Compatibility qualification and release readiness | P2 | CCV-007; separately authorized lab access and acceptance scope | Not started; not authorized. |
-| CCV-009 | API discovery and automation expansion workstream | P1 | CCV-001 approval; explicit discovery scope and evidence-access authorization | A accepted; B authorized offline only, bounded subsets implemented (E-036). Broader implementation, lab work and activation unauthorized. |
+| CCV-009 | API discovery and automation expansion workstream | P1 | CCV-001 approval; explicit discovery scope and evidence-access authorization | A and B accepted for completed static/offline scopes (E-033/E-037). Broader implementation, lab work and activation unauthorized. |
 | CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | Owner-accepted static scope, E-032/E-033. Vision 5.4.x and CC 10.10.x remain unqualified targets, not supported releases. |
-| CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted A; E-035 evidence/technical review; explicit bounded offline-test authorization | E-036: exact-document offline subsets and synthetic traces; 350 tests pass, 29 new; CC provenance/schema gaps unresolved; no production/runtime qualification or owner acceptance. |
+| CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted A; E-035/E-036 and independent review | Owner-accepted with non-blocking observations on 2026-11-18 (E-037), bounded offline scope only; 350 tests plus review probes accepted; CC provenance/schema gaps unresolved; no production/runtime qualification. |
+| CCV-010-A | Concrete HTTP backend and offline compliance | P0 | Accepted CCV-009-B; existing injected transport/auth/session contracts; separate owner authorization | Implemented and offline-verified (E-038): 380 tests pass, 30 new; no actual dispatch, production capability activation or owner acceptance. |
+| CCV-010-B | Subsequent integration work | P1 | Separate scope and explicit owner authorization required | Not authorized; not started; no scope or live permission inferred from A. |
 
 Milestone numbers identify workstreams, not a rigid execution order. CCV-009 is
 able to run alongside approved development after the CCV-001 gate, not wait
@@ -61,8 +68,10 @@ Shared artifact/plan/result contracts were implemented in CCV-002. The narrower
 CCV-003 authorization and acceptance connect simulated sessions and three
 source-observed reads to versioned artifacts, explicit mappings, offline
 candidate planning, integrity checks, cleanup, and a redacted summary.
-All backend responses and credentials are synthetic; no real backend or write
-path exists. Synthetic contracts are not evidence of vendor compatibility.
+All backend responses and credentials in that slice are synthetic; no real backend
+or write path was part of C. CCV-010-A subsequently adds the explicit adapter,
+not an online CLI or migration write path. Synthetic contracts are not evidence
+of vendor compatibility.
 
 The original broader proposal to model online preflight, approval, apply,
 post-import verification, partial-import reconciliation, and durable journaling
@@ -165,7 +174,9 @@ Remaining limits and gates:
 - Live Vision/Cyber Controller compatibility and qualification remain
   **pending**; no real product/version is enabled or certified.
 - The nominal mock-backend declaration is a trusted developer assertion, not a
-  sandbox. No concrete HTTP backend or production secret provider exists.
+  sandbox. At C's checkpoint no concrete HTTP backend or production secret
+  provider existed. CCV-010-A adds an ordinary adapter, not mock permissions
+  or a production secret provider.
 - Response shapes, destination identity/comparison, and semantic declarations
   remain synthetic/unverified. Cyber Controller authentication retains its
   source-observed HTTP-200-only limitation.
@@ -437,7 +448,10 @@ Syntax/per-file diagnostics are clean. Complete schema validation still needs
 authoritative clarification. See [E-036](PROGRESS.md#e-036---ccv-009-b-offline-subset-qualification-2026-11-18);
 E-035/E-034 retain their original documentation-only verification boundaries.
 
-Next gate: technical review of the bounded implementation, vendor clarification of C's metadata/version
+The subsequent independent review and E-037 owner acceptance accept only B's
+completed bounded offline implementation; its four permanent-regression
+recommendations remain accepted non-blocking follow-ups, not A scope.
+Remaining qualification gates: vendor clarification of C's metadata/version
 applicability and schema contradictions, independently declared actual source/
 destination builds, missing tree/site-create/PUT/LDAP/task contracts, sanitized
 CFG-SCHED paths and TEST-OWNER provenance. DOC-V54/DOC-CC1010 availability is
@@ -465,11 +479,22 @@ evidence-qualified records, sanitized inputs, and explicit approval gates.
 
 ## Immediate next action
 
-Review CCV-009-B's E-036 offline subset implementation and unresolved schema requests.
+Review CCV-010-A's E-038 implementation and offline compliance evidence; do not
+record owner acceptance without an explicit decision. The standard-library
+adapter is deliberately not selected by any CLI/default backend or product client.
+Its 30 permanent tests use injected memory-only connections and response parsing,
+with zero attempts across 450 network-guard observations and 60 default-dispatch
+spy observations. These scoped Python-level measurements are not OS isolation.
+TLS/hostname verification, optional local CAs, separate socket timeouts,
+single-attempt/no-redirect behavior, independent cookies, 401/403 semantics,
+sanitized errors and exception-safe local cleanup are covered. Real dispatch,
+DNS/TLS/product behavior and JSESSIONID interoperability remain unverified.
+Response bodies have no adapter size cap; DNS/total transfer deadlines and
+broader duplicate-header interoperability require policy/review before live use.
 Preserve accepted C3/E-030/E-031 and all prior safety/retention limitations.
 Resolve provenance/schema contradictions and obtain missing contracts and actual
-build declarations before complete schema qualification; obtain separate
-authorization before any next milestone.
-Real-version support, vendor schemas, live compatibility, backend development,
-lab access, migration execution and production configuration changes remain
-unqualified/unauthorized. No production capability is activated by discovery.
+build declarations before complete schema qualification.
+Real-version support, complete vendor schemas and live compatibility remain
+unqualified; lab access, migration execution and production configuration changes
+remain unauthorized. CCV-010-B is not authorized or started. Stop after A's
+offline report; no production capability is activated by the backend.

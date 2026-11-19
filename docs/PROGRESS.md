@@ -1,6 +1,6 @@
 # Persistent Development Tracker
 
-Last updated: 2026-11-18
+Last updated: 2026-11-19
 Authoritative checkpoint: **CCV-001 approved as the static baseline;
 CCV-002-A technically reviewed; CCV-002-B implemented and offline-verified.
 CCV-002-C completed and locally committed per owner confirmation;
@@ -127,9 +127,22 @@ aggregate counter for other tests. No production capability was activated.
 **ACCEPT WITH NON-BLOCKING OBSERVATIONS**, exclusively for version-pinned,
 offline API evidence and bounded schema qualification. E-037 records the owner
 decision, accepted independent technical review and follow-up observations.
-No live/backend work, real export/import, production capability activation or
-configuration change is authorized or started. Broader CCV-009/other milestones
-remain unauthorized; see E-022 through E-037.**
+The owner subsequently authorized **CCV-010-A only**: a concrete HTTP backend,
+offline compliance tests and synthetic auth/session integration. **E-038**
+records the initial 380-test implementation. Independent review withheld A
+acceptance; **E-039** records focused corrections for four confirmed defects and
+**394 passing tests (380 retained + 14 new)**. Across 44 backend methods,
+counters measured zero attempts across 660 network-guard observations and 88
+separate real-dispatch spy observations; these are scoped Python-level checks,
+not OS isolation or a suite-wide aggregate. No actual network
+dispatch, real export/import, production activation or configuration change was
+performed. Independent follow-up verified all four findings corrected, with
+41 additional guarded scenarios passing and no confirmed acceptance-blocking
+defects in the reviewed offline scope. **E-040** records the explicit owner
+decision: **CCV-010-A: OWNER ACCEPTED — 2026-11-19; ACCEPT OFFLINE SCOPE**.
+These are previously completed verification results, not tests rerun for this
+documentation update. **CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started.
+See E-022 through E-040.**
 
 ## Status rules
 
@@ -570,6 +583,41 @@ builds, complete schemas/inventory, destination preflight, credentials and real
 async behavior remain unqualified. No migration execution or subsequent
 milestone is authorized or started.
 
+#### CCV-010-A authorization and implementation - 2026-11-18
+
+The owner separately authorized a concrete injected HTTP backend, offline
+compliance verification, synthetic authentication/session integration, safe
+response/error handling and related documentation/regressions. Accepted
+CCV-009-B is the baseline; commit `493795f` is owner-reported and was not
+independently inspected. Historical baseline: 350 passing tests.
+
+E-038 implements the standard-library adapter without adding a competing
+transport/session architecture, default backend, online CLI, product operation,
+dependency or capability declaration. All 350 retained regressions and 30 new
+tests pass. This authorization supersedes prior no-backend-development
+restrictions only for A's stated implementation/offline-testing scope.
+No live product, localhost, external or DNS requests, product authentication,
+configuration execution, Git operation, legacy execution, PDF modification,
+commit or merge is permitted/performed. CCV-010-B is explicitly unauthorized
+and not started. No A owner acceptance is recorded.
+
+The subsequent independent review recommended **WITHHOLD ACCEPTANCE -
+CORRECTIONS REQUIRED**. The owner authorized focused corrections only for
+four findings: known-status loss, implicit cleanup misclassification, unsafe
+cookie-parser fallback and malformed wire-header acceptance. E-039 records
+their implementation and offline verification, not independent acceptance.
+
+#### CCV-010-A formal owner acceptance - 2026-11-19
+
+The independent follow-up verified all four findings corrected and recommended
+**ACCEPT CCV-010-A OFFLINE SCOPE**. The project owner explicitly approved
+**ACCEPT OFFLINE SCOPE** on **2026-11-19**. **CCV-010-A: OWNER ACCEPTED —
+2026-11-19**. E-040 records this decision against E-038 implementation and
+E-039 corrections; the earlier pending/withheld labels above are historical.
+Only the concrete backend's offline implementation and verification are
+accepted. No live product connectivity, production activation or migration
+execution is authorized. **CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started.
+
 ## Milestone tracker
 
 | Task ID | Description | Priority | Dependencies | Approval status | Implementation status | Verification status |
@@ -597,6 +645,8 @@ milestone is authorized or started.
 | CCV-009 | API discovery and automation expansion | P1 | CCV-001 approval; scoped discovery/evidence-access authorization | A and B accepted for their completed static/offline scopes; broader work unauthorized | A complete; B bounded offline scope complete and accepted with non-blocking observations | E-032/E-033 accepted A; E-035/E-036 and independent B review; E-037 B owner acceptance; no runtime qualification |
 | CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | OWNER ACCEPTED - 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted static discovery, evidence classification and automation-gap analysis | E-032 plus completed independent review; zero acceptance blockers, one LOW documentation observation; E-033 owner decision; no runtime compatibility claims |
 | CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted CCV-009-A; E-035/E-036; independent technical acceptance review; explicit owner decision | OWNER ACCEPTED — 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted version-pinned offline scope only; full vendor/runtime qualification remains blocked | E-037 accepts 350 passing application tests (321 existing + 29 new), eight additional guarded probes, six security-subset checks and clean Pylance diagnostics; no runtime support enabled |
+| CCV-010-A | Concrete HTTP backend and offline compliance | P0 | Accepted CCV-009-B; E-038/E-039; independent follow-up; explicit owner decision | OWNER ACCEPTED — 2026-11-19; ACCEPT OFFLINE SCOPE | Complete for accepted offline backend scope; all four findings independently verified corrected; no default/CLI activation | E-040 accepts 394 passing tests (380 retained + 14 new), 41 additional guarded scenarios, scoped backend guards 0/660 and dispatch spies 0/88, no scoped syntax/Pylance errors or warnings; no rerun for acceptance; real dispatch unverified |
+| CCV-010-B | Subsequent integration work | P1 | Separate scope and explicit owner authorization | PROPOSED — NOT AUTHORIZED | Not started | Not started |
 
 ## Task details and handoff
 
@@ -628,6 +678,7 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-009 | Gap/backlog register in [ROADMAP](ROADMAP.md), operation evidence in [API_MATRIX](API_MATRIX.md), acceptance here and [DECISIONS](DECISIONS.md) | E-032/E-033 accepted A; E-035/E-036 and independent B review accepted by E-037; no new tests for acceptance recording | Provenance/schema clarification, actual builds, missing contracts, operator workflow confirmation and later authorization | Preserve accepted A/B scopes; broader work requires separate scoping and authorization |
 | CCV-009-A | Discovery: [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), this tracker; acceptance: this tracker and [DECISIONS](DECISIONS.md) only | E-032/E-033; 321 application tests remain historical C3 evidence | Accepted LOW historical-checkpoint observation clarified during B's authorized architecture update; historical review record retained; vendor/schema gaps remain | Preserve acceptance and limitations; see B for current evidence status |
 | CCV-009-B | Acceptance recorded only in this tracker and [DECISIONS.md](DECISIONS.md); implementation/tests/PDFs/other documentation unchanged by this record | E-037 accepts E-035/E-036 and independent review: 350 application tests, eight probes, six security-subset checks; scoped guards 0/435, 0/120, 0/90; clean Pylance diagnostics; no new execution | Accepted non-blocking permanent-regression recommendations; CC provenance, complete/create/null/credential/async/runtime/inventory/build/preflight gaps remain | Preserve owner-accepted bounded offline scope and observations; no follow-up implementation, next milestone or live work without separate authorization |
+| CCV-010-A | E-040 records acceptance only in this tracker and [DECISIONS.md](DECISIONS.md); E-038/E-039 implementation history preserved; application/tests/other documentation unchanged by acceptance | Accepted prior results: 394 tests (380 retained + 14 new), 41 additional guarded scenarios, no failures/errors/skips; backend network attempts 0/660 and dispatch calls 0/88; no scoped syntax/Pylance errors/warnings; no new execution | Actual TLS/product/cookie behavior and other interpreters unverified; DNS/total-duration/body-size limits unresolved; parser-exposed defects/private cookie helpers; all B compatibility limitations remain | Preserve accepted offline scope and non-blocking permanent cookie-probe recommendation; no implementation, CCV-010-B or live work without separate authorization |
 
 CCV-004/005/006 sequencing remains flexible until API/schema readiness is verified
 for each selected slice. CCV-009 may run in parallel after explicit authorization;
@@ -825,6 +876,282 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-040 - CCV-010-A owner offline acceptance, 2026-11-19
+
+- **Milestone / decision:** **CCV-010-A — ACCEPT OFFLINE SCOPE**.
+- **Acceptance date / owner:** **2026-11-19**; project owner, explicitly approved
+  in the project conversation. **CCV-010-A: OWNER ACCEPTED — 2026-11-19**.
+- **Evidence:** E-038 implementation; E-039 focused corrections; the completed
+  independent follow-up verification, which recommended **ACCEPT CCV-010-A
+  OFFLINE SCOPE** and confirmed all four original findings corrected.
+  [DECISIONS.md](DECISIONS.md#owner-offline-backend-acceptance---ccv-010-a-2026-11-19)
+  records the same owner decision. This acceptance supersedes pending/withheld
+  labels only for the completed offline scope; historical evidence is retained.
+- **Accepted functionality:** concrete standard-library HTTPS backend;
+  mandatory TLS certificate and hostname verification; separate connection/read
+  timeouts; no backend retries or automatic redirects; independent source/
+  destination cookies; structured sanitized errors; safe response/connection
+  cleanup; preserved HTTP 401 expiration; cleanup-failure retry suppression;
+  atomic cookie updates; fail-closed malformed-header handling; unchanged
+  production capability restrictions.
+- **Independent correction findings:** all four were verified corrected:
+  (1) HTTP 401 obscured by later failures; (2) implicit cleanup failures
+  permitting inappropriate retries; (3) cookie-parser diagnostics and silent
+  state loss; (4) malformed headers concealing subsequent fields.
+  **No confirmed acceptance-blocking defects remain within the reviewed
+  offline scope.**
+- **Accepted existing verification:** **394 application tests passed**:
+  **380 retained + 14 new correction regressions**, **zero failures/errors/
+  skips**; **Python 3.13.14 on Windows AMD64**. **41 additional guarded
+  scenarios passed**. Syntax and Pylance checks found **no scoped errors or
+  warnings**. These are previously completed implementation/review results;
+  **no tests, probes or diagnostics were rerun for this documentation-only
+  acceptance update**.
+- **Accepted network measurements:** across **44 backend test methods**,
+  **0 attempts / 660 network-guard observations** and **0 calls / 88 concrete
+  dispatch-spy observations**. These are scoped Python-level measurements,
+  **not OS-level isolation or suite-wide aggregate counts**.
+- **Non-blocking improvement:** make the additional cookie-conversion
+  failure-after-deletion probe a permanent regression. This recommendation is
+  **not an acceptance blocker** and does not authorize implementation now.
+- **Mandatory limitations:** actual TLS handshakes remain unverified; configured
+  socket timeouts do not bound DNS resolution or total HTTP transfer duration;
+  response-body size is not capped; real-product cookie behavior remains
+  unverified; other Python interpreter versions remain unqualified; header
+  validation depends on parser-exposed defects; private cookie helpers require
+  interpreter-version regression qualification. Vision and Cyber Controller
+  runtime compatibility remains unverified. Production capabilities remain
+  **default-deny**. No live product client, live product connectivity, production
+  activation, migration executor or migration execution is authorized.
+  All prior API/schema/identity/credential/migration and PDF provenance
+  limitations remain unchanged.
+- **Change boundary / stop:** only this tracker and [DECISIONS.md](DECISIONS.md)
+  are modified. No application/test/other-documentation/PDF changes, Git
+  operations, installations, live API requests, product authentication,
+  configuration operations or production capability activation occurred.
+  **CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started. Stop after recording
+  acceptance; further work requires separate scope and explicit authorization.
+
+### E-039 - CCV-010-A focused HTTP security corrections, 2026-11-19
+
+Historical correction checkpoint: subsequent independent verification confirmed
+all four findings corrected; E-040 records the later explicit owner acceptance
+of offline scope. Original correction measurements and recommendations follow.
+
+- **Authorization / disposition:** focused corrections following the independent
+  technical review's **WITHHOLD ACCEPTANCE - CORRECTIONS REQUIRED** decision.
+  The four confirmed findings comprise two MEDIUM and two LOW findings; the
+  cookie-parser LOW finding was explicitly acceptance-blocking. E-038's initial
+  implementation/test history is retained below. This entry records correction
+  evidence only, not owner acceptance or independent follow-up approval.
+- **Files modified:** [http_backend.py](../src/cc_vision_import/http_backend.py),
+  [test_http_backend.py](../tests/test_http_backend.py),
+  [transport.py](../src/cc_vision_import/transport.py),
+  [sessions.py](../src/cc_vision_import/sessions.py),
+  [ARCHITECTURE.md](ARCHITECTURE.md), this tracker. No files created.
+  Transport changes are necessary to carry actually observed status and
+  secondary backend failure information across the injected protocol; session
+  changes preserve sanitized cleanup/backend diagnostics when converting
+  transport rejection into authentication errors. No competing architecture,
+  authentication strategy or unrelated application module was changed.
+- **Finding 1 / root cause and correction:** body reads and cleanup could fail
+  after a parsed HTTP 401, discarding the status and permitting GET retry with
+  the original authentication state. The adapter now records validated status
+  immediately after `getresponse()` returns and clears a known-401 cookie jar
+  before further processing. `BackendFailure.status` preserves this evidence.
+  Normal and exceptional non-2xx responses share existing transport status
+  classification, including 401/403 and indeterminate 408/5xx write semantics.
+  Secondary backend categories remain in `TransportError.backend_failure`;
+  cleanup retains its Boolean flag and fixed safe note. Authentication errors
+  preserve safe category/cleanup notes. Only the affected role expires; a known
+  401 cannot retry or renew authentication. No status is fabricated when
+  response parsing did not establish one. HTTP 403 does not expire the role.
+- **Finding 2 / root cause and correction:** the actual standard library clears
+  socket/file references before internally closing them. Close exceptions from
+  `getresponse()`/body consumption could therefore masquerade as retryable
+  connection failures or replace a primary error. Request-local post-connect
+  socket/file guards retain failed underlying resources and defer their cleanup
+  reporting until the adapter boundary. The primary read/parse/HTTP failure
+  retains priority. Response and connection cleanup are still attempted;
+  retained failures block success, GET retry and further dispatch, and are
+  retried only by explicit local backend close. No raw close exception escapes.
+- **Finding 3 / root cause and correction:** `CookieJar.make_cookies()` catches
+  conversion exceptions, emits a traceback warning and substitutes an empty
+  cookie list. Missing Max-Age could trigger this path; other invalid values
+  could silently discard cookies. A strict jar subclass uses the existing
+  Netscape parsing/conversion and strict domain policy without that fallback.
+  Max-Age must be a signed/unsigned decimal integer with finite expiry;
+  malformed values fail as `MALFORMED_RESPONSE`. Unexpected conversion errors
+  fail as `BACKEND`, with no warning suppression or raw exception disclosure.
+  Copied cookies are updated in a candidate jar and committed only after all
+  processing and cleanup succeed. Existing valid cookies and the other role's
+  jar survive failed updates, including expiry/deletion before malformed data.
+  Origin pinning, Secure/path/expiry constraints and RFC-2965-disabled policy
+  remain intact. Private cookie conversion helpers are an explicit
+  interpreter-version regression dependency, not a new product contract.
+- **Finding 4 / root cause and correction:** the email-based HTTP header parser
+  can record a defect and hide the rest of the wire headers, defeating checks
+  based only on `getheaders()`. Exposed message/field defects now fail closed
+  before that parsed view is trusted. Colonless lines, hidden duplicates and
+  leading-continuation defects are rejected. Valid headers and individually
+  repeated Set-Cookie fields retain their existing policy; other duplicate
+  fields remain unsupported. This is not comprehensive wire-level validation
+  or evidence of an exploitable cross-request smuggling attack.
+- **Permanent RED evidence:** before application corrections, 13 new methods
+  ran in **2.090s**: **11 failures, one error, one pass**. The passing case
+  preserves valid-header/repeated-cookie policy; the failures reproduce all
+  four findings. The earlier test-edit import/indentation failure was repaired
+  before this behavioral run and is not defect-reproduction evidence.
+  RED scope: **0/195 network observations**, **0/26 concrete-dispatch
+  observations**; no actual connection or DNS activity was exercised.
+- **GREEN regressions:** all original 30 backend methods and the first 13
+  correction methods passed together (**43 tests in 13.511s**, guards 0/645,
+  dispatch 0/86). A fourteenth correction method adds role/origin isolation
+  and unchanged-cookie checks after both parser and final-cleanup failures.
+  The full final set covers 401 plus read timeout, explicit response/connection
+  close failures and internal socket-close failure; independent expiration;
+  403 without expiration; no extra GET after known 401; primary read/parse
+  priority; 5xx write uncertainty; actual stdlib socket/file close paths;
+  retry suppression and failed-resource retention; malformed/mixed Max-Age,
+  atomic jar state and empty stderr; unexpected parser exceptions; malformed
+  wire defects, hidden duplicates, legitimate repeated cookies and sanitized
+  output. Standard-library parsing/ownership state machines run against
+  in-memory file/socket facades, never live sockets.
+- **Complete final verification:** with `src` on `PYTHONPATH`,
+  `python -B -m unittest discover -s tests -v` passed **394 tests in 66.602s**:
+  **380 retained regressions + 14 new**, **zero failures/errors/skips**.
+  An earlier complete corrected run also passed 394 tests in 87.418s.
+  Interpreter: **Python 3.13.14**, MSC v.1944, 64-bit AMD64, Windows.
+  Pylance syntax checks passed for all four modified Python files.
+  Per-file diagnostics contain **no errors or warnings**; the pre-existing
+  unused `_exc` parameter in sessions retains an informational unused-code
+  hint. All four statically resolved `BackendFailure` constructor call sites
+  are signature-compatible; dynamic paths are additionally covered by tests.
+- **Network measurement scope:** the final run's **44 backend methods** measure
+  **zero attempts across 660 observations (44 x 15)** of the existing
+  socket/DNS/HTTP/URL fail-fast guards. Separate constructor/connect spies
+  measure **zero attempts across 88 observations (44 x 2)** of concrete HTTPS
+  dispatch entry points. Other suites retain their own guards; these counters
+  are not a suite-wide aggregate, OS-level isolation or real TLS/network proof.
+- **Preserved policies / limitations:** mandatory certificate/hostname
+  verification, CA validation, distinct bounded socket timeouts, redirect
+  denial, zero backend retries, transport-owned GET decisions, no write replay,
+  no renewal/logout and independent ownership remain unchanged. Production
+  capabilities remain empty/default-deny, with no synthetic permission through
+  this concrete backend and no CLI/default activation. DNS and total-transfer
+  deadlines, response-size caps, actual TLS/network/product behavior and all
+  CCV-009-B schema/identity/credential/migration gaps remain unresolved and out
+  of scope. Vendor metadata provenance remains unchanged.
+- **Recommendation / stop:** all four reproduced findings are corrected in
+  guarded offline verification. Submit E-039 for independent follow-up review;
+  do not infer acceptance. No Git operation, installation, live API/DNS/
+  localhost/product request, product authentication, configuration operation,
+  PDF modification or production activation occurred. CCV-010-B remains
+  unauthorized and not started.
+
+### E-038 - CCV-010-A concrete HTTP backend and offline compliance, 2026-11-18
+
+Historical initial implementation evidence: the subsequent independent review
+withheld acceptance. E-039 above supersedes its affected behavior and technical
+recommendation; the original measurements and history below are preserved.
+
+- **Authorization / baseline:** owner-authorized A only, following accepted
+  CCV-009-B/E-037. Commit `493795f` is owner-reported, not Git-verified.
+  Historical 350-test baseline was freshly rerun, not assumed.
+- **Created:** [http_backend.py](../src/cc_vision_import/http_backend.py) and
+  [test_http_backend.py](../tests/test_http_backend.py).
+  **Modified:** [transport.py](../src/cc_vision_import/transport.py),
+  [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md), this tracker.
+  Existing authentication/session strategies, production/mock catalogues,
+  schema qualification, artifacts, planners, existing tests and PDFs are unchanged.
+- **Architecture:** `StdlibHttpBackend` structurally implements the existing
+  backend/session protocols; its optional connection factory is solely a trusted
+  injection seam, not a mock declaration. One explicitly connected HTTPS
+  connection per attempt; no pooling, proxy discovery/ambient auth, redirects,
+  internal retries, automatic renewal/replay, logout, polling or background work.
+  HTTP debug output and implicit `auto_open` reconnect are disabled.
+  No default backend, CLI wiring or product operation is added.
+- **TLS / timeouts:** existing validators/context builder reused; certificate
+  and hostname verification mandatory, key-logging contexts rejected, optional
+  local CA validated/loaded. A real installed public CA was round-tripped through
+  temporary PEM offline; no certificate/network retrieval occurred. Explicit
+  connection/TLS-handshake and post-connect socket read/write timeouts retain
+  finite `0 < timeout <= 300`. They do not bound OS DNS or total transfer duration.
+- **Requests / responses:** safe origin-form targets and headers, bytes-only
+  bodies, per-backend host/port pinning; eager body reading and response/connection
+  release on success/error. Standard-library parsing over `BytesIO` independently
+  checks fixed-length/chunked/EOF bodies and truncated framing without dispatch.
+  Individual Set-Cookie fields are consumed internally by the private jar, not
+  flattened into the public single-value response-header mapping. Other duplicate
+  headers, conflicting framing and unsupported transfer coding fail closed.
+- **Sessions:** independent source/destination cookies and credentials verified
+  even on the same origin. Existing Vision/CC strategies retained, including CC's
+  weak source-observed HTTP-200-only interpretation. A 401 clears that jar and
+  expires only that manager role; 403 does not expire/renew it. Explicit/context
+  cleanup is local only, clears cookies and attempts every retained resource.
+  Synthetic JSESSIONID evidence is not verified product interoperability.
+- **Structured failures:** connection/TLS/timeout/malformed/internal failures map
+  into existing categories. `BackendFailure` additionally admits existing
+  MALFORMED_RESPONSE/BACKEND categories and a Boolean cleanup indicator.
+  `TransportError.cleanup_failed` and a fixed safe note surface failed cleanup;
+  transport GET retries stop in that case, preserving the primary failure.
+  Otherwise existing bounded GET retries and indeterminate writes are unchanged.
+  Response/connection cleanup failures both surface; failed resources remain
+  privately retained for explicit local close and prevent further dispatch.
+  Raw exception details/notes/chains, bodies, sensitive URLs, headers, passwords
+  and cookies are absent from generated exceptions/logs/representations.
+- **Permanent regressions:** 30 methods cover all 14 requested compliance groups:
+  verified TLS/local CA/timeout limits; URL/method/body/header construction and
+  secrecy; redirect denial; retry ownership/no write replay; origin/cookie/role
+  isolation; 401/403; normal/error/failed cleanup and context exit; sanitized
+  unexpected exceptions; malformed response/framing; nominal mock/product gates.
+  Concrete backends cannot obtain synthetic client permissions; real target
+  versions remain unavailable. Production declarations remain empty/default-deny.
+- **Development checks:** the initial 28-test run had one Windows temporary
+  keylog-file cleanup error (no network attempt); the fixture now explicitly
+  disables its test keylog before deletion. The following 30-test run passed
+  in 16.921s. An expanded single-case probe then reproduced primary-timeout loss
+  when retry met retained cleanup failures; transport now suppresses that retry.
+  The permanent test and entire final suite pass after correction.
+- **Final executed verification:** with the source directory on `PYTHONPATH`,
+  `python -B -m unittest discover -s tests -v` passed **380 tests in 84.591s**:
+  **350 existing regressions + 30 new**, **zero failures/errors/skips**.
+  Interpreter: **Python 3.13.14**, MSC v.1944, 64-bit AMD64, Windows.
+  Pylance syntax checks and per-file diagnostics are clean for all three changed/
+  created Python files. Signature compatibility reports all four statically
+  resolved BackendFailure call sites compatible; full regression execution
+  additionally covers dynamic callers.
+- **Network measurement scope:** the 30 new methods measured **zero attempts
+  across 450 observations (30 x 15)** of existing socket/DNS/HTTP/URL guards.
+  Separately, **zero attempts across 60 observations (30 x 2)** of patched
+  default HTTPSConnection construction and concrete HTTPS connect prove those
+  dispatch entry points were not exercised in these tests. All connection
+  operations used injected network-incapable doubles. Other suite tests retain
+  their own guards; no new suite-wide aggregate is claimed. These are scoped
+  Python-level measurements, **not OS-level isolation** or real TLS/network proof.
+- **Security / interoperability limits:** actual network dispatch, OS DNS/TLS,
+  product cookies/statuses and runtime compatibility remain unverified. Eager
+  bodies have no adapter size cap; socket timeouts are not total deadlines.
+  Other duplicate headers are deliberately unsupported; no transparent
+  decompression, revocation lookup or certificate pinning is implemented.
+  Trust-file permissions/links/mapped drives, trusted injection and process
+  debugging/instrumentation remain operator responsibilities. These limits
+  require review/policy before future live use, not silent compatibility claims.
+  No security-audit acceptance or OS containment claim is made.
+- **Preserved B limitations:** Vision 5.4.9 and CC 10.10.7 runtime compatibility
+  unverified; the 10.10.6 metadata discrepancy unresolved; exact builds need
+  confirmation; complete DevicePojo creation, DeviceAccess nullability,
+  credential portability, complete source export/inventory and real asynchronous
+  completion remain unqualified. Destination preflight remains unimplemented.
+  Neither Vision-to-CC nor CC-to-CC migration compatibility is qualified.
+  Documentation/evidence cannot authorize production or migration execution.
+- **Disposition:** implemented and offline-verified; recommend technical
+  acceptance **only for A's offline scope**, subject to owner review/decision.
+  No owner acceptance is recorded. No product/localhost/external/DNS request,
+  live authentication, configuration operation, dependency installation, Git
+  operation, legacy execution, vendor-PDF change, commit or merge occurred.
+  **CCV-010-B is not authorized and not started. Stop after A's report.**
 
 ### E-037 - CCV-009-B owner acceptance with non-blocking observations, 2026-11-18
 
@@ -4071,8 +4398,19 @@ ACCEPT WITH NON-BLOCKING OBSERVATIONS, bounded offline scope only (E-037).
 Accepted E-035/E-036 and independent review include 350 passing application
 tests, eight additional probes and six security-subset checks.
 Complete vendor/runtime qualification remains blocked.**
-Stop before any next milestone, real HTTP backend development,
-capability activation or live work without separate authorization.**
+The owner subsequently authorized CCV-010-A only; E-038 records the initial
+adapter and 30 tests. Independent review withheld acceptance; E-039 records
+focused corrections for four findings and 14 additional regression methods.
+**394 tests pass (380 retained + 14 new), zero failures/errors/skips**.
+The 44 backend methods measure zero attempts across 660 network-guard
+observations and 88 real-dispatch spy observations; no actual dispatch occurred.
+These are scoped Python-level measurements, not OS isolation or a suite-wide
+aggregate. Independent follow-up verified all four findings corrected and
+41 additional guarded scenarios passed. E-040 records the explicit decision:
+**CCV-010-A: OWNER ACCEPTED — 2026-11-19; ACCEPT OFFLINE SCOPE**.
+No tests were rerun for this documentation-only acceptance update.
+**CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started. Stop before capability
+activation or any live work.**
 
 Recommended next action: preserve accepted A/B/C1/C2/C3, their evidence and
 limitations, both planning corrections, and the unchanged strict resolver.
@@ -4090,7 +4428,10 @@ actual build/per-operation testing provenance and sanitized scheduler paths
 remain unresolved. Obtain clarification and missing offline contracts before
 complete schema work; no real API compatibility or import
 execution authorization is established by discovery.
-Await separate authorization before further development.
+Preserve E-038/E-039, their completed independent verification and E-040's owner
+acceptance of offline scope. Retain the non-blocking recommendation to make the
+cookie-conversion failure-after-deletion probe permanent; implementation requires
+separate authorization. Do not infer authorization for further development.
 Credential migration, cross-domain orchestration, and the next milestone remain
 separately gated.
 Real API schemas and credential portability remain unverified; nonempty access
@@ -4100,7 +4441,8 @@ Historical ordering loss cannot be reconstructed, and previously bound hashes
 cannot be reused for reserialized artifacts. Product semantics remain unverified;
 destination completeness is an offline assertion, not live qualification.
 Approved real product/version/schema evidence is needed
-before enabling any real capability. No real HTTP backend, production secret
-resolver, live destination inventory/preflight, product matcher, approval system,
+before enabling any real capability. A concrete adapter now exists but remains
+explicitly injected and offline-tested only. No production secret resolver,
+live destination inventory/preflight, product matcher, approval system,
 durable execution journal, or migration execution is implemented. The broader
 original roadmap apply simulation remains deferred.

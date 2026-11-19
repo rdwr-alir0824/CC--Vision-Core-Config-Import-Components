@@ -58,6 +58,15 @@ def _transport_failure(error: TransportError) -> AuthenticationFailure:
     return AuthenticationFailure(category, error.status, error.category, error.reason)
 
 
+def _transport_rejection(error: TransportError) -> AuthenticationError:
+    rejection = AuthenticationError(_transport_failure(error))
+    if error.backend_failure is not None:
+        rejection.add_note(f"Backend failure category: {error.backend_failure.value}.")
+    if error.cleanup_failed:
+        rejection.add_note("Local backend resource cleanup failed.")
+    return rejection
+
+
 @dataclass
 class _OwnedSession:
     request: AuthenticationRequest
@@ -197,16 +206,16 @@ class SessionManager:
         if isinstance(login, AuthenticationFailure):
             self._fail(session, login)
             raise AuthenticationError(login)
-        failure = None
+        rejection = None
         try:
             response = session.transport.request(
                 HttpMethod.POST, login.segments, headers=login.headers, body=login.body,
             )
         except TransportError as error:
-            failure = _transport_failure(error)
-        if failure is not None:
-            self._fail(session, failure)
-            raise AuthenticationError(failure)
+            rejection = _transport_rejection(error)
+        if rejection is not None:
+            self._fail(session, rejection.failure)
+            raise rejection
         outcome = session.strategy.interpret(response)
         if outcome.failure is not None:
             self._fail(session, outcome.failure)
@@ -253,13 +262,13 @@ class SessionManager:
         except TransportError as error:
             if error.category != ErrorCategory.AUTHENTICATION:
                 raise
-            rejection = _transport_failure(error)
+            rejection = _transport_rejection(error)
         session.credentials = None
         session.deadline = None
         session.state = SessionState.EXPIRED
         session.expiration_reason = ExpirationReason.HTTP_REJECTION
-        session.outcome = AuthenticationOutcome(False, failure=rejection)
-        raise AuthenticationError(rejection)
+        session.outcome = AuthenticationOutcome(False, failure=rejection.failure)
+        raise rejection
 
     def close(self, role: SessionRole) -> None:
         session = self._session(role)

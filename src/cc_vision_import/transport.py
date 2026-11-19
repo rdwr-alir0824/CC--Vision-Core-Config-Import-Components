@@ -45,16 +45,28 @@ class TransportError(Exception):
         self.reason = reason or category
         self.status = status
         self.attempts = attempts
+        self.cleanup_failed = False
+        self.backend_failure: ErrorCategory | None = None
 
 
 class BackendFailure(Exception):
     """Adapters map library errors here, never retaining raw exception text."""
 
-    def __init__(self, category: ErrorCategory) -> None:
-        if category not in (ErrorCategory.CONNECTION, ErrorCategory.TIMEOUT, ErrorCategory.TLS):
+    def __init__(
+        self, category: ErrorCategory, *, cleanup_failed: bool = False,
+        status: int | None = None,
+    ) -> None:
+        if category not in (
+            ErrorCategory.CONNECTION, ErrorCategory.TIMEOUT, ErrorCategory.TLS,
+            ErrorCategory.MALFORMED_RESPONSE, ErrorCategory.BACKEND,
+        ) or type(cleanup_failed) is not bool or (
+            status is not None and (type(status) is not int or not 200 <= status <= 599)
+        ):
             raise ValueError("Unsupported backend failure category.")
         super().__init__("HTTP backend failed.")
         self.category = category
+        self.cleanup_failed = cleanup_failed
+        self.status = status
 
 
 _reader = ContractReader("transport")
@@ -92,6 +104,16 @@ def _tls_context(trusted_ca: str | None) -> ssl.SSLContext:
     return context
 
 
+def _timeouts(connect_timeout: float, read_timeout: float) -> None:
+    for name, value in (("connect_timeout", connect_timeout), ("read_timeout", read_timeout)):
+        if (
+            type(value) not in (int, float)
+            or not 0 < value <= 300
+            or not math.isfinite(value)
+        ):
+            _reader.fail("invalid_timeout", f"$.{name}", "Timeout must be finite and greater than zero, at most 300 seconds.")
+
+
 @dataclass(frozen=True, kw_only=True)
 class TransportConfig:
     base_url: str = field(repr=False)
@@ -105,15 +127,7 @@ class TransportConfig:
         _origin(self.base_url)
         if self.verify_tls is not True:
             _reader.fail("unsafe_tls", "$.verify_tls", "TLS verification is mandatory.")
-        for name, value in (
-            ("connect_timeout", self.connect_timeout), ("read_timeout", self.read_timeout),
-        ):
-            if (
-                type(value) not in (int, float)
-                or not 0 < value <= 300
-                or not math.isfinite(value)
-            ):
-                _reader.fail("invalid_timeout", f"$.{name}", "Timeout must be finite and greater than zero, at most 300 seconds.")
+        _timeouts(self.connect_timeout, self.read_timeout)
         if type(self.read_retries) is not int or not 0 <= self.read_retries <= 3:
             _reader.fail("invalid_retry_policy", "$.read_retries", "GET retries must be an integer from zero through three.")
         _tls_context(self.trusted_ca)
@@ -229,7 +243,10 @@ class HttpTransport:
             outcome = self._send(request, expect_json, attempt)
             if isinstance(outcome, HttpResponse):
                 return outcome
-            if attempt < limit and outcome.category in (ErrorCategory.CONNECTION, ErrorCategory.TIMEOUT):
+            if (
+                attempt < limit and not outcome.cleanup_failed
+                and outcome.category in (ErrorCategory.CONNECTION, ErrorCategory.TIMEOUT)
+            ):
                 continue
             raise outcome
         raise AssertionError("Unreachable transport retry state.")
@@ -242,7 +259,16 @@ class HttpTransport:
         try:
             response = self._backend.send(request)
         except BackendFailure as exc:
-            return self._error(request.method, exc.category, attempt)
+            error = (
+                self._http_error(request.method, exc.status, attempt)
+                if exc.status is not None and not 200 <= exc.status < 300
+                else self._error(request.method, exc.category, attempt, exc.status)
+            )
+            error.backend_failure = exc.category
+            if exc.cleanup_failed:
+                error.cleanup_failed = True
+                error.add_note("Local backend resource cleanup failed.")
+            return error
         except Exception:
             return self._error(request.method, ErrorCategory.BACKEND, attempt)
         if (
@@ -254,14 +280,7 @@ class HttpTransport:
             return self._error(request.method, ErrorCategory.MALFORMED_RESPONSE, attempt)
         status = response.status
         if not 200 <= status < 300:
-            category = (
-                ErrorCategory.AUTHENTICATION if status == 401 else
-                ErrorCategory.AUTHORIZATION if status == 403 else ErrorCategory.HTTP
-            )
-            # Server errors may occur after a mutation has already taken effect.
-            if status == 408 or status >= 500:
-                return self._error(request.method, category, attempt, status)
-            return TransportError(category, status=status, attempts=attempt)
+            return self._http_error(request.method, status, attempt)
         if expect_json:
             valid = True
             try:
@@ -271,6 +290,17 @@ class HttpTransport:
             if not valid:
                 return self._error(request.method, ErrorCategory.MALFORMED_RESPONSE, attempt, status)
         return response
+
+    @classmethod
+    def _http_error(cls, method: HttpMethod, status: int, attempt: int) -> TransportError:
+        category = (
+            ErrorCategory.AUTHENTICATION if status == 401 else
+            ErrorCategory.AUTHORIZATION if status == 403 else ErrorCategory.HTTP
+        )
+        # Server errors may occur after a mutation has already taken effect.
+        if status == 408 or status >= 500:
+            return cls._error(method, category, attempt, status)
+        return TransportError(category, status=status, attempts=attempt)
 
     @staticmethod
     def _error(

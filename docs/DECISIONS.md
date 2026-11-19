@@ -1,6 +1,6 @@
 # Architecture Decision Register
 
-Date: 2026-11-18
+Date: 2026-11-19
 
 ## Approval rules
 
@@ -57,6 +57,15 @@ evidence and bounded schema qualification. **CCV-009-B: OWNER ACCEPTED —
 accepted evidence; [E-037](PROGRESS.md#e-037---ccv-009-b-owner-acceptance-with-non-blocking-observations-2026-11-18)
 records the owner decision. This grants no runtime compatibility, live
 integration, migration execution or subsequent milestone authorization.
+
+The project owner explicitly accepted **CCV-010-A — ACCEPT OFFLINE SCOPE**
+on **2026-11-19**, exclusively for the concrete HTTPS backend's offline
+implementation and verification. **CCV-010-A: OWNER ACCEPTED — 2026-11-19**.
+E-038 implementation, E-039 corrections and independent verification of all
+four corrected findings support the decision;
+[E-040](PROGRESS.md#e-040---ccv-010-a-owner-offline-acceptance-2026-11-19)
+records it. No live connectivity, production activation or migration execution
+is authorized. **CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started.
 
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
@@ -593,6 +602,100 @@ execution, Git operations or production capability activation are performed.
 Any future live integration or migration execution requires **separate milestone
 scoping and authorization**. Follow-up implementation likewise requires separate
 authorization. **No subsequent milestone is started.**
+
+## Owner offline backend acceptance - CCV-010-A, 2026-11-19
+
+**Owner:** project owner, explicitly approved in the project conversation.
+**Milestone:** CCV-010-A.
+**Decision:** **ACCEPT OFFLINE SCOPE**.
+**Acceptance date:** **2026-11-19**.
+**CCV-010-A: OWNER ACCEPTED — 2026-11-19**.
+
+This accepts only the concrete HTTP backend's offline implementation and
+verification under the existing transport/session and capability boundaries.
+It is not a new ADR, product-compatibility certification, production activation
+or migration-execution authorization.
+
+### Accepted functionality
+
+- Concrete standard-library HTTPS backend.
+- Mandatory TLS certificate and hostname verification.
+- Separate connection and read timeouts.
+- No backend retries or automatic redirects.
+- Independent source/destination cookie handling.
+- Structured and sanitized errors.
+- Safe response and connection cleanup.
+- Preserved HTTP 401 expiration behavior.
+- Cleanup-failure retry suppression.
+- Atomic cookie updates.
+- Fail-closed malformed-header handling.
+- Existing production capability restrictions.
+
+### Evidence and independent verification
+
+Implementation evidence: **E-038**. Correction evidence: **E-039**.
+Formal owner-acceptance record:
+[E-040](PROGRESS.md#e-040---ccv-010-a-owner-offline-acceptance-2026-11-19).
+The completed independent technical verification recommended
+**ACCEPT CCV-010-A OFFLINE SCOPE** and confirmed all four original findings
+corrected:
+
+1. HTTP 401 obscured by later failures.
+2. Implicit cleanup failures permitting inappropriate retries.
+3. Cookie-parser diagnostics and silent state loss.
+4. Malformed headers concealing subsequent fields.
+
+**No confirmed acceptance-blocking defects remain within the reviewed offline
+scope.** Accepted verification:
+
+- **394 application tests passed**: **380 retained tests** and **14 new
+  correction regressions**; **zero failures, errors or skips**.
+- **Python 3.13.14 on Windows AMD64**.
+- **41 additional guarded scenarios passed**.
+- Backend network guards: **0 attempts across 660 observations**, scoped to
+  **44 backend test methods**.
+- Concrete dispatch spies: **0 calls across 88 observations**, in that same
+  backend-test scope.
+- Syntax and Pylance diagnostics: **no scoped errors or warnings**.
+
+These are **previously completed implementation/review measurements**, not
+tests, probes or diagnostics rerun for this documentation-only acceptance
+update. They are **scoped Python-level evidence, not OS-level isolation or
+suite-wide aggregate measurements**.
+
+### Non-blocking improvement
+
+Make the additional cookie-conversion failure-after-deletion probe a permanent
+regression. This is **not an acceptance blocker** and does not authorize its
+implementation during this acceptance update.
+
+### Mandatory limitations and next-milestone boundary
+
+- Actual TLS handshakes remain unverified.
+- DNS resolution is not bounded by the configured socket timeouts.
+- Total HTTP transfer duration is not bounded.
+- Response-body size is not capped.
+- Real-product cookie behavior remains unverified.
+- Other Python interpreter versions remain unqualified.
+- Header validation depends on parser-exposed defects.
+- Private cookie helpers require interpreter-version regression qualification.
+- Vision and Cyber Controller runtime compatibility remains unverified.
+- Production capabilities remain **default-deny**.
+- No live product client, live product connectivity, production activation,
+  migration executor or migration execution is authorized.
+- Prior API/schema/identity/credential/migration and vendor-PDF provenance
+  limitations remain unchanged.
+
+This supersedes historical A acceptance-pending/withheld labels only for the
+accepted offline scope. E-038/E-039 and earlier acceptance records remain
+preserved. Only this register and [PROGRESS.md](PROGRESS.md) are modified.
+No application code, tests, other documentation or vendor PDFs are modified;
+no Git operations, dependency installations, live API requests, product
+authentication, configuration changes or production activation are performed.
+
+**CCV-010-B: PROPOSED — NOT AUTHORIZED**. It has not been started. All further
+implementation or live work requires separate scope and explicit authorization.
+Stop after recording acceptance.
 
 ## ADR-001 - Modular Python controller
 

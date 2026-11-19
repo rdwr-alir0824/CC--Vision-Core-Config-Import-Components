@@ -1,6 +1,6 @@
 # Master Application Architecture
 
-Date: 2026-11-18
+Date: 2026-11-19
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
 foundation and contracts implemented; CCV-003-A/B transport and authentication
 mock-tested; CCV-003-C adds synthetic-version read clients and a mocked
@@ -27,10 +27,16 @@ legacy pairs in both Vision 5.4.9 and CC 10.10.7-labelled references. The CC
 metadata conflict and incomplete/contradictory schemas remain explicit.
 Following technical review and bounded owner authorization, E-036 adds isolated
 offline subset qualification and 29 synthetic regressions; all 350 tests pass.
-No capability or client is added. Complete schema qualification and runtime
-compatibility remain blocked; B owner acceptance is not recorded.
-No concrete HTTP backend, production secret resolver,
-online execution, or real product/version compatibility is established.
+No capability or client is added. E-037 records B's owner acceptance with
+non-blocking observations, limited to its completed offline scope. Complete
+schema qualification and runtime compatibility remain blocked.
+Separately authorized CCV-010-A adds an explicitly injected standard-library
+HTTPS backend and 30 offline compliance tests (E-038). Following an independent
+review withholding acceptance, E-039 corrects four confirmed defects and adds
+14 permanent regressions: 394 total tests pass. Independent follow-up review
+and a separate owner decision remain required.
+Its real network dispatch has not been exercised. No default backend, production
+secret resolver, online CLI, or real product/version compatibility is established.
 
 The owner approved ADR-001 through ADR-009 and the documented architectural
 amendments. Concrete implementation/storage details remain open where noted;
@@ -181,8 +187,9 @@ Legacy sources remain read-only and are never imported or executed.
 
 The implemented foundation uses Python 3.13.14 on Windows, typed dataclasses,
 `argparse`, `json`, and `unittest` from the standard library. No dependencies are
-installed. HTTP library, broader runtime support, packaging/distribution, and
-secret backend remain undecided.
+installed. CCV-010-A uses standard-library `http.client` for explicitly injected
+HTTPS dispatch; broader runtime support, packaging/distribution, and the
+production secret backend remain undecided.
 
 ## Product and authentication boundaries
 
@@ -206,9 +213,10 @@ secret backend remain undecided.
 
 [Transport contracts and mechanics](../src/cc_vision_import/transport.py) use only
 the standard library. At A's checkpoint authentication/session work was outside
-scope; the separately authorized B implementation is described below. There is
-no default or concrete HTTP backend, production HTTP dependency, or online CLI
-operation. C's separate synthetic capability catalogue does not enable migration.
+scope; the separately authorized B implementation is described below.
+CCV-010-A subsequently adds the concrete adapter described next, without
+selecting a default backend, installing an HTTP dependency, or adding an online
+CLI operation. C's separate synthetic capability catalogue does not enable migration.
 
 ### Interfaces and injection
 
@@ -222,15 +230,120 @@ operation. C's separate synthetic capability catalogue does not enable migration
   rejecting duplicate members and nonfinite constants using the existing loader.
   No product schema is inferred. Empty 204 responses are valid unless JSON was
   explicitly required. A 202 response is HTTP acceptance, not operation completion.
-- The caller owns backend/session cleanup. A future adapter must eagerly consume
+- The caller owns backend/session cleanup. An adapter must eagerly consume
   and release each response, enforce certificate/hostname checks and both
   timeouts, and map library IO exceptions to `BackendFailure`. It must perform
   exactly one attempt without redirects, internal retries, authentication
   renewal, ambient proxy/auth behavior, or secret logging.
 
+### Concrete HTTPS adapter - CCV-010-A
+
+[StdlibHttpBackend](../src/cc_vision_import/http_backend.py) implements the existing
+`HttpBackend`/`SessionBackend` protocols structurally; it does **not** inherit
+`MockSessionBackend`. Construction and local `close()` do not dispatch requests.
+The adapter is explicitly injected; no CLI/default/factory wiring activates it.
+Its `ConnectionFactory` seam admits network-incapable connection doubles for
+offline verification without creating another transport or session architecture.
+Factories are trusted executable code, not a sandbox or permission declaration.
+
+- Each `send()` creates one `http.client.HTTPSConnection`, explicitly connects,
+  eagerly reads response bytes, and closes the response and connection, in that
+  order. There is no connection pool, implicit redirect, proxy discovery,
+  ambient authentication, retry, authentication renewal, or write replay.
+  `auto_open=0` prevents implicit reconnect; instance HTTP debugging is disabled.
+- Existing origin/header/timeout validators are reused internally. Direct
+  backend calls additionally reject unsafe TLS contexts, malformed/unsafe URLs,
+  fragments, proxy credentials, redirect opt-in, invalid methods/bodies, and
+  origin changes. Only origin-form encoded targets reach the connection.
+  `Host` and framing are library-owned; the adapter owns `Connection: close`.
+- Certificate verification and hostname checking must remain enabled on the
+  supplied `SSLContext`; TLS key logging is rejected before connect.
+  `TransportConfig` still builds verified contexts with the existing validated
+  optional local CA bundle. An actual local installed public CA was exported to
+  a temporary PEM and reloaded offline in the positive compliance test.
+- The connection timeout covers socket connect/TLS handshake operations.
+  The read timeout is explicitly installed on the connected socket before
+  sending and reading; it also applies to post-connect writes. Each setting
+  retains the existing finite `0 < timeout <= 300` limit. These are socket
+  operation timeouts, **not** DNS-resolution or end-to-end transaction deadlines.
+  OS name resolution is not bounded by the socket connect timeout.
+- A private, memory-only standard-library `CookieJar` is pinned to one HTTPS
+  host/port per backend instance. Strict domain policy, path and expiry handling
+  are tested synthetically. Individual `Set-Cookie` fields enter the jar, not
+  the single-value public response-header mapping; they are never comma-folded.
+  Other duplicate response headers and ambiguous/unsupported framing fail
+  closed as unqualified. This deliberately conservative subset may reject
+  otherwise valid multi-valued server headers; live interoperability is unverified.
+- E-039 uses a strict jar subclass for the existing Netscape cookie policy
+  (RFC 2965 remains disabled). It calls standard-library parsing/conversion
+  helpers without `CookieJar.make_cookies()`'s traceback-warning/empty-result
+  fallback. Missing, invalid or non-finite `Max-Age` values fail explicitly.
+  Parsing and expiry/deletion updates occur against copied cookies in a
+  candidate jar; the active jar changes only after the operation and all
+  cleanup succeed. Parser failures therefore cannot partially update the jar
+  or silently discard valid cookies. Unexpected parser errors become sanitized
+  `BACKEND` failures; invalid cookie lifetimes become `MALFORMED_RESPONSE`.
+  This bounded integration uses private cookie conversion helpers and requires
+  regression verification when changing the supported interpreter.
+- Parser-reported message/field defects are rejected before relying on the
+  parsed header list. This prevents a malformed colonless line from hiding
+  later duplicate fields from adapter validation. It does not establish
+  comprehensive wire validation beyond defects exposed by the selected parser.
+- A successfully returned and validated HTTP status is retained before reading
+  the body. HTTP 401 immediately clears that backend's cookies; the existing
+  manager expires only that role without renewal, even after subsequent read,
+  parsing or cleanup failures. Known non-2xx statuses use the same transport
+  status policy on both normal and exceptional paths; a known 401 cannot become
+  a retryable IO failure. HTTP 403 leaves the session authenticated.
+  Source/destination credentials and cookies remain independent even when both
+  roles use the same origin. Explicit close clears cookies and retries only
+  previously failed **local resource cleanup**, never a request or logout.
+- Library connection/TLS/timeout errors map to existing categories; malformed
+  responses use `MALFORMED_RESPONSE`, unexpected internals use `BACKEND`.
+  `BackendFailure` admits those latter existing categories, a Boolean
+  `cleanup_failed` indication and an optional validated, actually observed
+  `status`. A known non-2xx HTTP failure retains priority; the secondary backend
+  category remains available as `TransportError.backend_failure`.
+  `TransportError.cleanup_failed` preserves cleanup information plus a fixed
+  safe note. Session authentication errors preserve the safe backend category
+  and cleanup notes; no raw exception details/notes are copied.
+  The existing transport suppresses GET retries after cleanup failure, preserving
+  the primary reason. Other GET retry policy and conservative indeterminate-write
+  semantics remain unchanged.
+- Both resource releases are attempted even when either fails. Failed resources
+  remain privately retained for explicit close; further sends fail closed.
+  Request-local socket/file guards account for post-connect internal closes
+  performed by `HTTPConnection.getresponse()` and `HTTPResponse.read()`.
+  They retain failed underlying resources before the library loses ownership,
+  defer cleanup reporting to the adapter boundary, and preserve an existing
+  operation failure. Such failures cannot be hidden by success or a GET retry.
+  Cleanup failure cannot produce a successful response. Errors are raised only
+  after raw exception-handler scopes end, preventing secret-bearing chaining.
+  Request/response bodies, sensitive URLs and headers are not logged or repr-visible.
+
+[Compliance tests](../tests/test_http_backend.py) inject memory-only connections,
+including standard-library response parsing over `BytesIO`, never real network
+dispatch. E-038 retains the initial 380-test evidence; E-039 records 394 passing
+tests (380 retained + 14 correction regressions). The 44 backend methods measure
+zero attempts across 660 scoped network-guard observations and 88 separate
+default-constructor/HTTPS-connect spy observations. These are Python-level
+checks, not a suite-wide aggregate or OS isolation.
+No real TLS handshake, DNS lookup, product authentication or compatibility is verified.
+
+Limits remain explicit: eager response bodies have no adapter size cap,
+operation timeouts are not total transfer deadlines, and no decompression,
+certificate revocation service or pinning policy is added. Local trust-file
+permissions, links/mapped drives, interpreter instrumentation/debug hooks and
+trusted injection remain operator responsibilities. This is not a production
+readiness claim. Production capability declarations remain empty/default-deny,
+synthetic clients require nominal mock backends, and all prior API/schema,
+identity, credential and migration limitations remain. CCV-010-B is neither
+authorized nor started; A owner acceptance is not recorded.
+
 The injected adapter is a trusted dependency. These obligations are a contract,
-not proof that an arbitrary adapter obeys them. No backend has been selected,
-implemented, or live-qualified in this milestone.
+not proof that an arbitrary adapter obeys them. Earlier mock-only transport
+milestones implemented no concrete backend; CCV-010-A implements the adapter
+above but does not live-qualify it.
 
 ### Security and configuration
 
@@ -594,15 +707,15 @@ Actual full-suite evidence is recorded in [E-010](PROGRESS.md#e-010---ccv-003-c-
 
 No live compatibility is established. Cyber Controller authentication still has
 only source-observed HTTP-200 acceptance, not application-status validation.
-Real TLS/timeouts/cookie isolation/response disposal remain future trusted-adapter
-obligations. An injected backend is executable trusted code, not sandboxed by
-these interfaces; this repository provides no concrete network backend. Python
+At C's acceptance checkpoint, real TLS/timeouts/cookie isolation/response disposal
+were future trusted-adapter obligations. CCV-010-A subsequently implements the
+adapter above, with offline-only verification; actual dispatch remains untested.
+An injected backend is executable trusted code, not sandboxed by these interfaces. Python
 test guards establish zero guarded attempts, not OS-level isolation.
 The workflow sanitizes existing parser chains at its own boundary; direct calls
 to older profile/plan parsers have not been changed by this milestone.
 The separately authorized CCV-004-A/B and C1 offline contracts are described
-below. C1/C2 add no client operation; all live/backend development remains
-unauthorized. The subsequently authorized offline-only C3 workflow is described
+below. C1/C2 added no client operation or backend authorization. The subsequently authorized offline-only C3 workflow is described
 separately below and grants no client capability.
 
 ## Implemented offline controller objects and identity mapping - CCV-004-A
@@ -1555,7 +1668,7 @@ Unknown secrets disguised as arbitrary unrecognized text remain undetectable by
 the existing field-classification policy. URL/UNC/drive-relative paths are rejected,
 but operators must control mapped drives, links/junctions, filesystem permissions,
 and provenance of local files. Python network guards are not OS-level isolation.
-No concrete HTTP backend, real API/export/import, configuration-changing action,
+C3 added no concrete HTTP backend, real API/export/import, configuration-changing action,
 dependency installation, Git operation, or next milestone is added.
 
 ## Proposed migration modules
@@ -2007,6 +2120,8 @@ authorized CCV-004-C1 export adapters were implemented and offline-verified;
 their next gate at that historical checkpoint was technical review and owner
 acceptance. That checkpoint is superseded by the later C1/C2/C3 offline
 acceptances recorded in E-021/E-026/E-031 of [PROGRESS.md](PROGRESS.md).
-Current CCV-009-B authorization is limited to offline evidence/schema review;
-its partial result is documented above. Further milestones, real HTTP backend
-development and live operations remain unauthorized.
+CCV-009-B's completed bounded offline scope is owner-accepted (E-037), not
+runtime-qualified. Separately authorized CCV-010-A adds the concrete backend
+and corrected offline compliance evidence above (E-038/E-039), without product activation.
+No A owner acceptance is recorded. CCV-010-B and live operations remain
+unauthorized and not started.
