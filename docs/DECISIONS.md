@@ -2,6 +2,15 @@
 
 Date: 2026-11-19
 
+Current planning decision: **CCV-010-B PLANNING: OWNER ACCEPTED — 2026-11-19**;
+**ACCEPT WITH NON-BLOCKING OBSERVATIONS**, completed offline planning and
+documentation only. See the [dated B acceptance](#owner-planning-acceptance---ccv-010-b-2026-11-19)
+and [E-042](PROGRESS.md#e-042---ccv-010-b-owner-planning-acceptance-2026-11-19).
+Gates A-D remain **NOT PASSED**.
+**NOT READY — EXECUTION NOT AUTHORIZED**.
+Historical present-tense milestone passages below are preserved, not edited;
+this dated decision supersedes their B pending labels only for planning scope.
+
 ## Approval rules
 
 The project owner approved the **architectural direction of ADR-001 through
@@ -696,6 +705,102 @@ authentication, configuration changes or production activation are performed.
 **CCV-010-B: PROPOSED — NOT AUTHORIZED**. It has not been started. All further
 implementation or live work requires separate scope and explicit authorization.
 Stop after recording acceptance.
+
+## Owner planning acceptance - CCV-010-B, 2026-11-19
+
+**Owner:** project owner, explicitly approved in the project conversation.
+**Milestone:** CCV-010-B laboratory qualification planning.
+**Decision:** **ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+**Acceptance date:** **2026-11-19**.
+**CCV-010-B PLANNING: OWNER ACCEPTED — 2026-11-19**.
+
+### Accepted deliverable and evidence
+
+The owner accepts the completed offline planning/documentation deliverable,
+including [LAB_QUALIFICATION_PLAN.md](LAB_QUALIFICATION_PLAN.md), not backend
+implementation readiness, live product compatibility or execution of the
+proposed procedure. This is not a new ADR or authorization to begin another
+milestone.
+
+The unchanged [E-041 planning record](PROGRESS.md#e-041---ccv-010-b-laboratory-readiness-planning-2026-11-19)
+and the completed independent technical acceptance review in the project
+conversation are the evidence.
+[E-042](PROGRESS.md#e-042---ccv-010-b-owner-planning-acceptance-2026-11-19)
+records this owner decision. The independent review recommended
+**ACCEPT WITH NON-BLOCKING OBSERVATIONS — planning scope only**, found
+**no acceptance-blocking planning defects**, and identified **no confirmed
+vulnerabilities within the reviewed planning deliverables**. These bounded
+findings do not certify application security or live readiness.
+
+The review was static and read-only, with no file modifications, application
+tests, Git operations, network requests or product/laboratory operations.
+No application tests were rerun for the review or acceptance documentation.
+Historical CCV-010-A evidence remains **394 passing tests** under E-040;
+Python-level guard evidence is not OS-level network isolation. No new runtime
+verification or real product compatibility is established.
+
+### Gates and laboratory readiness
+
+All four authorization gates remain **NOT PASSED**:
+
+| Gate | Outstanding authorization/evidence boundary | Status |
+| --- | --- | --- |
+| A | Version, build and operation evidence | NOT PASSED |
+| B | Backend safeguards and offline qualification | NOT PASSED |
+| C | Laboratory targets, accounts, permissions and evidence handling | NOT PASSED |
+| D | Separate execution authorization | NOT PASSED |
+
+**Laboratory readiness: NOT READY — EXECUTION NOT AUTHORIZED**.
+Planning acceptance does not approve any gate, target, account or operation.
+
+### Future execution blockers
+
+1. Enforced DNS-resolution deadlines.
+2. Absolute HTTP operation deadlines.
+3. Streaming HTTP response-size limits.
+4. Explicit destination and operation allowlisting.
+5. Qualified authentication and JSESSIONID handling.
+6. Approved session disposition and cleanup, distinguishing local release
+   from remote revocation or verified bounded expiry.
+7. Independent product/build verification.
+8. Approved laboratory targets, accounts, data retention and exact procedure.
+
+None is implemented, waived or approved by this acceptance. The reference
+scope remains Vision 5.4.9 and Cyber Controller 10.10.7-labelled documentation,
+with the unresolved Cyber Controller **10.10.6/10.10.7 PDF metadata discrepancy**
+preserved. No adjacent-version compatibility or compatibility based on
+historical documentation is inferred.
+
+### Non-blocking observation
+
+Historical architecture/decision passages contain outdated present-tense
+milestone statements. Those passages remain unchanged during this acceptance
+task. A separate documentation cleanup may be performed only under future
+authorization. This dated decision updates completed B planning acceptance
+without rewriting historical evidence or broadening its scope.
+
+### Mandatory boundaries and stop
+
+- Production capabilities remain **default-deny**.
+- No live API backend has been activated.
+- No laboratory connection has been authorized.
+- No connectivity, authentication, API requests, configuration changes,
+  production activation or execution of the proposed procedure is authorized.
+- No imports, writes, deletes or migration execution are authorized.
+- Existing authentication and controller-planning safety restrictions remain
+  unchanged.
+- Acceptance establishes no runtime compatibility for either Vision-to-CC
+  or CC-to-CC migration.
+- Further implementation requires separate scope authorization.
+
+Only this register and [PROGRESS.md](PROGRESS.md) are modified for acceptance.
+Static verification covers decision/date/scope consistency, unchanged E-041
+and historical evidence, retained links, Markdown formatting and file hashes.
+No application code, tests, other documentation, legacy scripts, vendor PDFs
+or configuration files are modified. No application tests, Git operations,
+network requests, dependency installation, backend-safeguard implementation,
+laboratory execution or subsequent milestone is performed. Stop after this
+acceptance documentation.
 
 ## ADR-001 - Modular Python controller
 

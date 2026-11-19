@@ -1,6 +1,6 @@
 # Development Roadmap
 
-Date: 2026-11-18
+Date: 2026-11-19
 Status: **CCV-001 architectural baseline approved; CCV-002 completion confirmed
 by the owner; CCV-003-A/B/C implemented mock-only scope owner-accepted on
 2026-11-17. CCV-004-A/B/C1/C2 completed offline scopes are owner-accepted.
@@ -11,10 +11,13 @@ CCV-009-A static product compatibility/API discovery is owner-accepted
 authorized; E-035's technical review supported bounded offline tests.
 E-036 implements those subsets: 350 tests pass (321 existing + 29 new).
 E-037 records B owner acceptance with non-blocking observations, offline only.
-Separately authorized CCV-010-A implements a concrete, explicitly injected
-standard-library HTTPS backend and offline compliance tests: E-038 records
-380 passing tests (350 retained + 30 new); actual network dispatch is untested.
-No A owner acceptance is recorded; CCV-010-B is unauthorized and not started.
+CCV-010-A's concrete, explicitly injected standard-library HTTPS backend is
+owner-accepted for offline scope (E-040, 2026-11-19), following E-039's four
+corrections: 394 passing tests remain historical evidence, not rerun here.
+Actual network dispatch remains untested. CCV-010-B now has authorization for
+planning/documentation only: the [laboratory plan](LAB_QUALIFICATION_PLAN.md)
+defines pending gates and candidate operations, not execution permission.
+No gate has passed; laboratory activation and execution remain unauthorized.
 Complete schema/runtime qualification remains blocked by provenance conflicts
 and incomplete contracts; production remains default-deny.**
 Broader/future implementation remains proposed/not authorized. Live product
@@ -43,8 +46,8 @@ runtime or API certification.
 | CCV-009 | API discovery and automation expansion workstream | P1 | CCV-001 approval; explicit discovery scope and evidence-access authorization | A and B accepted for completed static/offline scopes (E-033/E-037). Broader implementation, lab work and activation unauthorized. |
 | CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | Owner-accepted static scope, E-032/E-033. Vision 5.4.x and CC 10.10.x remain unqualified targets, not supported releases. |
 | CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted A; E-035/E-036 and independent review | Owner-accepted with non-blocking observations on 2026-11-18 (E-037), bounded offline scope only; 350 tests plus review probes accepted; CC provenance/schema gaps unresolved; no production/runtime qualification. |
-| CCV-010-A | Concrete HTTP backend and offline compliance | P0 | Accepted CCV-009-B; existing injected transport/auth/session contracts; separate owner authorization | Implemented and offline-verified (E-038): 380 tests pass, 30 new; no actual dispatch, production capability activation or owner acceptance. |
-| CCV-010-B | Subsequent integration work | P1 | Separate scope and explicit owner authorization required | Not authorized; not started; no scope or live permission inferred from A. |
+| CCV-010-A | Concrete HTTP backend and offline compliance | P0 | Accepted CCV-009-B; E-038/E-039; independent follow-up and explicit owner decision | OWNER ACCEPTED - offline scope, 2026-11-19 (E-040); 394 historical passing tests; no actual dispatch or production activation. |
+| CCV-010-B | Read-only laboratory qualification planning | P1 | Accepted CCV-010-A; exact evidence/builds; backend safety; separate lab and execution approvals | Planning/documentation only; plan prepared (E-041). Gates A-D not passed; lab activation/execution unauthorized; no application implementation. |
 
 Milestone numbers identify workstreams, not a rigid execution order. CCV-009 is
 able to run alongside approved development after the CCV-001 gate, not wait
@@ -477,24 +480,33 @@ Risks: undocumented/version-specific behavior, scope creep, sensitive operator
 data, and unsafe attempts to automate authorization or recovery. Mitigate through
 evidence-qualified records, sanitized inputs, and explicit approval gates.
 
+## CCV-010-B - Read-only laboratory qualification planning
+
+Authorization is limited to local static review and documentation. The
+[laboratory qualification plan](LAB_QUALIFICATION_PLAN.md) defines independent
+Vision/CC build and target checklists, the smallest candidate login/site-by-ID
+read/local-close sequence, conditional explicitly approved remote logout,
+authentication/session/schema qualification, evidence retention and stop rules.
+No actual laboratory details or secrets are supplied, no candidate is approved,
+and no laboratory execution or owner acceptance is recorded.
+
+Gate A requires exact operation/build evidence and C provenance clarification.
+Gate B requires enforced DNS/total-duration/body-size bounds, reviewed lab-only
+allowlisting/authentication integration and bounded local/remote cleanup.
+Gate C requires laboratory/data/security approvals; Gate D requires a separate
+owner decision for the exact procedure after A/B/C. All are **NOT PASSED**.
+The three unresolved backend resource controls are activation blockers; none is
+waived or implemented by this documentation task.
+
+Verification is static documentation checking only (E-041). The accepted
+394-test result remains historical; application tests are not rerun.
+
 ## Immediate next action
 
-Review CCV-010-A's E-038 implementation and offline compliance evidence; do not
-record owner acceptance without an explicit decision. The standard-library
-adapter is deliberately not selected by any CLI/default backend or product client.
-Its 30 permanent tests use injected memory-only connections and response parsing,
-with zero attempts across 450 network-guard observations and 60 default-dispatch
-spy observations. These scoped Python-level measurements are not OS isolation.
-TLS/hostname verification, optional local CAs, separate socket timeouts,
-single-attempt/no-redirect behavior, independent cookies, 401/403 semantics,
-sanitized errors and exception-safe local cleanup are covered. Real dispatch,
-DNS/TLS/product behavior and JSESSIONID interoperability remain unverified.
-Response bodies have no adapter size cap; DNS/total transfer deadlines and
-broader duplicate-header interoperability require policy/review before live use.
-Preserve accepted C3/E-030/E-031 and all prior safety/retention limitations.
-Resolve provenance/schema contradictions and obtain missing contracts and actual
-build declarations before complete schema qualification.
-Real-version support, complete vendor schemas and live compatibility remain
-unqualified; lab access, migration execution and production configuration changes
-remain unauthorized. CCV-010-B is not authorized or started. Stop after A's
-offline report; no production capability is activated by the backend.
+Stop after delivering CCV-010-B's plan. Preserve E-038/E-039/E-040 and all prior
+offline safety/evidence boundaries. Resolve the plan's missing build, provenance,
+authentication, resource-control, remote-session and storage prerequisites only
+under separately scoped authorization. Do not implement controls or execute a
+test from this plan. Production remains default-deny; lab connectivity,
+authentication, API requests, migration execution and configuration changes
+remain unauthorized. No subsequent milestone or gate approval is inferred.

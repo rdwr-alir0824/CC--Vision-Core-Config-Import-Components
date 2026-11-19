@@ -141,8 +141,14 @@ performed. Independent follow-up verified all four findings corrected, with
 defects in the reviewed offline scope. **E-040** records the explicit owner
 decision: **CCV-010-A: OWNER ACCEPTED — 2026-11-19; ACCEPT OFFLINE SCOPE**.
 These are previously completed verification results, not tests rerun for this
-documentation update. **CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started.
-See E-022 through E-040.**
+documentation update. **CCV-010-B PLANNING: OWNER ACCEPTED — 2026-11-19**;
+**ACCEPT WITH NON-BLOCKING OBSERVATIONS**, exclusively for the completed offline
+[laboratory qualification plan](LAB_QUALIFICATION_PLAN.md) and documentation.
+E-041 remains the planning record; E-042 records the separate owner decision and
+independent static review. All Gates A-D remain NOT PASSED.
+**NOT READY — EXECUTION NOT AUTHORIZED**. No application implementation,
+laboratory connectivity or procedure execution is authorized by acceptance.
+See E-022 through E-042.**
 
 ## Status rules
 
@@ -646,7 +652,7 @@ execution is authorized. **CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started
 | CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | OWNER ACCEPTED - 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted static discovery, evidence classification and automation-gap analysis | E-032 plus completed independent review; zero acceptance blockers, one LOW documentation observation; E-033 owner decision; no runtime compatibility claims |
 | CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted CCV-009-A; E-035/E-036; independent technical acceptance review; explicit owner decision | OWNER ACCEPTED — 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted version-pinned offline scope only; full vendor/runtime qualification remains blocked | E-037 accepts 350 passing application tests (321 existing + 29 new), eight additional guarded probes, six security-subset checks and clean Pylance diagnostics; no runtime support enabled |
 | CCV-010-A | Concrete HTTP backend and offline compliance | P0 | Accepted CCV-009-B; E-038/E-039; independent follow-up; explicit owner decision | OWNER ACCEPTED — 2026-11-19; ACCEPT OFFLINE SCOPE | Complete for accepted offline backend scope; all four findings independently verified corrected; no default/CLI activation | E-040 accepts 394 passing tests (380 retained + 14 new), 41 additional guarded scenarios, scoped backend guards 0/660 and dispatch spies 0/88, no scoped syntax/Pylance errors or warnings; no rerun for acceptance; real dispatch unverified |
-| CCV-010-B | Subsequent integration work | P1 | Separate scope and explicit owner authorization | PROPOSED — NOT AUTHORIZED | Not started | Not started |
+| CCV-010-B | Read-only laboratory qualification planning | P1 | Accepted CCV-010-A; E-041; independent static review; explicit planning-only owner decision | PLANNING OWNER ACCEPTED — 2026-11-19; ACCEPT WITH NON-BLOCKING OBSERVATIONS; offline planning/documentation only | Plan complete; no application implementation or laboratory execution | E-042 accepts planning deliverable only; E-041 preserved; Gates A-D NOT PASSED; NOT READY — EXECUTION NOT AUTHORIZED; 394-test baseline historical, not rerun |
 
 ## Task details and handoff
 
@@ -679,6 +685,7 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-009-A | Discovery: [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), this tracker; acceptance: this tracker and [DECISIONS](DECISIONS.md) only | E-032/E-033; 321 application tests remain historical C3 evidence | Accepted LOW historical-checkpoint observation clarified during B's authorized architecture update; historical review record retained; vendor/schema gaps remain | Preserve acceptance and limitations; see B for current evidence status |
 | CCV-009-B | Acceptance recorded only in this tracker and [DECISIONS.md](DECISIONS.md); implementation/tests/PDFs/other documentation unchanged by this record | E-037 accepts E-035/E-036 and independent review: 350 application tests, eight probes, six security-subset checks; scoped guards 0/435, 0/120, 0/90; clean Pylance diagnostics; no new execution | Accepted non-blocking permanent-regression recommendations; CC provenance, complete/create/null/credential/async/runtime/inventory/build/preflight gaps remain | Preserve owner-accepted bounded offline scope and observations; no follow-up implementation, next milestone or live work without separate authorization |
 | CCV-010-A | E-040 records acceptance only in this tracker and [DECISIONS.md](DECISIONS.md); E-038/E-039 implementation history preserved; application/tests/other documentation unchanged by acceptance | Accepted prior results: 394 tests (380 retained + 14 new), 41 additional guarded scenarios, no failures/errors/skips; backend network attempts 0/660 and dispatch calls 0/88; no scoped syntax/Pylance errors/warnings; no new execution | Actual TLS/product/cookie behavior and other interpreters unverified; DNS/total-duration/body-size limits unresolved; parser-exposed defects/private cookie helpers; all B compatibility limitations remain | Preserve accepted offline scope and non-blocking permanent cookie-probe recommendation; no implementation, CCV-010-B or live work without separate authorization |
+| CCV-010-B | Planning: [Laboratory plan](LAB_QUALIFICATION_PLAN.md), [roadmap](ROADMAP.md), this tracker; acceptance: this tracker and [DECISIONS.md](DECISIONS.md) only | E-041 planning record preserved; E-042 planning-only owner acceptance and independent static review; no application tests rerun | Exact builds/targets/roles absent; C metadata conflict; DNS/total-duration/body-size, allowlisting and authentication/session-cleanup prerequisites; storage/authorization pending; Gates A-D NOT PASSED | Stop after acceptance documentation; historical-status cleanup and all further implementation/laboratory work require separate authorization |
 
 CCV-004/005/006 sequencing remains flexible until API/schema readiness is verified
 for each selected slice. CCV-009 may run in parallel after explicit authorization;
@@ -876,6 +883,124 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-042 - CCV-010-B owner planning acceptance, 2026-11-19
+
+- **Owner / date:** project owner, explicitly approved in the project
+  conversation, **2026-11-19**.
+  **CCV-010-B PLANNING: OWNER ACCEPTED — 2026-11-19**.
+  **Decision: ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+- **Accepted scope:** the completed offline laboratory qualification planning
+  deliverable and documentation, including
+  [LAB_QUALIFICATION_PLAN.md](LAB_QUALIFICATION_PLAN.md).
+  [E-041](#e-041---ccv-010-b-laboratory-readiness-planning-2026-11-19)
+  remains unchanged as the planning checkpoint. This accepts the deliverable,
+  not backend implementation readiness, gate completion, the proposed
+  procedure's execution or live product compatibility.
+  [DECISIONS.md](DECISIONS.md#owner-planning-acceptance---ccv-010-b-2026-11-19)
+  records the same owner decision.
+- **Independent review evidence:** the completed technical acceptance review
+  in the project conversation recommended **ACCEPT WITH NON-BLOCKING
+  OBSERVATIONS — planning scope only**. It found **no acceptance-blocking
+  planning defects** and **no confirmed vulnerabilities within the reviewed
+  planning deliverables**. The review was static and read-only; it performed
+  no file modifications, application tests, Git operations, network requests
+  or product/laboratory operations. These bounded findings are not a claim
+  of vulnerability-free application code or live readiness.
+- **Test evidence:** no application tests were rerun for the review or this
+  acceptance documentation. Historical CCV-010-A evidence remains
+  **394 passing tests** under E-040. Historical Python-level guards are not
+  OS-level network isolation; this acceptance adds no runtime verification.
+- **Authorization gates:** each remains **NOT PASSED**:
+  - **Gate A:** version, build and operation evidence.
+  - **Gate B:** backend safeguards and offline qualification.
+  - **Gate C:** laboratory targets, accounts, permissions and evidence handling.
+  - **Gate D:** separate execution authorization.
+  Planning acceptance promotes none of these gates.
+  **Laboratory readiness: NOT READY — EXECUTION NOT AUTHORIZED**.
+- **Future execution blockers remain:**
+  1. Enforced DNS-resolution deadlines.
+  2. Absolute HTTP operation deadlines.
+  3. Streaming HTTP response-size limits.
+  4. Explicit destination and operation allowlisting.
+  5. Qualified authentication and JSESSIONID handling.
+  6. Approved session disposition and cleanup, distinguishing local release
+     from remote revocation or verified bounded expiry.
+  7. Independent product/build verification.
+  8. Approved laboratory targets, accounts, data retention and exact procedure.
+  These are requirements, not newly implemented or approved safeguards.
+- **Version/provenance boundary:** Vision 5.4.9 and Cyber Controller
+  10.10.7-labelled documentation remain the bounded references. Cyber
+  Controller's unresolved **10.10.6/10.10.7 PDF metadata discrepancy** remains
+  open. No adjacent-version compatibility or compatibility based on historical
+  documentation is inferred.
+- **Non-blocking observation preserved:** historical architecture/decision
+  passages contain outdated present-tense milestone statements. Those passages
+  are not modified by this task. A separate documentation cleanup may be
+  performed only under future authorization. This dated acceptance supersedes
+  earlier pending/not-started labels solely for completed B planning scope,
+  without rewriting the historical evidence.
+- **Project boundaries:** production capabilities remain **default-deny**.
+  No live API backend has been activated and no laboratory connection has been
+  authorized. Acceptance authorizes no connectivity, authentication, API
+  requests, configuration changes, production activation, proposed-procedure
+  execution, imports, writes, deletes or migration execution. Existing
+  authentication and controller-planning safety restrictions remain unchanged.
+  Runtime compatibility is not established for either Vision-to-CC or CC-to-CC
+  migration. Further implementation requires separate scope authorization.
+- **Documentation verification / stop:** acceptance changes are restricted to
+  this tracker and [DECISIONS.md](DECISIONS.md). Static checks cover matching
+  decision/date/scope, unchanged E-041 and historical evidence, retained links,
+  Markdown formatting and file hashes. No application code, tests, other
+  documentation, legacy scripts, PDFs or configuration files are modified.
+  No Git/network/laboratory operations, installations, backend-safeguard
+  implementation or subsequent milestone are performed. Stop after recording
+  this acceptance.
+
+### E-041 - CCV-010-B laboratory readiness planning, 2026-11-19
+
+- **Authorization:** current request permits planning/documentation and local
+  static review only, not product connectivity, backend-control implementation,
+  laboratory execution or owner acceptance. Earlier dated B-not-started labels
+  are historical; they are superseded only for this documentation scope.
+- **Baseline:** CCV-010-A accepted offline scope, E-040; owner-reported commit
+  `5f72ddf`, not inspected with Git. **394 passing application tests** and
+  41 guarded review scenarios are historical evidence; not rerun here.
+- **Deliverables:** [LAB_QUALIFICATION_PLAN.md](LAB_QUALIFICATION_PLAN.md) created;
+  [ROADMAP.md](ROADMAP.md) and this tracker updated. API matrix, architecture,
+  decisions, vendor PDFs, application modules and tests remain unchanged.
+- **Reviewed:** API matrix/vendor-evidence ledger and local PDF hashes,
+  architecture, decisions, roadmap/progress, transport, HTTPS backend,
+  authentication, sessions, product clients, capabilities and offline schema
+  qualification. Existing V/C SHA-256 values match the evidence ledger;
+  no new vendor authenticity or installed-build claim is made.
+- **Proposed scope:** independently evidenced builds; explicit authorization
+  for login/session creation; one existing site-by-ID GET; bounded local schema
+  checks/cleanup; conditional separately approved logout or verified operator
+  revocation/bounded expiry. Every operation candidate is pending/unapproved.
+  No version endpoint is invented; no complete inventory or compatibility claim.
+- **Blockers:** DNS deadline, total-duration deadline and streaming body cap
+  require implementation/offline evidence or the specifically reviewed controls
+  allowed by the plan; none is waived. Stronger login/cookie qualification,
+  exact operation/peer allowlisting, remote-session disposition, C's
+  10.10.7-labelled/10.10.6 metadata conflict, actual builds/roles/targets and
+  evidence storage/access approvals remain unresolved. Gates A-D are not passed.
+- **Static verification:** local file-hash comparison, retained evidence-link
+  checks, new relative-link/anchor checks, required planning-content and
+  placeholder/security-boundary review **passed**. Compared 97 existing file
+  hashes: only the roadmap and this tracker changed; the plan is the sole new
+  file. All 337 captured existing reference entries remain present; all 15 plan
+  links/anchors resolve. All 12 candidate rows explicitly remain unapproved;
+  plan table shapes and literal-target/secret-assignment checks passed.
+  No application tests, product probes,
+  authentication or laboratory qualification were executed. Static checks do
+  not verify application behavior.
+- **Boundary:** no Git operations, network requests, DNS queries, connectivity
+  probes, API calls, dependency installation, configuration writes, application/
+  test/PDF changes or capability activation. Production remains default-deny.
+  **PLAN PREPARED; LAB NOT READY; EXECUTION UNAUTHORIZED.**
+  No owner acceptance or execution authorization is recorded. Stop after the
+  documentation deliverables; any subsequent work requires separate approval.
 
 ### E-040 - CCV-010-A owner offline acceptance, 2026-11-19
 
@@ -4409,7 +4534,11 @@ aggregate. Independent follow-up verified all four findings corrected and
 41 additional guarded scenarios passed. E-040 records the explicit decision:
 **CCV-010-A: OWNER ACCEPTED — 2026-11-19; ACCEPT OFFLINE SCOPE**.
 No tests were rerun for this documentation-only acceptance update.
-**CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started. Stop before capability
+**CCV-010-B PLANNING: OWNER ACCEPTED — 2026-11-19**;
+**ACCEPT WITH NON-BLOCKING OBSERVATIONS**, completed offline planning and
+documentation only (E-041/E-042). Gates A-D remain NOT PASSED.
+**NOT READY — EXECUTION NOT AUTHORIZED**. No application implementation,
+laboratory connectivity or execution is authorized. Stop before capability
 activation or any live work.**
 
 Recommended next action: preserve accepted A/B/C1/C2/C3, their evidence and
@@ -4432,8 +4561,14 @@ Preserve E-038/E-039, their completed independent verification and E-040's owner
 acceptance of offline scope. Retain the non-blocking recommendation to make the
 cookie-conversion failure-after-deletion probe permanent; implementation requires
 separate authorization. Do not infer authorization for further development.
-Credential migration, cross-domain orchestration, and the next milestone remain
-separately gated.
+Preserve CCV-010-B's accepted offline [laboratory plan](LAB_QUALIFICATION_PLAN.md),
+E-041 planning evidence, E-042 owner decision and independent review findings.
+Historical-status documentation cleanup requires separate authorization; do not
+rewrite those passages during acceptance recording. Stop after acceptance
+documentation; it authorizes neither safety-control implementation nor lab
+execution, and Gates A-D remain NOT PASSED.
+Credential migration, cross-domain orchestration, and subsequent milestones
+remain separately gated.
 Real API schemas and credential portability remain unverified; nonempty access
 does not establish completeness. No live compatibility or real export/import
 execution is authorized.
