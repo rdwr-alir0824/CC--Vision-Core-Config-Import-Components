@@ -56,7 +56,10 @@ class ConfigurationArtifact:
 
     def to_json(self) -> str:
         # Controller comparison treats retained configuration-member order as significant.
-        return json.dumps(self.to_dict(), allow_nan=False, sort_keys=self.domain != "controller-objects")
+        return json.dumps(
+            self.to_dict(), allow_nan=False,
+            sort_keys=self.domain not in ("controller-objects", "api-schema-evidence"),
+        )
 
 
 def _metadata(value: object, reader: ContractReader) -> ExportMetadata:

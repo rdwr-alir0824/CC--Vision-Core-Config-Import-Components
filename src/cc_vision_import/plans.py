@@ -172,6 +172,11 @@ def _assemble(
     mappings: tuple[IdentityMapping, ...], proposals: tuple[ActionProposal, ...],
 ) -> MigrationPlan:
     reader = ContractReader("plan")
+    if domain == "api-schema-evidence":
+        reader.fail(
+            "evidence_only_artifact", "$.domain",
+            "Offline schema evidence cannot authorize migration planning.",
+        )
     if domain == "controller-objects" and source.source.product == "cyber-controller":
         reader.fail(
             "controller_planning_required", "$.domain",

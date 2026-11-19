@@ -6,8 +6,12 @@ by the owner; CCV-003-A/B/C implemented mock-only scope owner-accepted on
 2026-11-17. CCV-004-A/B/C1/C2 completed offline scopes are owner-accepted.
 CCV-004-C3's completed offline-only scope is owner-accepted on 2026-11-18
 (E-030/E-031: 321 tests passed, zero guarded attempts).
-CCV-009-A static product compatibility/API discovery is separately authorized;
-its documentation is delivered for owner review.**
+CCV-009-A static product compatibility/API discovery is owner-accepted
+(E-033). CCV-009-B offline documentation/schema qualification is separately
+authorized; E-035's technical review supported bounded offline tests.
+E-036 implements those subsets: 350 tests pass (321 existing + 29 new).
+No owner acceptance of B is recorded. Complete schema/runtime qualification remains blocked by
+provenance conflicts and incomplete contracts; production remains default-deny.**
 Broader/future implementation remains proposed/not authorized. Live product
 compatibility and qualification are explicitly pending.
 
@@ -31,8 +35,9 @@ runtime or API certification.
 | CCV-006 | Scheduled-task migration | P1 | CCV-002, CCV-003; resolved paths and task-type contracts | Not started; not authorized. |
 | CCV-007 | Integrated orchestration, comparison, and reporting | P0 | CCV-003 mocked slice; readiness-verified subset of CCV-004/005/006 approved for integration | Not started; not authorized. |
 | CCV-008 | Compatibility qualification and release readiness | P2 | CCV-007; separately authorized lab access and acceptance scope | Not started; not authorized. |
-| CCV-009 | API discovery and automation expansion workstream | P1 | CCV-001 approval; explicit discovery scope and evidence-access authorization | A authorized for static/workspace discovery only; analysis documented for review. Further evidence acquisition, lab work, activation and implementation require separate authorization. |
-| CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | Documentation delivered; static evidence E-032. Vision 5.4.x and CC 10.10.x remain unqualified targets, not supported releases. |
+| CCV-009 | API discovery and automation expansion workstream | P1 | CCV-001 approval; explicit discovery scope and evidence-access authorization | A accepted; B authorized offline only, bounded subsets implemented (E-036). Broader implementation, lab work and activation unauthorized. |
+| CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | Owner-accepted static scope, E-032/E-033. Vision 5.4.x and CC 10.10.x remain unqualified targets, not supported releases. |
+| CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted A; E-035 evidence/technical review; explicit bounded offline-test authorization | E-036: exact-document offline subsets and synthetic traces; 350 tests pass, 29 new; CC provenance/schema gaps unresolved; no production/runtime qualification or owner acceptance. |
 
 Milestone numbers identify workstreams, not a rigid execution order. CCV-009 is
 able to run alongside approved development after the CCV-001 gate, not wait
@@ -317,15 +322,17 @@ Never equate a mocked pass with live compatibility or promise automatic rollback
 
 ## CCV-009 - API discovery and automation expansion
 
-Status: **CCV-009-A authorized on 2026-11-18 for static, read-only discovery and
-documentation only**. Findings are delivered for owner review; broader CCV-009
+Status: **CCV-009-A's static discovery scope is owner-accepted; CCV-009-B is
+authorized on 2026-11-18 for offline documentation/schema qualification only**.
+B's partial report is delivered for technical review; broader CCV-009
 implementation, live discovery and capability activation remain unauthorized.
 
 Deliverables: product/version/role/direction API evidence in
 [API_MATRIX.md](API_MATRIX.md), compatibility limitations, the manual-automation
 gap register and prioritized discovery backlog below, and E-032/status in
-[PROGRESS.md](PROGRESS.md). No approved vendor documentation was found in the
-workspace, so no additional officially documented capability is asserted.
+[PROGRESS.md](PROGRESS.md). A's inventory found no approved vendor documentation;
+the owner subsequently supplied the two local PDFs reviewed in B/E-035.
+Documented operations do not enable production capabilities.
 
 ### CCV-009-A targets, scope and readiness
 
@@ -395,20 +402,49 @@ no production changes are proposed as discovery tests.
 | DISC-09 / P1 | Partial export coverage, full backup/recovery and post-change comparison | V54 source A; C1010 source B/destination A/B | DISC-01; owner recovery requirements | Is there a documented backup/export API, what does it omit, and what supported restore/read-back procedure exists? | No full backup endpoint established; recovery evidence becomes P0 gate before later writes; no API-12 integration |
 | DISC-10 / P2 | Other management/manual activities, scope validation | V54/C1010 roles as owner subsequently confirms | DISC-01; sanitized owner-validated manual procedure list | Which additional documented operations reduce approved manual work? Dependencies, risk, supported versions and evidence per candidate? | No new endpoints asserted; Docker/cron and document-store restoration remain excluded pending separate scope decisions |
 
-### Proposed next milestone - CCV-009-B
+### CCV-009-B - Version-pinned API evidence and offline schema qualification
 
-**Version-pinned vendor evidence acquisition and offline schema qualification**
-is proposed, **not authorized or started**. Suggested bounded inputs: owner-
-approved DOC-V54/DOC-CC1010, exact source/destination build declarations,
-sanitized scheduler API paths and non-sensitive operation-level testing records.
-Review DISC-01 and the documentation/schema portions of DISC-02/03/04 first.
+**Authorized offline-only on 2026-11-18. E-035 technical review supported bounded
+offline tests; E-036 implementation delivered. Complete schema/runtime
+qualification remains blocked. No owner
+acceptance recorded.** Authorization supersedes A's historical B-not-authorized
+checkpoint only for the supplied bounded scope.
 
-Proposed acceptance: provenance-complete references for a selected read-only
-slice, explicitly versioned request/response/identity/completeness contracts,
-synthetic fixture requirements, direction-specific unsupported edges, and a
-separately approvable lab test plan. Missing references remain blockers rather
-than invented schemas. No live clients, backend, capability activation,
-authentication attempts or migration implementation are included in this proposal.
+Results: the owner-provided Vision 5.4.9 (April 2025) and CC 10.10.7-labelled
+(September 2026) PDFs each document **five of 12 legacy pairs**; seven are in
+neither reference. CC's active metadata title says **10.10.6**, contradicting
+its cover/overview; no version applicability is silently inferred.
+The [B vendor analysis](API_MATRIX.md#ccv-009-b---approved-vendor-reference-analysis)
+records exact provenance/pages, all existing operation records, all four still
+unresolved scheduler INI bindings, partial lookup/access schemas, unresolved
+DevicePojo/UserPojo and example/model contradictions, documented async lifecycle,
+independent direction blockers and the historical proposed tests.
+The [E-036 overlay](API_MATRIX.md#ccv-009-b---implemented-offline-subsets---e-036)
+now records isolated exact-evidence bindings, login examples, SitePojo/selected
+Device/DeviceSetup/40-field DeviceAccess subsets and in-memory async traces.
+It reuses artifact/credential validation, preserving unknown JSON/order/native
+identity and explicit null/enum/credential uncertainty. Only the new
+api-schema-evidence artifact domain joins order-preserving serialization.
+Plan construction/parsing explicitly rejects that evidence-only domain.
+No capability, client, authentication strategy, transport or dependency changed.
+
+Acceptance disposition: approved-document inventory and evidence analysis are
+delivered; the separately authorized bounded implementation passes **350 tests
+in 48.098s (321 existing freshly rerun + 29 new)** on Python 3.13.14.
+New tests measured **0 guarded attempts across 435 observations (29 x 15)**;
+this is not OS isolation or a new aggregate counter for other suite cases.
+Syntax/per-file diagnostics are clean. Complete schema validation still needs
+authoritative clarification. See [E-036](PROGRESS.md#e-036---ccv-009-b-offline-subset-qualification-2026-11-18);
+E-035/E-034 retain their original documentation-only verification boundaries.
+
+Next gate: technical review of the bounded implementation, vendor clarification of C's metadata/version
+applicability and schema contradictions, independently declared actual source/
+destination builds, missing tree/site-create/PUT/LDAP/task contracts, sanitized
+CFG-SCHED paths and TEST-OWNER provenance. DOC-V54/DOC-CC1010 availability is
+now satisfied by the supplied PDFs, not full schema qualification. Do not retrieve
+restricted material or start another milestone. Live clients/backend,
+authentication, lab work, capability activation and migration execution remain
+outside B authorization.
 
 Acceptance:
 - Validate the manual activity with the owner before calling it a confirmed gap.
@@ -429,9 +465,11 @@ evidence-qualified records, sanitized inputs, and explicit approval gates.
 
 ## Immediate next action
 
-Review the CCV-009-A discovery documents and unresolved evidence requests.
+Review CCV-009-B's E-036 offline subset implementation and unresolved schema requests.
 Preserve accepted C3/E-030/E-031 and all prior safety/retention limitations.
-Obtain separate authorization before proposed CCV-009-B or any other work.
+Resolve provenance/schema contradictions and obtain missing contracts and actual
+build declarations before complete schema qualification; obtain separate
+authorization before any next milestone.
 Real-version support, vendor schemas, live compatibility, backend development,
 lab access, migration execution and production configuration changes remain
 unqualified/unauthorized. No production capability is activated by discovery.

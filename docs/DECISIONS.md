@@ -46,7 +46,17 @@ The owner separately accepted **CCV-009-A's completed static discovery scope on
 2026-11-18: ACCEPT WITH NON-BLOCKING OBSERVATIONS**. E-032 and the completed
 independent technical acceptance review support this decision; E-033 in
 [PROGRESS.md](PROGRESS.md) records it. No real-version compatibility or production
-readiness is established. **CCV-009-B is PROPOSED - NOT AUTHORIZED**, not started.
+readiness is established. B's later, separately authorized offline scope and
+owner acceptance are recorded below; A's historical next-milestone boundary
+remains preserved in its dated decision.
+
+The project owner separately accepted **CCV-009-B — ACCEPT WITH NON-BLOCKING
+OBSERVATIONS** on **2026-11-18**, exclusively for version-pinned offline API
+evidence and bounded schema qualification. **CCV-009-B: OWNER ACCEPTED —
+2026-11-18**. E-035, E-036 and the independent technical acceptance review are the
+accepted evidence; [E-037](PROGRESS.md#e-037---ccv-009-b-owner-acceptance-with-non-blocking-observations-2026-11-18)
+records the owner decision. This grants no runtime compatibility, live
+integration, migration execution or subsequent milestone authorization.
 
 | ID | Proposed decision | Approval status | Related milestone |
 | --- | --- | --- | --- |
@@ -55,7 +65,7 @@ readiness is established. **CCV-009-B is PROPOSED - NOT AUTHORIZED**, not starte
 | ADR-003 | Versioned artifacts, destination mappings, and plan integrity | Direction approved; A offline scope accepted, 2026-11-17; B/C1 integration and C2 reconciliation/provenance/planning integrity accepted offline-only, 2026-11-18 | CCV-002, CCV-004 |
 | ADR-004 | Separate offline planning, online preflight, approval, apply, and verification | Direction approved, 2026-11-17; B and C2 offline planning/safety gates accepted, 2026-11-18; live/apply stages not authorized | CCV-002, CCV-007 |
 | ADR-005 | Preserve semantics; block ambiguous or unsafe transformations | Direction approved; A preservation/Option 1 accepted, 2026-11-17; B/C1 fidelity controls and C2 qualified associations/acknowledgements/validated exclusions accepted offline-only, 2026-11-18 | CCV-004 through CCV-006 |
-| ADR-006 | Capability/evidence gating by product and version | Direction approved; synthetic isolation accepted, 2026-11-17; real qualification pending | CCV-003, CCV-008 |
+| ADR-006 | Capability/evidence gating by product and version | Direction approved; synthetic isolation accepted, 2026-11-17; B version-pinned offline evidence/subsets accepted with non-blocking observations, 2026-11-18; runtime qualification pending/default-deny | CCV-003, CCV-008, CCV-009-B |
 | ADR-007 | Secure transport and externalized secrets with redacted reporting | Direction approved; implemented CCV-003 mock-only controls accepted, 2026-11-17 | CCV-002, CCV-003 |
 | ADR-008 | Initial utility exclusions and offline-first verification | Direction approved; CCV-003 offline acceptance recorded, 2026-11-17; live qualification pending | CCV-001 through CCV-008 |
 | ADR-009 | Default import conflict handling and journal-based partial-import recovery | Architectural direction approved by owner, 2026-11-17; execution/journal implementation deferred | CCV-004 through CCV-007 |
@@ -471,6 +481,118 @@ Git operations or product operations are performed.
 This acceptance supersedes earlier A acceptance-pending labels only for the
 completed static scope. Preserve E-032, historical C3 evidence and all limitations;
 separate authorization is required for every follow-up.
+
+The B-not-authorized paragraph above is the historical A-decision checkpoint.
+Later B authorization, implementation and the separate owner decision below
+supersede it only for B's explicitly accepted bounded offline scope.
+
+## Owner offline qualification acceptance - CCV-009-B, 2026-11-18
+
+**Owner:** project owner, by explicit decision in the project conversation.
+**Milestone:** CCV-009-B.
+**Decision:** **ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+**Acceptance date:** **2026-11-18**.
+**CCV-009-B: OWNER ACCEPTED — 2026-11-18**.
+
+This accepts version-pinned **offline API evidence and schema qualification
+only**, under the existing evidence, artifact and planning boundaries. It is not
+a new ADR, verified runtime compatibility, production readiness or migration
+execution authorization.
+
+### Accepted scope and evidence
+
+- Vendor documentation evidence analysis.
+- Exact version-specific evidence bindings.
+- Bounded offline schema qualification.
+- Evidence-artifact preservation.
+- Evidence-only planning restrictions.
+- Synthetic asynchronous-operation interpretation.
+- Permanent offline regressions.
+
+Accepted references:
+[E-035](PROGRESS.md#e-035---ccv-009-b-approved-vendor-pdf-analysis-2026-11-18),
+[E-036](PROGRESS.md#e-036---ccv-009-b-offline-subset-qualification-2026-11-18),
+and the completed independent technical acceptance review in the project
+conversation on 2026-11-18, which recommended **ACCEPT WITH NON-BLOCKING
+OBSERVATIONS**. The formal owner-acceptance evidence record is
+[E-037](PROGRESS.md#e-037---ccv-009-b-owner-acceptance-with-non-blocking-observations-2026-11-18).
+
+Accepted verification:
+
+- **350 application tests passed**, comprising **321 existing regressions**
+  and **29 new permanent tests**.
+- **Eight additional guarded acceptance probes passed**.
+- **Six delegated security-subset tests passed**; these repeat selected
+  permanent tests rather than add six unique application tests.
+- **No confirmed acceptance-blocking defects**.
+- **No confirmed exploitable vulnerabilities within the reviewed scope**.
+- **Clean Pylance diagnostics** across the four reviewed Python files.
+
+| Network-guard scope | Attempts | Observations |
+| --- | --- | --- |
+| New permanent tests | **0** | **435** |
+| Additional acceptance probes | **0** | **120** |
+| Delegated security subset | **0** | **90** |
+
+These are **scoped Python-level measurements, not OS-level isolation** or an
+aggregate count for all tests, subprocesses or uninstrumented calls.
+These are previously completed implementation/review results, **not new tests
+or probes executed for this documentation-only owner-acceptance update**.
+
+### Accepted non-blocking observations
+
+The recommendation to add permanent regressions is accepted for:
+
+1. Evidence-artifact serialization and verification boundaries.
+2. Forged planning records with recomputed identities/hashes.
+3. Controller-specific evidence-artifact rejection.
+4. Standard artifact contract reparsing.
+
+These are **follow-up improvements, not blockers**. Acceptance does not
+authorize their implementation now or start another milestone.
+
+### Mandatory limitations and vendor reference handling
+
+- Vision **5.4.9 runtime compatibility remains unverified**.
+- Cyber Controller **10.10.7 runtime compatibility remains unverified**.
+- The CC **10.10.6 PDF metadata discrepancy remains unresolved**, despite the
+  10.10.7 cover/overview. No adjacent patch or whole version family is qualified.
+- Complete **DevicePojo creation schemas remain unqualified**.
+- **DeviceAccess nullability remains unverified**.
+- **Credential portability remains unverified**.
+- **Real asynchronous completion behavior remains unverified**; synthetic
+  interpretation cannot establish configuration success.
+- **Exact independent deployment builds require confirmation**.
+- **Live destination preflight remains unimplemented**; supplied offline
+  inventory assertions do not establish it.
+- **Complete source inventory/export remains unverified**.
+- **Vision-to-CC and CC-to-CC migration compatibility remain unqualified**.
+- **No migration execution is authorized**. Production capabilities remain
+  **default-deny**. No live backend, API request, product authentication,
+  configuration execution or production capability activation follows from
+  this decision. Existing credential, acknowledgement, identity/integrity,
+  retained-record and cleanup protections/limitations remain unchanged.
+
+The vendor PDFs are **local reference materials**:
+
+| Document identity | Local filename | SHA-256 |
+| --- | --- | --- |
+| APSolute Vision 5.4.9 REST API | `APSolute-Vision-5.4.9-REST-API.pdf` | `827d4954cf5390f3a242e8bbb0af4dc7dd9ce68f5c17eba19449cf45a8d9d5c4` |
+| Cyber Controller 10.10.7 REST API; unresolved 10.10.6 metadata | `Cyber-Controller-10-10-7-Rest-API.pdf` | `f6c7e474cb2df25d5d1b7b52da94f13f9b5013649419fc4276f49bd153e2d587` |
+
+E-035/E-036 document identities, hashes and page provenance are preserved.
+No PDF is staged, moved, deleted, modified or committed by this task.
+**Repository storage disposition remains subject to organizational approval**;
+approval for local reference use is not approval for repository storage.
+No Git state is inspected or changed.
+
+Only [PROGRESS.md](PROGRESS.md) and this register are modified for acceptance.
+No application code, tests, other documentation, PDFs, dependencies or legacy
+files are modified; no API/product authentication requests, configuration
+execution, Git operations or production capability activation are performed.
+Any future live integration or migration execution requires **separate milestone
+scoping and authorization**. Follow-up implementation likewise requires separate
+authorization. **No subsequent milestone is started.**
 
 ## ADR-001 - Modular Python controller
 

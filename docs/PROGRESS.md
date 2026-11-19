@@ -110,10 +110,26 @@ on 2026-11-18: ACCEPT WITH NON-BLOCKING OBSERVATIONS**, limited to static legacy
 API discovery, compatibility evidence classification and automation-gap analysis.
 E-032 and the completed independent technical acceptance review are the accepted
 evidence; E-033 records the owner decision and outstanding LOW documentation
-observation. **CCV-009-B is PROPOSED - NOT AUTHORIZED** and has not started.
+observation. The owner subsequently authorized **CCV-009-B offline documentation
+analysis and version-specific API schema qualification only**. B's documentation-
+only pre-PDF report (E-034) is preserved. The owner subsequently supplied approved
+Vision 5.4.9 and CC 10.10.7-labelled references, analyzed in **E-035**: five legacy
+pairs are documented in both PDFs; seven in neither. CC's active metadata title
+says 10.10.6, contradicting its 10.10.7 cover/overview. Complete schema/runtime
+qualification remains blocked by this discrepancy and incomplete/contradictory
+contracts. The independent technical review accepted E-035 as evidence for
+bounded offline tests, and the owner explicitly authorized that implementation.
+**E-036** now adds offline example/model/trace qualification: **350 tests pass
+(321 existing freshly rerun + 29 new)**. New-test counters measured zero attempts
+across 435 network-guard observations; this is not OS-level isolation or an
+aggregate counter for other tests. No production capability was activated.
+**CCV-009-B: OWNER ACCEPTED — 2026-11-18**;
+**ACCEPT WITH NON-BLOCKING OBSERVATIONS**, exclusively for version-pinned,
+offline API evidence and bounded schema qualification. E-037 records the owner
+decision, accepted independent technical review and follow-up observations.
 No live/backend work, real export/import, production capability activation or
 configuration change is authorized or started. Broader CCV-009/other milestones
-remain unauthorized; see E-022 through E-033.**
+remain unauthorized; see E-022 through E-037.**
 
 ## Status rules
 
@@ -496,7 +512,63 @@ remain unchanged. No later discovery or implementation slice is authorized.
 
 The owner subsequently accepted A on 2026-11-18 with non-blocking observations;
 see E-033. This accepts the completed static scope only, not product compatibility
-or CCV-009-B.
+or CCV-009-B. The later B authorization below supersedes that historical boundary
+only for its explicitly stated offline scope.
+
+#### CCV-009-B authorization and partial result - 2026-11-18
+
+The owner explicitly authorized version-pinned API evidence and offline schema
+qualification, using accepted CCV-009-A as the discovery baseline. This permits
+workspace documentation inventory, static source/contract inspection,
+evidence-linked request/response/identity/credential/dependency analysis,
+independent direction assessments and the smallest offline validators **only
+where exact schema evidence is sufficient**. Missing references must be reported,
+not inferred. The owner-supplied baseline `ae06e0f` and requested branch
+`feature/ccv-009b-api-schema-evidence` were not verified: Git operations are
+prohibited.
+
+At the E-034 checkpoint no approved vendor reference or exact source/destination
+patch/build declaration was found. The owner then supplied two approved PDFs and
+authorized the offline comparison, schema/async review and evidence update.
+E-035 records their actual provenance and documented partial contracts; the
+pre-PDF report remains historical. CC version metadata and schema contradictions
+remain unresolved, and actual independent source/destination builds are not
+supplied. E-035's independent technical review recommended evidence acceptance
+for bounded offline tests. The owner then authorized the smallest offline
+qualification components, synthetic regressions and related documentation.
+E-036 implements those subsets and freshly verifies 350 tests, without enabling
+real capabilities or changing authentication/transport/migration policy.
+Complete schema qualification and runtime compatibility remain blocked.
+This describes the implementation checkpoint, not owner acceptance or complete
+vendor/runtime qualification. The subsequent owner acceptance below and E-037
+apply only to the completed bounded offline scope.
+
+No live product/API/authentication requests, product network connections,
+configuration changes/CREATE/UPDATE/DELETE execution, real HTTP backend,
+production capability activation, dependencies, legacy execution/modification,
+Git operations or subsequent milestone work are authorized. Existing C3
+protections remain unchanged. Historical 321-test evidence stays historical;
+E-036 separately reruns those regressions with 29 additions. See E-034/E-035 for
+the preserved earlier documentation checkpoints.
+
+#### Owner acceptance of CCV-009-B - 2026-11-18
+
+The project owner explicitly approved **ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+**CCV-009-B: OWNER ACCEPTED — 2026-11-18**. Accepted scope is vendor evidence
+analysis, exact evidence-version bindings, bounded offline schema qualification,
+evidence-artifact preservation, evidence-only planning restrictions, synthetic
+async interpretation and permanent offline regressions. E-035, E-036 and the
+independent technical acceptance review support this decision; [E-037](#e-037---ccv-009-b-owner-acceptance-with-non-blocking-observations-2026-11-18)
+records the full verification, non-blocking observations and limitations.
+The [decision register](DECISIONS.md#owner-offline-qualification-acceptance---ccv-009-b-2026-11-18)
+records the same owner decision under the existing ADRs.
+
+The four recommendations for additional permanent boundary regressions are
+accepted follow-up improvements, not blockers or authorization to implement
+them now. Production remains default-deny. Live compatibility, actual deployment
+builds, complete schemas/inventory, destination preflight, credentials and real
+async behavior remain unqualified. No migration execution or subsequent
+milestone is authorized or started.
 
 ## Milestone tracker
 
@@ -522,9 +594,9 @@ or CCV-009-B.
 | CCV-006 | Scheduled tasks | P1 | CCV-002, CCV-003; endpoint/task contracts | Not approved; planned | Not started | Not started |
 | CCV-007 | Integrated orchestration and reporting | P0 | CCV-003; readiness-verified subset of CCV-004/005/006 approved for integration | Proposed — pending owner approval | Not started | Not started |
 | CCV-008 | Qualification and release readiness | P2 | CCV-007; separate lab authorization | Not approved; planned | Not started | Not started |
-| CCV-009 | API discovery and automation expansion | P1 | CCV-001 approval; scoped discovery/evidence-access authorization | A owner-accepted for completed static scope; broader work not authorized | A complete; other slices not started | E-032 and independent review accepted under E-033; no product qualification |
+| CCV-009 | API discovery and automation expansion | P1 | CCV-001 approval; scoped discovery/evidence-access authorization | A and B accepted for their completed static/offline scopes; broader work unauthorized | A complete; B bounded offline scope complete and accepted with non-blocking observations | E-032/E-033 accepted A; E-035/E-036 and independent B review; E-037 B owner acceptance; no runtime qualification |
 | CCV-009-A | Product compatibility and API discovery | P1 | Accepted offline C3; owner target/direction declaration; existing sources/contracts | OWNER ACCEPTED - 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted static discovery, evidence classification and automation-gap analysis | E-032 plus completed independent review; zero acceptance blockers, one LOW documentation observation; E-033 owner decision; no runtime compatibility claims |
-| CCV-009-B | Version-pinned vendor evidence and offline schema qualification | P1 | Accepted CCV-009-A; separate owner authorization and approved evidence inputs | PROPOSED - NOT AUTHORIZED | Not started | Not started; no evidence acquisition, qualification or implementation authorized |
+| CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted CCV-009-A; E-035/E-036; independent technical acceptance review; explicit owner decision | OWNER ACCEPTED — 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted version-pinned offline scope only; full vendor/runtime qualification remains blocked | E-037 accepts 350 passing application tests (321 existing + 29 new), eight additional guarded probes, six security-subset checks and clean Pylance diagnostics; no runtime support enabled |
 
 ## Task details and handoff
 
@@ -553,9 +625,9 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-006 | Proposed scheduler module and tests; related docs | None; not started | Missing paths, task schemas, activation/timezone policy | Obtain sanitized configuration/schema evidence |
 | CCV-007 | Proposed orchestration/comparison/reporting and tests; related docs | None; not started | Verified module contracts and approval workflow | Integrate only approved capabilities |
 | CCV-008 | Proposed qualification evidence, operator/release docs; fixes only if approved | None; not started | Lab authorization, version matrix, owner acceptance | Plan approved qualification coverage |
-| CCV-009 | Gap/backlog register in [ROADMAP](ROADMAP.md), operation evidence in [API_MATRIX](API_MATRIX.md), status here | A evidence E-032 and independent review accepted under E-033; no fresh runtime suite | Exact builds, vendor references, operator workflow confirmation, schema/lab evidence and later authorization | Preserve accepted A; keep further work proposed |
-| CCV-009-A | Discovery: [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), this tracker; acceptance: this tracker and [DECISIONS](DECISIONS.md) only | E-032 and completed independent read-only review; zero guarded attempts; E-033 owner acceptance; 321 application tests remain historical C3 evidence, not rerun in A or this acceptance update | One accepted LOW observation in [ARCHITECTURE](ARCHITECTURE.md), approximately 1905-1907; missing DOC-V54/DOC-CC1010, CFG-SCHED and TEST-OWNER; real compatibility unverified | Preserve acceptance and limitations; separately authorize documentation maintenance or CCV-009-B before starting either |
-| CCV-009-B | Proposed vendor/build/schema evidence records; no files created | None; not started | Separate authorization; exact builds, approved references and sanitized evidence | Remain PROPOSED - NOT AUTHORIZED; do not begin |
+| CCV-009 | Gap/backlog register in [ROADMAP](ROADMAP.md), operation evidence in [API_MATRIX](API_MATRIX.md), acceptance here and [DECISIONS](DECISIONS.md) | E-032/E-033 accepted A; E-035/E-036 and independent B review accepted by E-037; no new tests for acceptance recording | Provenance/schema clarification, actual builds, missing contracts, operator workflow confirmation and later authorization | Preserve accepted A/B scopes; broader work requires separate scoping and authorization |
+| CCV-009-A | Discovery: [API_MATRIX](API_MATRIX.md), [ROADMAP](ROADMAP.md), this tracker; acceptance: this tracker and [DECISIONS](DECISIONS.md) only | E-032/E-033; 321 application tests remain historical C3 evidence | Accepted LOW historical-checkpoint observation clarified during B's authorized architecture update; historical review record retained; vendor/schema gaps remain | Preserve acceptance and limitations; see B for current evidence status |
+| CCV-009-B | Acceptance recorded only in this tracker and [DECISIONS.md](DECISIONS.md); implementation/tests/PDFs/other documentation unchanged by this record | E-037 accepts E-035/E-036 and independent review: 350 application tests, eight probes, six security-subset checks; scoped guards 0/435, 0/120, 0/90; clean Pylance diagnostics; no new execution | Accepted non-blocking permanent-regression recommendations; CC provenance, complete/create/null/credential/async/runtime/inventory/build/preflight gaps remain | Preserve owner-accepted bounded offline scope and observations; no follow-up implementation, next milestone or live work without separate authorization |
 
 CCV-004/005/006 sequencing remains flexible until API/schema readiness is verified
 for each selected slice. CCV-009 may run in parallel after explicit authorization;
@@ -753,6 +825,398 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-037 - CCV-009-B owner acceptance with non-blocking observations, 2026-11-18
+
+- **Milestone / decision:** **CCV-009-B — ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+- **Date / owner:** **2026-11-18**; project owner, by explicit decision in the
+  project conversation. **CCV-009-B: OWNER ACCEPTED — 2026-11-18**.
+- **Scope accepted:** vendor documentation evidence analysis; exact
+  version-specific evidence bindings; bounded offline schema qualification;
+  evidence-artifact preservation; evidence-only planning restrictions;
+  synthetic asynchronous-operation interpretation; permanent offline
+  regressions. This accepts the completed offline implementation, not complete
+  vendor schemas, live product compatibility, production readiness or migration
+  execution.
+- **Evidence references:** [E-035](#e-035---ccv-009-b-approved-vendor-pdf-analysis-2026-11-18),
+  [E-036](#e-036---ccv-009-b-offline-subset-qualification-2026-11-18), and the
+  completed independent technical acceptance review in the project conversation
+  on 2026-11-18. That review recommended **ACCEPT WITH NON-BLOCKING OBSERVATIONS**.
+  Earlier implementation/documentation checkpoints remain historical.
+- **Accepted verification, not new execution for this acceptance record:**
+
+  | Measure | Accepted result |
+  | --- | --- |
+  | Application tests | **350 passed**, including **321 existing regressions** and **29 new permanent tests** |
+  | Independent full regression rerun | **350 passed in 94.205s**, exit 0; E-036's final implementation run separately passed in 48.098s |
+  | Additional guarded acceptance probes | **Eight passed**, including 115 expected rejections |
+  | Delegated security-subset rerun | **Six passed**; repeated selected permanent tests, not six additional unique permanent tests |
+  | Confirmed acceptance-blocking defects | **None** |
+  | Confirmed exploitable vulnerabilities | **None within the reviewed scope** |
+  | Pylance diagnostics | **Clean** across the four reviewed Python files |
+  | Review interpreter | **Python 3.13.14**, Windows AMD64 |
+
+  The full regression command was `python -B -m unittest discover -s tests -v`.
+  This documentation-only acceptance update reruns no application tests or probes
+  and makes no new runtime verification claim.
+- **Accepted network-guard evidence:**
+
+  | Scope | Attempts | Guard observations |
+  | --- | --- | --- |
+  | New permanent tests | **0** | **435** |
+  | Additional acceptance probes | **0** | **120** |
+  | Delegated security subset | **0** | **90** |
+
+  These are **scoped Python-level measurements, not OS-level isolation**.
+  They are not an aggregate attempt count for all existing tests, subprocesses,
+  tools or uninstrumented calls.
+- **Accepted non-blocking observations:** add permanent regressions covering:
+  1. Evidence-artifact serialization and verification boundaries.
+  2. Forged planning records with recomputed identities/hashes.
+  3. Controller-specific evidence-artifact rejection.
+  4. Standard artifact contract reparsing.
+
+  These are accepted follow-up improvements, **not acceptance blockers**.
+  Recording them does not authorize code/test changes or start their
+  implementation.
+- **Mandatory limitations retained:**
+  1. Vision **5.4.9 runtime compatibility remains unverified**.
+  2. Cyber Controller **10.10.7 runtime compatibility remains unverified**.
+  3. The **10.10.6 PDF metadata discrepancy** in the 10.10.7-labelled CC
+     reference remains unresolved; no adjacent-version compatibility is inferred.
+  4. Complete **DevicePojo creation schemas remain unqualified**.
+  5. **DeviceAccess nullability remains unverified**.
+  6. **Credential portability remains unverified**.
+  7. **Real asynchronous completion behavior remains unverified**; synthetic
+     status interpretation does not verify configuration success.
+  8. **Exact independent deployment builds require confirmation**.
+  9. **Live destination preflight remains unimplemented**; supplied offline
+     destination assertions are not live preflight.
+  10. **Complete source inventory/export remains unverified**.
+  11. **Vision-to-CC and CC-to-CC migration compatibility remain unqualified**.
+  12. **No migration execution is authorized**. Production capabilities remain
+      **default-deny**; no real backend, API/authentication operation,
+      configuration write, automatic destination mapping or capability activation
+      follows from acceptance. Existing acknowledgement, credential, integrity,
+      retained-record and cleanup limitations remain intact.
+- **Vendor PDF handling:** the two PDFs remain local reference materials.
+  They are access-controlled reference documents supplied separately through
+  approved organizational channels and are not included in the source repository:
+  - **APSolute Vision 5.4.9 REST API**:
+    `APSolute-Vision-5.4.9-REST-API.pdf`, SHA-256
+    `827d4954cf5390f3a242e8bbb0af4dc7dd9ce68f5c17eba19449cf45a8d9d5c4`.
+  - **Cyber Controller 10.10.7 REST API**, with unresolved 10.10.6 metadata:
+    `Cyber-Controller-10-10-7-Rest-API.pdf`, SHA-256
+    `f6c7e474cb2df25d5d1b7b52da94f13f9b5013649419fc4276f49bd153e2d587`.
+
+  Exact document identities, page provenance and hash-based evidence in E-035/
+  E-036 are preserved. No PDF is staged, moved, deleted, modified or committed
+  by this task. **Repository storage disposition remains subject to
+  organizational approval**; local reference approval is not repository-storage
+  approval. No Git state is inspected or changed.
+- **Files / authorization boundary:** only this tracker and
+  [DECISIONS.md](DECISIONS.md) are modified. No application, test, vendor PDF,
+  other documentation, dependency or legacy changes; no API/product
+  authentication request, legacy execution, configuration execution, Git
+  operation or production capability activation.
+- **Next action:** preserve the accepted offline scope, E-035/E-036, this owner
+  acceptance and non-blocking observations. Any future live integration or
+  migration execution requires **separate milestone scoping and authorization**.
+  Follow-up improvements likewise require separate implementation authorization.
+  **No subsequent milestone is started.**
+
+### E-036 - CCV-009-B offline subset qualification, 2026-11-18
+
+Historical implementation checkpoint. E-037 records subsequent owner acceptance
+of the bounded offline scope; the original verification and authorization
+boundaries below are preserved.
+
+- **Authorization / dependency:** continue the already authorized B milestone
+  after E-035's independent technical review recommended **Evidence accepted;
+  proceed with bounded offline tests**. Owner explicitly authorized synthetic
+  schema regressions, minimal offline components and related docs only.
+  No owner acceptance, next milestone, Git operation or live work authorized.
+  Requested branch remains owner-supplied, not independently verified.
+- **Historical review process exception:** the earlier review's security
+  subagent ran prohibited read-only Git status/diff commands; this was disclosed
+  in that review, whose recommendation exists in the conversation. E-036 does
+  not erase that exception or claim it was compliant. No Git command was run
+  during this implementation.
+- **Created:** [schema_qualification.py](../src/cc_vision_import/schema_qualification.py)
+  and [test_schema_qualification.py](../tests/test_schema_qualification.py).
+  **Modified:** [artifacts.py](../src/cc_vision_import/artifacts.py), only to
+  preserve ordering for the new `api-schema-evidence` domain;
+  [plans.py](../src/cc_vision_import/plans.py), only to deny that new domain
+  during plan construction/parsing; [API_MATRIX.md](API_MATRIX.md),
+  [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md) and this tracker.
+  Other generic domains still sort; controller serialization is unchanged.
+  No dependency, CLI, legacy, authentication, transport, capability, mapping,
+  reconciliation, acknowledgement or execution implementation changed.
+  Other generic-domain planning behavior is unchanged; evidence-only artifacts
+  cannot authorize migration planning even with asserted validation metadata.
+- **Bindings / provenance:** `DOC-V549` binds only `vision` / `5.4.9`;
+  `DOC-CC10107` binds only `cyber-controller` / `10.10.7`-labelled document
+  content. Both titles/dates/hashes and relevant PDF pages are fixed evidence
+  metadata, not trusted runtime-build assertions. Wrong/cross references,
+  adjacent versions, wildcards and `0.0-test` are rejected. C's 10.10.6 metadata
+  title remains an explicit unqualified issue; no 10.10.6 support is inferred.
+  Both local PDF SHA-256 values were rechecked unchanged against E-035.
+  PDFs were neither edited nor added/committed. Functions do not reread PDFs
+  or certify provenance/applicability automatically.
+- **Operation classification:** per document, all 12 legacy pairs retain
+  **5 documented / 7 not-found**; absence is not vendor non-support.
+  API-01-V/API-01-C retain independent product evidence. All four scheduler
+  bindings remain unresolved with no bound paths; login/logout candidates
+  are candidates only. No replacement endpoint or missing INI was fabricated.
+- **Offline model contracts:** complete caller-supplied version-1 artifact
+  envelopes only, domain `api-schema-evidence`. Site required presence/string
+  subset, optional description/parent, selected optional Device/DeviceSetup
+  fields, and all 40 DeviceAccess names/types receive bounded checks.
+  Unknown JSON/order/types/native IDs are preserved, not certified.
+  Missing versus null remains distinct; present null and unknown enum value
+  sets are explicitly unqualified rather than guessed. Artifact validation
+  metadata is not upgraded. No default, transformation, source-ID reuse,
+  destination mapping or full DevicePojo/create validator is introduced.
+- **Credential scope:** existing recursive secret/reference guards are reused.
+  Raw recognized credentials, including usernames and nested unknown fields,
+  remain rejected. Protected references and null/uncertain credentials remain
+  unqualified for vendor wire use/portability. The conservative classifier also
+  blocks raw booleans in verifyHttpCredentials/verifyHttpsCredentials; this is
+  a retained local safety limitation, not a vendor type rejection.
+  Access acknowledgement and C3 retention protections remain unchanged.
+- **Login scope:** independent synthetic 200/401 example-shape qualification;
+  required status/session/message types, missing fields, strict UTF-8/JSON,
+  duplicate/nonfinite/malformed content and sanitized diagnostics. Session
+  and rejection values are never returned or logged by the qualifier.
+  Existing CC HTTP-200-only acceptance remains unchanged and is explicitly
+  tested separately from documented response qualification.
+- **Async scope:** supplied finite response tuples only, no requests/polling.
+  202, tracking 200 and 303 are nonterminal; final supplied HTTP status/body
+  determines limited HTTP-failure/reported-failure/reported-success-unverified/
+  unqualified-result reporting. Final `status` interpretation is local policy,
+  not a newly invented vendor result contract or configuration verification.
+  Exact trusted HTTPS origin, safe path/opaque-ID shape, single Location and ID
+  correlation are local safety restrictions; missing/malformed/mismatched
+  tracking fails safely. Tracking methods, runtime timing/expiry/cancellation
+  and actual final/error semantics remain unverified. No redirects, renewal,
+  automatic write retry/replay or transport changes.
+- **Focused run:** `python -B -m unittest discover -s tests -p test_schema_qualification.py -v`:
+  **29 passed in 0.268s**, exit 0, no failures/errors, including evidence-only
+  plan construction/parsing rejection for both product declarations.
+- **Required full run:** `python -B -m unittest discover -s tests -v`:
+  **350 passed in 48.098s**, exit 0, **321 existing regressions freshly rerun
+  plus 29 new test methods**, no failures/errors/skips. This is new execution
+  evidence, not reuse of the historical 321-test result. Existing environment,
+  source PYTHONPATH and absolute configured executable used; no installation.
+  Runtime: **Python 3.13.14**, MSC v.1944, Windows AMD64.
+  An earlier pre-planner-guard checkpoint also passed 350 tests in 47.443s;
+  the later full run above verifies the final code including that safety denial.
+- **Actually measured network guards:** the new test class sums the existing
+  guard mocks' call counts for every test, including guarded imports, and emits
+  `SCHEMA_NETWORK_GUARDS cases=29 entrypoint_observations=435 attempts=0`.
+  That is **0 attempts / 29 cases x 15 guards**. Full-suite existing guard
+  cleanups passed, but no new aggregate counter measures other tests or child
+  CLI processes. This is not OS sandboxing/isolation or evidence about
+  uninstrumented calls; only synthetic fixtures/backends were used.
+- **Static checks:** Pylance file syntax checks and per-file diagnostics for
+  all four touched Python files returned no syntax errors/diagnostics.
+  Local targeted document-link/anchor and test-output/count checks accompany
+  this record; these do not establish product behavior. An initial link checker
+  mistakenly rejected a legitimate directory link; allowing existing directories
+  corrected that checker-only assertion, without a deliverable change.
+- **Security boundary:** production lookup remains empty/default-deny,
+  mocks remain exact `0.0-test` with explicit mock-only opt-in, and documented
+  real versions remain rejected by both lookup modes. Full existing auth,
+  transport, mapping, acknowledgement and retention regressions pass.
+  No live backend, API/authentication, product connection, configuration
+  write, migration execution, automatic mapping or source-ID reuse added.
+  No real credentials/customer data, dependencies, legacy execution or Git
+  operations used. No new independent vulnerability audit is claimed.
+- **Remaining gaps / disposition:** implementation is ready for technical
+  review of this bounded offline scope, **not final B acceptance**. Both
+  migration directions remain runtime-unqualified. C provenance, undefined
+  DevicePojo, account UserPojo create response, required by-name id, string
+  examples versus numeric/boolean models, No Content/error contradictions,
+  nullability/enums/unknown-field acceptance/completeness and credential
+  portability remain unresolved. Obtain missing tree/site-create/PUT/LDAP/
+  scheduler contracts, actual independent builds, destination preflight/
+  read-back/recovery evidence and vendor clarification. Stop; do not begin
+  another milestone or record owner acceptance.
+
+### E-035 - CCV-009-B approved vendor PDF analysis, 2026-11-18
+
+Historical documentation-only checkpoint. Its independent technical review and
+the later owner-authorized subset implementation/test execution are recorded
+in E-036; the original evidence and verification boundary below are preserved.
+
+- **Task / authorization:** owner supplied approved workspace references and
+  requested offline inventory, comparison of all 12 legacy pairs/four scheduler
+  references, schema/async analysis, independent direction assessment and
+  documentation updates. No owner acceptance or next milestone authorization.
+- **Priority / dependencies:** P1; accepted A/E-032/E-033, prior B/E-034 and the
+  two owner-approved local PDFs.
+- **Documents / provenance:** **APSolute Vision 5.4.9 REST API**
+  (`APSolute-Vision-5.4.9-REST-API.pdf`), April 2025, and
+  **Cyber Controller 10.10.7 REST API**
+  (`Cyber-Controller-10-10-7-Rest-API.pdf`), September 2026; both 272 PDF pages.
+  Exact byte sizes, SHA-256, metadata dates,
+  operation/model sections and PDF/printed page pairs are recorded in the
+  [current B analysis](API_MATRIX.md#ccv-009-b---approved-vendor-reference-analysis).
+  Local extraction used the existing Git distribution's `pdftotext.exe` utility
+  as a PDF reader, **not Git operations**; no dependency was installed.
+- **CC discrepancy:** cover/overview state 10.10.7; the final trailer's active
+  Info dictionary (`3189 0 R`) says **Cyber Controller 10.10.6 REST API**.
+  Earlier incremental titles also exist; none supplies adjacent-release
+  qualification. Some body descriptions retain Vision terminology.
+  Discrepancy is recorded, not silently resolved; request authoritative
+  version-applicability clarification. V's title metadata agrees with 5.4.9.
+- **12-pair result:** **5 Both / 0 Vision-only / 0 CC-only / 7 Neither**.
+  Both references document POST login, GET site by name, GET site by ID,
+  GET device by IP and POST device. Neither documents legacy Physical/
+  Organization export GETs, POST site, PUT device, LDAP GET/POST or auxiliary
+  document PUT. Absence from these references is not vendor non-support.
+  Baseline remains 12 concrete pairs / 16 logical records / 17 product-specific
+  rows; API-01-V and API-01-C retain separate product evidence.
+- **Scheduler result:** **all four legacy configured bindings unresolved**.
+  Both PDFs document POST login/logout candidate paths, but no missing INI
+  alias can be assumed. Neither documents scheduler list/create task paths.
+- **Schema evidence:** selected session/site/device contracts and model
+  fields now have VENDOR_DOCUMENTED content evidence, independently of
+  LEGACY_OBSERVED and historical MOCK_VERIFIED evidence. SitePojo required
+  string fields are ormID/name/type; description/parentOrmID are optional.
+  DeviceSetup/DeviceAccess have model optionality, not proven creation/null
+  semantics; both access models contain 40 Required=false fields.
+  Undefined DevicePojo, create-device UserPojo response, extraneous by-name
+  required id, No Content versus JSON examples, and string-valued examples
+  versus boolean/integer models block complete endpoint validators.
+  No invented defaults, enum values, ID aliases or implicit transformations.
+- **Async evidence:** V/C overview 11/1 documents initial 202/Location,
+  tracking 200 while in progress, 303/result Location when processing finishes,
+  then final operation code/body. Result success must be assessed separately.
+  Tracking/result HTTP methods, polling/error/expiry bounds and supportasync
+  trigger are not established. No polling, result fetch, redirect following,
+  renewal, remote logout or write replay implemented.
+- **Migration / preflight:** A now has documented Vision site/device lookups
+  but still lacks qualified tree/completeness/export and destination site/
+  LDAP/task contracts. B has the same documented subset, subject to C provenance,
+  without portable native IDs or independent actual build evidence. Both require
+  explicit destination identities/parents, type/reference checks, duplicate
+  detection, RBAC/license eligibility, access-secret policy, verified completion/
+  read-back and recovery. No end-to-end migration compatibility claimed.
+- **Implementation / files:** updated [API_MATRIX.md](API_MATRIX.md),
+  [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md) and this tracker.
+  Owner-provided PDFs remain unmodified; no agent-created project file, code,
+  test, fixture, validator, dependency, capability or backend change.
+  E-034/A inventories are retained as historical, not overwritten.
+  No new architectural decision; DECISIONS remains unchanged.
+- **Proposed tests:** evidence/hash/page/product/version separation, all baseline
+  operation/binding coverage, documented model subsets, malformed/missing/null/
+  unknown/order/type handling, session secrecy, synthetic async state/error/
+  Location correlation and independent destination identity. These are proposed,
+  not implemented or executed; complete endpoint tests await clarified contracts.
+- **Static verification:** **8/8 check groups passed**: both PDF hashes/
+  272-page counts/covers/overview dates; active CC metadata; all 12 method/path
+  comparisons with positive page declarations; four scheduler references;
+  40/40 access field names/optionality/types per PDF and SitePojo fields;
+  **18** current-section local links/Markdown anchors; historical A/E-034 and
+  17 product records/current status; empty production/mock-only declarations
+  and **nine** legacy fingerprints. The initial checker incorrectly required
+  E-035's body to refer to its own heading; that checker-only assertion was
+  corrected, and remaining groups passed with exit 0. No deliverable defect
+  or application failure was found by that assertion.
+- **Verification boundary:** document checks are local/static. **0 application
+  tests executed, 0 new tests; regressions not rerun** for documentation-only
+  changes. Historical 321-test/zero-attempt C3 results remain historical.
+  **Guarded network attempts: not measured**; no new zero-attempt claim.
+- **Security:** production catalogue remains empty/default-deny and mocks remain
+  `0.0-test` only. No live API/network/product authentication, configuration or
+  migration execution, backend implementation, dependency installation, Git
+  operation or legacy execution/modification. No vendor example credential,
+  session ID, address or native ID value copied into deliverables. PDFs not
+  staged or committed. Retained-record permissions/cleanup limitations unchanged.
+- **Status / next action:** evidence follow-up delivered for technical review;
+  complete schema/runtime qualification remains blocked. Resolve CC provenance
+  and schema discrepancies, obtain missing tree/site-create/PUT/LDAP/task
+  references, actual independent source/destination builds, sanitized scheduler
+  INI paths and operation-level TEST-OWNER provenance. Do not begin another
+  milestone, enable production capabilities, or treat B as accepted.
+
+### E-034 - CCV-009-B offline partial schema qualification, 2026-11-18
+
+Historical pre-PDF checkpoint. The owner supplied approved references afterward;
+E-035 supersedes document-availability and schema-evidence findings, not these
+historical verification results.
+
+- **Task / objective:** qualify only evidence-supported exact-version API schemas
+  using approved offline material; otherwise report gaps without fabrication.
+- **Priority / dependencies / approval:** P1; accepted A/E-032/E-033; explicit B
+  authorization supplied by the owner on 2026-11-18. No owner acceptance of B.
+- **Implementation status:** documentation-only partial report delivered for
+  technical review. Vendor/schema qualification and any evidence-dependent
+  validator remain **blocked**; no exact-version operation qualified.
+- **Files:** modified [API_MATRIX.md](API_MATRIX.md),
+  [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md) and this tracker.
+  No files created; no application/test/fixture/legacy changes. No new ADR:
+  existing ADR-006 suffices; [DECISIONS.md](DECISIONS.md) remains unchanged, with
+  its B-not-authorized wording retained as the historical A acceptance boundary
+  and superseded only by the explicit B authorization above.
+- **Documentation inventory / review:** all six project documents and project
+  instructions reviewed for relevant baseline, evidence and safety contracts;
+  workspace files re-inventoried. No approved vendor manual, API specification,
+  KB article, PDF/HTML/Word/YAML/INI reference or exact product/build evidence
+  present. The 20 JSON files are existing synthetic test/example inputs.
+  No external documentation or restricted material was retrieved.
+- **Static source / contract evidence:** re-read canonical object downloader,
+  creator/updater, LDAP downloader/uploader, scheduler downloader/uploader,
+  auxiliary restore and credential-transform field handling without executing
+  or importing legacy code. Reconfirmed eight of eight A source fingerprints;
+  added the transformer's byte provenance in the B ledger. Inspected capability/
+  mock/client, artifact/JSON, controller/adapters and network-guard contracts.
+- **Qualification outcome:** all 17 product-specific rows (16 logical records,
+  12 concrete method/path pairs plus four unresolved scheduler references)
+  retain source-only schema evidence; zero VENDOR_DOCUMENTED, zero
+  LIVE_LAB_VERIFIED and zero exact real-version qualified operations.
+  A's L/O/D/M/T terminology maps explicitly to LEGACY_OBSERVED/OWNER_REPORTED/
+  VENDOR_DOCUMENTED/MOCK_VERIFIED/LIVE_LAB_VERIFIED, with UNVERIFIED for missing
+  qualification. No legacy field selection/default or synthetic check is
+  promoted to vendor-required/optional/nullable behavior.
+- **Direction A:** Vision source controller/access contracts and CC LDAP/task
+  equivalents absent; Vision LDAP is source-observed, scheduler path unresolved;
+  CC destination request/result/identity/credential/completion schemas unknown.
+  No transformation or compatible component certified.
+- **Direction B:** independent exact CC source/destination builds and schemas
+  absent; no patch equivalence, native-ID portability or credential completeness
+  assumed; CC LDAP/task schemas missing. Explicit destination mappings retained.
+- **Security verification boundary:** static inspection confirms an empty
+  production catalogue and separate synthetic `0.0-test` mock declarations;
+  no capability/backend/authentication/retry/credential/mapping behavior changed.
+  No product requests/connections, real credentials, production configuration
+  changes, dependency installation, Git operations or legacy execution occurred.
+  No dynamic security or backend behavior is newly certified.
+- **Documentation verification:** **six static check groups passed, exit 0**:
+  B field ledger covers **17/17** product-specific rows; **6/6** evidence labels
+  mapped; **9/9** inspected legacy fingerprints match recorded evidence (eight
+  reconfirm A); **22** B-section local file links resolve and E-034's anchor
+  matches; current B status/test boundaries agree across all four deliverables;
+  reference-format inventory confirms **20** JSON inputs and **zero**
+  PDF/HTML/Word/YAML/INI files. Checks used local PowerShell/file reads only.
+  Application tests are not warranted for documentation-only changes; no schema
+  contract was introduced.
+- **Offline test results:** **0 application tests executed, 0 new tests**.
+  Application regressions were **not rerun**. The **321 passing tests** and
+  **zero guarded attempts** in E-030/E-031 remain historical C3 results only.
+  **Guarded network attempts in B: not measured**; no instrumented test harness
+  was run, so no fresh zero-attempt claim is made.
+- **Known documentation observation:** clarified the old C1/C2 checkpoint at
+  the end of [ARCHITECTURE.md](ARCHITECTURE.md) as historical, preserving the
+  accepted review record and later C1/C2/C3 acceptance evidence.
+- **Remaining evidence / next action:** technical review of this partial report;
+  owner supplies approved DOC-V54/DOC-CC1010 exact-build REST/schema references
+  with actual titles/revisions/sections/local provenance and limitations,
+  independent role/build declarations, sanitized CFG-SCHED paths and TEST-OWNER
+  operation-level provenance. Missing IDs/titles are requirements, not valid
+  evidence references. Do not fetch restricted material or begin another
+  milestone. No production activation, live lab or migration authority follows.
 
 ### E-033 - CCV-009-A owner acceptance with non-blocking observations, 2026-11-18
 
@@ -3602,8 +4066,12 @@ independent technical acceptance review are the accepted evidence; E-033 records
 the decision and outstanding LOW historical-checkpoint observation. Target
 families/directions remain owner-reported, not supported-version claims.
 **CCV-009-A: OWNER ACCEPTED - 2026-11-18.
-CCV-009-B: PROPOSED - NOT AUTHORIZED; not started.**
-Stop before proposed CCV-009-B, other milestones, real HTTP backend development,
+CCV-009-B: OWNER ACCEPTED — 2026-11-18;
+ACCEPT WITH NON-BLOCKING OBSERVATIONS, bounded offline scope only (E-037).
+Accepted E-035/E-036 and independent review include 350 passing application
+tests, eight additional probes and six security-subset checks.
+Complete vendor/runtime qualification remains blocked.**
+Stop before any next milestone, real HTTP backend development,
 capability activation or live work without separate authorization.**
 
 Recommended next action: preserve accepted A/B/C1/C2/C3, their evidence and
@@ -3611,10 +4079,16 @@ limitations, both planning corrections, and the unchanged strict resolver.
 Preserve C3's accepted controller-only CLI, strict local manifests, redacted
 reports, protected record verification, and cleanup/error protections.
 Preserve accepted CCV-009-A, its API matrix, compatibility limits, manual-gap
-analysis, prioritized evidence backlog and accepted LOW documentation observation.
-Vendor documentation, exact build/per-operation
-testing provenance and sanitized scheduler paths are missing. Obtain separate
-authorization before any proposed follow-up; no real API compatibility or import
+analysis and prioritized evidence backlog. B clarifies the accepted LOW historical
+checkpoint observation without altering A's acceptance record. Preserve B's
+owner-accepted bounded E-036 implementation, E-037 acceptance/non-blocking
+observations and preserved E-035 analysis: five legacy pairs
+documented in both references, seven
+in neither, all four scheduler bindings unresolved. Vendor references are now
+available, but C's metadata/version discrepancy, contradictory/incomplete schemas,
+actual build/per-operation testing provenance and sanitized scheduler paths
+remain unresolved. Obtain clarification and missing offline contracts before
+complete schema work; no real API compatibility or import
 execution authorization is established by discovery.
 Await separate authorization before further development.
 Credential migration, cross-domain orchestration, and the next milestone remain

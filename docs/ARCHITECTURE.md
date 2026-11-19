@@ -21,7 +21,14 @@ at generic planning boundaries and confine acknowledgement comparison exclusions
 to policy-validated devices. Unknown root/site configuration remains comparable.
 C2's completed offline scope is owner-accepted. Separately authorized CCV-004-C3
 adds a controller-only master offline CLI, local manifests, verified protected
-records, and redacted reports. C3 implementation acceptance remains pending.
+records, and redacted reports. C3's completed offline scope is owner-accepted
+(E-030/E-031). CCV-009-B's approved local vendor PDF review now documents five
+legacy pairs in both Vision 5.4.9 and CC 10.10.7-labelled references. The CC
+metadata conflict and incomplete/contradictory schemas remain explicit.
+Following technical review and bounded owner authorization, E-036 adds isolated
+offline subset qualification and 29 synthetic regressions; all 350 tests pass.
+No capability or client is added. Complete schema qualification and runtime
+compatibility remain blocked; B owner acceptance is not recorded.
 No concrete HTTP backend, production secret resolver,
 online execution, or real product/version compatibility is established.
 
@@ -31,6 +38,100 @@ directional approval does not authorize later milestones or live operations.
 The [progress tracker](PROGRESS.md) records approval and verification evidence.
 Decision records are in [DECISIONS.md](DECISIONS.md); their proposal-time labels
 are superseded by the approval record in the progress tracker.
+
+## Offline API schema qualification boundary - CCV-009-B
+
+The [current B vendor analysis](API_MATRIX.md#ccv-009-b---approved-vendor-reference-analysis)
+records approved PDFs, hashes, page/section provenance, all 12 legacy pairs,
+four unresolved scheduler bindings, model fields, schema contradictions and
+independent direction assessments. E-034's earlier missing-document ledger is
+preserved as historical; E-035 supersedes its availability assessment.
+The [E-036 implementation overlay](API_MATRIX.md#ccv-009-b---implemented-offline-subsets---e-036)
+separates that vendor evidence from now-executed synthetic subset tests.
+
+The supplied **APSolute Vision 5.4.9 REST API** (April 2025) and
+**Cyber Controller 10.10.7 REST API** (September 2026) independently document
+login, site-by-name, site-by-ID, device-by-IP and device creation. Seven legacy
+pairs, including Physical/Organization exports, site creation, device PUT and
+LDAP operations, are not documented in these references. Both provide login/
+logout counterparts, but the four scheduler INI references remain unresolved.
+CC's cover/overview identify 10.10.7 while its active Info Title says 10.10.6;
+this conflict is not resolved or treated as support for either adjacent release.
+
+Vendor-document evidence qualifies endpoint availability/selected contract facts
+only, not complete executable schemas or end-to-end migration compatibility.
+Undefined DevicePojo, create-device UserPojo response, extraneous required
+by-name `id`, and example-versus-model JSON types require clarification.
+Required=false does not establish nullability, complete creation requirements,
+unknown-field policy, credential portability or inventory completeness.
+The isolated [schema qualification module](../src/cc_vision_import/schema_qualification.py)
+binds only `DOC-V549` / Vision 5.4.9 and `DOC-CC10107` / CC 10.10.7-labelled
+content, including titles/dates/hashes/pages and C's retained metadata conflict.
+Other versions/references are rejected; the static catalogue neither rereads
+PDFs nor verifies running builds. It classifies all 12 legacy pairs and four
+unresolved scheduler bindings without granting capabilities. Existing
+[capability lookup](../src/cc_vision_import/capabilities.py) remains production
+default-deny; [mock declarations](../src/cc_vision_import/mock_capabilities.py)
+remain exact `0.0-test`-only synthetic metadata. Offline subset qualification
+remains separate from client
+activation, backend verification and migration authorization under ADR-006.
+No new architectural decision is required.
+
+Existing [artifact contracts](../src/cc_vision_import/artifacts.py),
+[controller contracts](../src/cc_vision_import/controller_objects.py) and
+[export adapters](../src/cc_vision_import/controller_exports.py) are reused.
+Controller contracts/adapters are unchanged. Only the new `api-schema-evidence`
+artifact domain joins `controller-objects` in order-preserving serialization.
+The existing generic planner also explicitly denies the evidence-only domain
+on plan construction and parsing, preventing use as migration planning input.
+Controller configuration retains unknown permitted JSON, member/array order,
+JSON types and missing/null distinctions through existing contracts. This is
+local preservation policy, not documented vendor ordering or field semantics;
+Other generic domains retain their established sorted serialization.
+Local secret references are not wire fields or evidence of credential
+portability. The qualifier requires a complete caller-supplied version-1 artifact
+envelope; it does not invent export metadata or upgrade its validation status.
+SitePojo required presence/non-null string types, selected optional Device/
+DeviceSetup fields and all 40 DeviceAccess fields receive bounded checks.
+Unknown JSON remains preserved but outside qualification; referenced objects
+receive only selected outer-shape checks. Nulls, unresolved enums, protected
+credentials and C provenance return explicit unqualified issues rather than
+invented vendor acceptance rules. Recognized raw credentials remain rejected;
+even documented boolean verifyHttpCredentials/verifyHttpsCredentials remain
+blocked by the existing conservative credential classifier.
+Reconciliation acknowledgements and explicit destination mappings
+are still required; none establishes real inventory/access completeness.
+
+Both overviews describe async 202 plus status Location, tracking 200 while in
+progress, 303 plus result Location at completion, then a final result code/body.
+The overview does not specify tracking/result HTTP methods, polling limits or
+an exhaustive async error model. Completion is not operation success. Existing
+redirect rejection remains unchanged: no polling, automatic 303 following,
+credential forwarding, authentication renewal or write replay is implemented.
+The new in-memory trace observer validates exact trusted HTTPS origin and ID
+correlation as local safety policy, not documented vendor URI acceptance.
+202/tracking-200/303 stay nonterminal. Only a supplied final result yields an
+HTTP-failure, reported-failure, reported-success-unverified or unqualified-result
+summary; example-style final `status` interpretation is local reporting policy,
+not a complete vendor async result contract. No summary establishes successful
+configuration. The observer never dispatches, waits or follows a Location.
+Future authorized runtime design would still need bounded tracking, proven final
+semantics and independent verification; none is implemented.
+
+The login example qualifier sanitizes malformed/session/rejection responses
+without retaining their session/body values and remains independent of the
+existing Cyber Controller HTTP-200-only authentication strategy. It is not a
+new authentication policy. Focused [regressions](../tests/test_schema_qualification.py)
+exercise exact bindings, 5/7 operation classification, scheduler uncertainty,
+subset/type/null/order/identity/credential preservation and async states.
+E-036 freshly reran all 321 existing tests plus 29 new tests: 350 pass.
+New-test guard counters measured zero attempts across 435 observations of the
+existing 15 guarded entrypoints; this is not OS-level network isolation.
+No live connection, authentication, remote logout, automatic renewal/write
+replay, overwrite/delete, source-ID reuse or migration execution is authorized.
+See [E-036](PROGRESS.md#e-036---ccv-009-b-offline-subset-qualification-2026-11-18)
+for current implementation/tests and E-035 for vendor analysis; owner
+acceptance is not recorded. No new ADR is needed under ADR-006.
 
 ## Component model
 
@@ -1902,6 +2003,10 @@ Status: **Architectural direction approved** (ADR-009); recovery not implemented
 CCV-001 was static only. CCV-002-A/B/C and CCV-003-A/B/C verification cover offline
 local behavior, not APIs or product compatibility. CCV-003's implemented mock-only
 scope and CCV-004-A/B's offline-only scopes are owner-accepted. Separately
-authorized CCV-004-C1 export adapters are implemented and offline-verified;
-their next gate is technical review and owner acceptance. Do not begin C2,
-real HTTP backend development, or live operations without separate authorization.
+authorized CCV-004-C1 export adapters were implemented and offline-verified;
+their next gate at that historical checkpoint was technical review and owner
+acceptance. That checkpoint is superseded by the later C1/C2/C3 offline
+acceptances recorded in E-021/E-026/E-031 of [PROGRESS.md](PROGRESS.md).
+Current CCV-009-B authorization is limited to offline evidence/schema review;
+its partial result is documented above. Further milestones, real HTTP backend
+development and live operations remain unauthorized.

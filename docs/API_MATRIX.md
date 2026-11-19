@@ -2,7 +2,567 @@
 
 Date: 2026-11-18
 Evidence levels: source-observed endpoints; separately scoped offline mock
-coverage for authentication and three reads. No official/live qualification.
+coverage for authentication and three reads; owner-provided vendor PDF evidence
+for selected exact method/path pairs; E-036 synthetic offline subset regressions.
+Runtime compatibility remains unverified.
+
+## CCV-009-B - implemented offline subsets - E-036
+
+The independent E-035 technical review recommended **Evidence accepted; proceed
+with bounded offline tests**. The owner then authorized this implementation,
+not milestone acceptance. E-035 below remains the vendor-document checkpoint;
+E-034 and the original source inventory remain historical.
+
+[Offline qualification](../src/cc_vision_import/schema_qualification.py) reuses
+the existing strict JSON reader, artifact envelope, structured validation errors,
+controller credential safeguards and supplied `HttpResponse` values. It adds
+no CLI operation, client, transport adapter, capability, mapping or executor.
+The existing planner explicitly rejects the new evidence-only artifact domain,
+both when constructing a plan and when parsing a supplied plan.
+[Permanent synthetic tests](../tests/test_schema_qualification.py) cover only
+the bounded contracts below.
+
+### Exact evidence bindings
+
+| Reference passed to the offline API | Product/version | Document scope |
+| --- | --- | --- |
+| `DOC-V549` | `vision` / `5.4.9` | V bytes, title/date/hash and pages recorded below. |
+| `DOC-CC10107` | `cyber-controller` / `10.10.7` | C's **10.10.7-labelled content**, not unambiguous runtime applicability. Every qualification retains the 10.10.6 metadata discrepancy. |
+
+`require_document` rejects other versions/products, mismatched references,
+adjacent patches, family wildcards and `0.0-test`. These bindings do not enable
+5.4.x, 10.10.x or 10.10.6 support. They are a reviewed static evidence catalogue:
+the APIs do not reopen/authenticate the PDFs or discover/verify installed builds.
+Both local SHA-256 values were independently rechecked for E-036 and agree with
+E-035. Document provenance and runtime compatibility remain separate.
+
+`operation_evidence` exposes method/path/classification/page facts for all
+12 existing pairs, plus separate API-01-V/API-01-C records, independently per
+document: **5 documented / 7 not-found in each**. Not-found does not mean product
+non-support. All four CFG references return **unresolved-binding**, with no bound
+path. CFG-01/CFG-02 have explicitly named login/logout **candidate** paths only;
+CFG-03/CFG-04 have none. This registry cannot dispatch operations and supplies
+no missing INI paths or replacement endpoints.
+
+### Qualified model and response subsets
+
+| Offline entry point / cited PDF pages (printed = PDF minus 10) | Implemented scope | Explicit limits |
+| --- | --- | --- |
+| `qualify_login_response`; V/C 156-158 | Synthetic HTTP 200 `status: ok` plus nonempty session string, or 401 `status: error` plus nonempty message. Missing/wrong fields, malformed UTF-8/JSON, duplicate keys and nonfinite JSON constants fail with sanitized structured errors. No session/error body is returned or logged. | Example-shape qualification only, not a complete response/error schema or live authentication. Nonempty printable session/message checks are conservative local policy. "No Content" versus examples remains unresolved. Existing CC **HTTP-200-only** strategy is unchanged and separately regression-tested. |
+| `qualify_schema`, `SchemaSubset.SITE`; V/C 255 | Required presence of `ormID`, `name`, `type`; documented non-null string types; optional string `description`, `parentOrmID`. Native strings are preserved without aliasing, trimming or invented IDs/defaults. | Lookup-model subset only; no site-create, name uniqueness or by-name extraneous-`id` repair. Required presence does not settle nullability. |
+| `qualify_schema`, `SchemaSubset.DEVICE`; V 219-220/224, C 219-221/224 | Optional documented identity/text fields, signed int32 `ormVersion`, nested `deviceSetup` scalar fields and `deviceSetup.deviceAccess`. License/software/driver/hardware references receive object-shape checks only. | Not a complete Device model, response envelope/error validator or DevicePojo creation schema. Other fields, including opaque status/parent models, are preserved outside this validator's scope. Optional response fields never become create requirements. |
+| `qualify_schema`, `SchemaSubset.DEVICE_ACCESS`; V 220-222, C 221-222 | All 40 optional field names accounted for: 8 int32, 9 boolean, 19 string, 4 enum references. No string/int/bool coercion; booleans are not integers; signed int32 bounds enforced. | All four enum value sets remain unqualified; no primitive enum representation is inferred. No defaults, null acceptance, complete access configuration or credential portability established. |
+
+Schema qualification requires a caller-supplied **version-1 artifact envelope**
+with domain `api-schema-evidence`, explicit source product/version, export
+metadata, objects and existing offline-contract validation metadata. No envelope
+metadata is fabricated by a wire-response adapter. Example Python use:
+
+```python
+result = qualify_schema(
+    supplied_artifact_payload, SchemaSubset.SITE, evidence_reference="DOC-V549",
+)
+```
+
+`status: documented-subset` means only the selected non-null field subset passed.
+It is **not** complete vendor-schema validation, migration eligibility or runtime
+qualification. `unqualified` issues explicitly retain present-null values,
+unknown enum semantics, credential uncertainty and C's provenance discrepancy.
+Null is neither certified as accepted nor rejected by the product. Missing
+optional fields remain missing. Unknown permitted JSON, nested object/array
+order, exact JSON types and native IDs survive a deep-copied artifact and
+serialization; unknown fields remain outside schema qualification.
+The existing artifact validation metadata is not silently upgraded to `valid`.
+
+Existing-code changes are limited to order-preserving serialization for the new
+`api-schema-evidence` domain and explicit planner rejection of that domain.
+It cannot become a planning input even with a caller-asserted validation status.
+Other generic domains keep sorted serialization and existing planning behavior;
+existing controller behavior is unchanged.
+
+Existing credential rules take precedence over vendor primitive types.
+Recognized raw usernames/passwords/communities/tokens remain rejected, including
+inside unknown configuration. Local `secret_ref` values are preserved but
+explicitly **not vendor wire-qualified or portable**. The existing conservative
+classifier also recognizes `verifyHttpCredentials`/`verifyHttpsCredentials`:
+their documented raw booleans are therefore blocked by local protection, not
+declared invalid vendor values. Null/protected representations remain uncertain.
+No classifier, access acknowledgement, retention or comparison policy is weakened.
+
+### Synthetic asynchronous trace qualification
+
+`qualify_async_trace` consumes a finite, caller-supplied tuple of responses:
+202/Location -> zero or more tracking 200s -> 303/result Location -> final result.
+V/C 11/1 supplies the lifecycle, not tracking/result HTTP methods or final body
+schema. Accepted, in-progress and result-available states all report
+`not-complete`; neither 202, tracking 200 nor 303 means operation success.
+
+The final observation determines the limited report: 4xx/5xx is `http-failure`;
+an example-style JSON `status: error` is `reported-failure`; `status: ok` is only
+`reported-success-unverified`; other well-formed results are
+`unqualified-result`. The final body's status convention is **local reporting
+policy**, not a newly inferred vendor async-result schema. No outcome verifies
+configuration, read-back or migration completion. Malformed JSON and incomplete
+or out-of-sequence terminal responses fail safely.
+
+Exact trusted HTTPS origin, conservative status/result URI shapes, a single
+Location, same opaque request ID, and rejection of missing/foreign/ambiguous
+tracking are **local safety policies**, not established vendor acceptance rules.
+The tuple assumes supplied responses belong to the observed exchange; it cannot
+prove which requests occurred, authentication or actual Location traversal.
+There is no network dispatch, polling, redirect handling, credential forwarding,
+renewal, write retry or replay. Existing transport redirect rejection is unchanged.
+Polling timing/limits, expiry, cancellation and actual final/error semantics
+remain unverified.
+
+### Verification and remaining gates
+
+- Required full command: `python -B -m unittest discover -s tests -v`, using the
+  existing interpreter and source path. **350 passed in 48.098s, exit 0**:
+  all **321 existing regressions freshly rerun + 29 new test methods**.
+  No failures/errors/skips. Focused new suite: **29 passed in 0.268s**.
+- Python **3.13.14**, Windows AMD64. Pylance syntax checks and per-file
+  diagnostics for the four touched Python files: no errors/diagnostics.
+- The new tests explicitly measured **0 guarded network attempts across
+  435 entrypoint observations (29 cases x 15 existing guard mocks)**, including
+  imports. Existing suite guard cleanups also passed, but E-036 adds no aggregate
+  counter for other tests/CLI subprocesses. This is Python-entrypoint measurement,
+  **not OS-level isolation or proof about uninstrumented calls**.
+- Production remains empty/default-deny, mocks remain exact `0.0-test` only,
+  and real-version capabilities remain rejected even with mock opt-in.
+  Existing authentication, identity namespaces, destination mapping, C2
+  acknowledgements and C3 retention/execution protections remain unchanged.
+
+Both migration directions remain blocked for runtime use. Obtain corrected C
+provenance, defined DevicePojo/create results, consistent examples, by-name
+parameter clarification, nullable/enum/error/completeness rules, credential
+portability evidence, actual independent builds and missing tree/site-create/
+PUT/LDAP/scheduler contracts. Destination preflight/read-back/recovery still
+requires separate qualification. Owner acceptance and another milestone are
+not recorded or started. See [E-036](PROGRESS.md#e-036---ccv-009-b-offline-subset-qualification-2026-11-18).
+
+## CCV-009-B - approved vendor reference analysis
+
+**E-035 documentation checkpoint.** Its independent technical review is now
+complete; the later implementation and actual test results are recorded above.
+The original PDF/source findings and historical test boundary remain intact.
+
+Follow-up review: **2026-11-18**, after the owner supplied two approved local
+PDFs. This section supersedes E-034's missing-document assessment, **not its
+historical evidence**. Five of the 12 legacy pairs are documented in both PDFs;
+seven are documented in neither. Endpoint evidence is not complete schema
+qualification, production support, runtime verification or migration acceptance.
+The CC reference has an unresolved version-provenance conflict.
+**No owner acceptance recorded; subsequent review/implementation: E-036 above.**
+
+### Approved PDF inventory and provenance
+
+Page references below use **PDF page / printed page** (printed = PDF minus 10
+for the cited numbered pages). The cover is PDF page 1, unnumbered. `V` and `C`
+identify these exact local bytes, not any other release or future file revision.
+The owner approved these files for offline review in the current conversation.
+
+These vendor PDFs are access-controlled reference documents supplied separately
+through approved organizational channels and are not included in the source
+repository.
+
+| ID / local document | Product, cover title and declared release | Date / sections | Provenance and limitations |
+| --- | --- | --- | --- |
+| V / `APSolute-Vision-5.4.9-REST-API.pdf` | APSolute Vision; exact title **APSolute Vision 5.4.9 REST API**; 5.4.9 | Overview/access/async: 11/1; overview states **April 2025**. HTTPS/licensing/API version: 12/2. General-SystemConfigTree starts 139/129; General-SystemUser starts 155/145; relevant models below. | 272 PDF pages, 7,604,887 bytes. Info Title agrees with cover. CreationDate and ModDate: `2025-04-09 11:09:09 +03:00`. No independent build identifier or external vendor authenticity check supplied. |
+| C / `Cyber-Controller-10-10-7-Rest-API.pdf` | Cyber Controller; cover title **Cyber Controller 10.10.7 REST API**; cover and overview identify 10.10.7 | Overview/access/async: 11/1; overview states **September 2026**. HTTPS/licensing/API version: 12/2. General-SystemConfigTree starts 140/130; General-SystemUser starts 155/145. | 272 PDF pages, 7,662,043 bytes. **Active Info Title says Cyber Controller 10.10.6 REST API**, not 10.10.7. CreationDate: `2026-03-18 14:24:40 +02:00`; final ModDate: `2026-09-22 15:07:57 +03:00`. Version discrepancy unresolved. |
+
+SHA-256:
+
+- V: `827d4954cf5390f3a242e8bbb0af4dc7dd9ce68f5c17eba19449cf45a8d9d5c4`.
+- C: `f6c7e474cb2df25d5d1b7b52da94f13f9b5013649419fc4276f49bd153e2d587`.
+
+C's final PDF trailer selects `/Info 3189 0 R`; its latest dictionary contains
+the 10.10.6 title above. Earlier incremental revisions retain other title strings,
+including 10.10.5 and 10.10.7; they are **not separate approved references or
+support evidence**. Some C operation descriptions also retain APSolute Vision
+wording. Preserve these discrepancies; obtain corrected vendor provenance or an
+authoritative version-applicability clarification before treating C as an
+unambiguous exact-release schema authority. Do not silently relabel C, certify
+10.10.6/10.10.5, or generalize either document to its whole version family.
+Both references' "Version information: 1.0" (12/2) is not the product release.
+
+### All 12 legacy method/path pairs versus both references
+
+`Both` means an explicit operation declaration was found independently in each
+PDF; placeholder names are normalized only for comparison (`name`/`site_name`,
+`id`/`site_id`, `ip`/`device_ip`). It does **not** mean compatible contracts.
+`Neither` means not documented in these supplied references, not vendor
+non-support. C findings are attributed to its **10.10.7-labelled content with
+the unresolved metadata conflict** throughout this report.
+
+| Legacy ID | Exact legacy method/path template | Vision 5.4.9 evidence (PDF/printed) | CC 10.10.7-labelled evidence (PDF/printed) | Classification |
+| --- | --- | --- | --- | --- |
+| API-01 | POST `/mgmt/system/user/login` | Server Login, 156-158/146-148 | Server Login, 156-158/146-148 | Both |
+| API-02 | GET `/mgmt/system/config/tree/Physical` | Not found | Not found | Neither |
+| API-03 | GET `/mgmt/system/config/tree/Organization` | Not found | Not found | Neither |
+| API-04 | GET `/mgmt/system/config/tree/site/byname/{site_name}` | Get Site by Name, 141/131; documented placeholder `{name}` | Get Site by Name, 152/142; `{name}` | Both |
+| API-05 | GET `/mgmt/system/config/tree/site/byid/{site_id}` | Get Site by Id, 146/136; `{id}` | Get Site by Id, 146/136; `{id}` | Both |
+| API-06 | GET `/mgmt/system/config/tree/device/byip/{device_ip}` | Get Device Data, 143-144/133-134; `{ip}` | Get Device Data, 143-144/133-134; `{ip}` | Both |
+| API-07 | POST `/mgmt/system/config/tree/site` | Not found | Not found | Neither |
+| API-08 | POST `/mgmt/system/config/tree/device` | Add Device to the Server, 148-150/138-140 | Add Device to the Server, 141-143/131-133 | Both |
+| API-09 | PUT `/mgmt/system/config/tree/device` | Not found | Not found | Neither |
+| API-10 | GET `/mgmt/system/config/itemlist/ldapobjectpermission` | Not found | Not found | Neither |
+| API-11 | POST `/mgmt/system/config/itemlist/ldapobjectpermission` | Not found | Not found | Neither |
+| API-12 | PUT `/{index}/_doc/{document_id}` | Not found; auxiliary service excluded | Not found; auxiliary service excluded | Neither |
+
+Totals: **Both 5; Vision-only 0; CC-only 0; Neither 7**. The baseline stays
+**12 concrete pairs / 16 logical records / 17 product-specific rows**, not a
+new endpoint inventory. A's API-01-V and API-01-C now each have independent
+document-content evidence, not just legacy authentication observations.
+API-04/API-05/API-06/API-08 likewise gain document evidence; other legacy rows
+retain their prior evidence only. Vision documentation for these operations is
+new evidence for that product, not retroactive proof of legacy Vision use.
+
+### All four scheduler references
+
+| Existing reference | Method / unresolved path | V and C documentation | Disposition |
+| --- | --- | --- | --- |
+| CFG-01 | POST `<API.login_endpoint>` | Both explicitly document POST `/mgmt/system/user/login`; V 156-158/146-148, C 156-158/146-148 | Candidate counterpart in both; **configured legacy path still unresolved**, since the INI is absent. Do not assert alias identity. |
+| CFG-02 | POST `<API.logout_endpoint>` | Both explicitly document POST `/mgmt/system/user/logout`; V and C 156/146 | Candidate counterpart in both; **configured path still unresolved**. Documentation does not authorize remote logout implementation. |
+| CFG-03 | GET `<API.scheduler_endpoint>` | No scheduler/task-list operation found in either reference | Unresolved; no literal endpoint or task schema established. |
+| CFG-04 | POST `<API.scheduler_endpoint>` | No scheduler/task-create operation found in either reference | Unresolved; task types, activation, timezone and references unknown. |
+
+All four configured references therefore remain unresolved as legacy bindings.
+The documented logout counterpart is supplementary evidence, **not a thirteenth
+legacy pair**. No LDAP or scheduler topic occurs in either extracted reference;
+generic item-list operations do not establish the missing named LDAP operations.
+
+### Documented request, response and identity contracts
+
+All operations below use the general HTTPS/session requirements in V/C 11-12/1-2.
+Request fields not explicitly qualified by the reference remain unknown; a
+response-model Required flag is not an allowed-create-field rule. Neither
+reference specifies nullability, unknown-member acceptance, ordering semantics,
+full pagination/completeness or idempotency for this selected slice.
+
+| Contract / document pages (PDF/printed) | Request and required/optional evidence | Response, errors, identity and limitations |
+| --- | --- | --- |
+| Login, API-01-V/API-01-C; V/C 156-158/146-148 | POST exact path above; body required, containing `username` and `password`; no per-member optionality/nullability schema. Configured Local/TACACS+/RADIUS mechanism described. JSON consumed/produced; cookie session described. Basic-plus-JSON is legacy behavior, **not a documented requirement**. | 200 example has `status: ok`, `jsessionid`; 401 example has `status: error`, `message`. Tables also say "No Content" despite JSON examples: retain discrepancy, do not implement bodyless defaults. Overview requires `JSESSIONID` in Cookie on subsequent requests for authentication/RBAC. No TTL, renewal, CSRF, least-privilege role or exhaustive failure schema established. |
+| Site by name, API-04; V 141/131, C 152/142 | GET exact path with required string `name`; tables also declare required path `id`, although **no `{id}` occurs in this URL**. No query/body schema given. Do not invent a second segment or query parameter to repair the table. | 200 `SitePojo`, JSON produced. No operation-specific not-found/duplicate/authorization/error contract. Name uniqueness, qualified tree/parent context and `ormID` versus managed-element alias equivalence not established. |
+| Site by ID, API-05; V/C 146/136 | GET with required string `id`, described as server-retrieved item ID (`ormID`). No query/body schema given. | 200 `SitePojo`, JSON produced. Native ID use is documented, **cross-controller portability is not**. No complete error contract. |
+| Device by IP, API-06; V/C 143-144/133-134 | GET with required path `ip`; schema column says `ref`, not a fully specified address grammar. No query/body schema given. | 200 `Device`; 500 failure example `status: error`, `message`, while schema column says "No Content". Response supplies device/properties/status information. The address lookup does not prove unique migration identity, detail-to-tree association or readable/portable credentials. |
+| Create device, API-08; V 148-150/138-140, C 141-143/131-133 | POST exact path; JSON example has `name`, `parentOrmID`, `type`, `deviceSetup.deviceAccess`. Table has optional string `body` and required `requestBody` typed `[DevicePojo]`; **DevicePojo has no definition in either PDF**, and the example is an object. vADC prose explicitly requires `physicalParentId`, but does not settle its wire nesting. | 200 references **UserPojo**, an account-oriented model, not an evidenced created-device identity result. Duplicate device name and duplicate address errors are described (M_00023 / M_00302), without definitive HTTP statuses/body schema. Cannot qualify created-ID extraction, completion, safe write replay, required access fields or a complete request validator. |
+| Logout candidate for CFG-02; V/C 156/146 | POST exact `/mgmt/system/user/logout`; no body/parameters specified; general authenticated-session context applies. Distinct GET Azure logout is not a POST alias. | 200 success JSON example `status: ok`, again paired with "No Content". No expiry, session-invalidation extent or error contract. No remote call implemented. |
+
+#### Relevant model fields and remaining schema ambiguity
+
+The following are field/type facts, not copied operational payloads. Model
+optional means **Required=false in that model**, not permission to send null,
+omit every creation field, or overwrite an existing destination.
+
+| Model / pages (PDF/printed) | Documented field facts | Qualification limit |
+| --- | --- | --- |
+| `SitePojo`, V/C 255/245 | Required string `ormID`, `name`, `type`; optional string `description`, `parentOrmID`. | Describes site lookup result. Does not qualify absent POST site creation, roots, duplicate-name behavior or portable parent IDs. |
+| `Device`, V 219-220/209-210, C 219-221/209-211 | Relevant fields all optional in model: string `ormID`, `name`, `description`, `type`, `treeType`, `physicalParentId`, `externalId`, `hierarchyPath`; integer(int32) `ormVersion`; `parent: SiteTreeNodeIfc`; `deviceSetup: DeviceSetup`; `deviceStatus: DeviceStatus`; boolean monitor/registration-related flags and other referenced configuration/status objects. `lockState` is `[Object]`, not a typed lock protocol. | No full recursive legacy tree/children response is established. Some referenced types remain opaque. Response-model optionality cannot resolve undefined DevicePojo creation requirements. |
+| `DeviceSetup`, V/C 224/214 | All optional: `license: License`, `ormVersion: integer(int32)`, `ormID: string`, `deviceSoftware: Software`, `deviceDriver: DeviceDriver`, `name: string`, `description: string`, `deviceAccess: DeviceAccess`, `hardware: Hardware`. | Setup/access IDs are separate occurrences; no documented equality to device ID or removal permission. |
+| `DeviceAccess`, V 220-222/210-212, C 221-222/211-212 | **40 fields, all Required=false**, in both references; grouped below. | No nullable/default/unknown-field policy, masking/encoding/export completeness or credential portability rules. Undefined enum value sets cannot be invented from example values. |
+| `ManagedElementIdentifierPojo`, V/C 243/233 | Optional `managedElementClass: [Class]`, `managedElementID: [Serializable]`, `dbId: integer(int64)`. Nearby required `meIdentifier` belongs to a logical-group member model. | Not a documented schema for API-02/API-03; neither a string-only managedElementID guarantee nor a device-ID/access-ID alias rule. |
+| `SiteTreeNodeIfc`, V/C 255/245 | Optional `parent: SiteTreeNodeIfc`, `name: string`. | Does not establish legacy tree root classes, native identifiers or child ordering. |
+| `UserPojo`, V/C 270-271/260-261 | User/account fields, including credential and role/policy-related fields. | Its create-device response reference is inconsistent with device creation semantics; do not treat account `ormID` as the new device ID or infer a device response. |
+
+DeviceAccess field groups (same documented names/types in the selected V/C models):
+
+- **integer(int32):** `cliPort`, `httpsSocketTimeout`, `httpsPort`,
+  `httpSocketTimout` (spelling as documented), `ormVersion`, `httpPort`,
+  `httpsConnectionTimeout`, `httpConnectionTimeout`.
+- **boolean:** `useHttpsAuthentication`, `useSnmpV3Authentication`, `isSsh`,
+  `verifyHttpCredentials`, `useSnmpV3Privacy`, `exclusivelyReceiveDeviceEvents`,
+  `useHttpAuthentication`, `verifyHttpsCredentials`, `registerDeviceEvents`.
+- **string:** `description`, `cliUsername`, `ormID`, `snmpV3PrivacyPassword`,
+  `httpsUsername`, `snmpV3AuthenticationPassword`, `snmpV2WriteCommunity`,
+  `snmpV3Username`, `httpPassword`, `managementIp`, `httpsPassword`, `name`,
+  `httpUsername`, `cliPassword`, `snmpV2ReadCommunity`, `snmpV1WriteCommunity`,
+  `mgt2Ip`, `snmpV1ReadCommunity`, `mgt1Ip`.
+- **Referenced enum types:** `snmpV3PrivacyProtocol`, `snmpV3AuthenticationProtocol`,
+  `visionMgtPort`, `snmpVersion`; allowed-value sets are not established here.
+
+Both create examples use strings for ports and boolean-like settings, whereas
+DeviceAccess model tables say integer/boolean. Preserve that **example-versus-
+model discrepancy**; no implicit coercion/defaulting is authorized. The selected
+models and five matched operation declarations show no established material
+cross-product wire transformation, but their similarities are not a complete
+schema-equivalence proof. C's retained Vision wording and metadata conflict add
+provenance uncertainty. Obtain authoritative clarification rather than silently
+choosing whichever representation makes a validator pass.
+
+### Documented asynchronous lifecycle
+
+V and C, **Overview / Asynchronous Operations**, 11/1, independently describe:
+
+1. Some operations return **202 Accepted**, not completed success. The initial
+   **Location** identifies a status command associated with a unique request ID.
+2. The example status URI shape is `/mgmt/asyncoperations/status/{id}`.
+   The status command returns **200 OK while processing**; this 200 is not
+   final operation success.
+3. Completion of processing is signalled by **303 See Other** with another
+   **Location** identifying the result command; example URI shape:
+   `/mgmt/asyncoperations/result/{id}`.
+4. The result command supplies the operation's relevant response code/body.
+   A 303 alone means processing finished, **not that the requested change
+   succeeded**. Classify the final result/error separately.
+
+The overview supplies no explicit HTTP method for either tracking/result
+command, exhaustive error state machine, polling interval, Retry-After policy,
+retention/expiry/cancellation, maximum duration, or per-operation async list.
+It does not document legacy `supportasync: true`. Do not infer that every
+API-08 request is async or fabricate such requirements from its 200 table.
+Authentication/RBAC still apply; no automatic renewal or mutation replay follows.
+
+Any future separately authorized backend must validate Location origin/scheme/
+path and request-ID correlation before sending credentials, use bounded
+tracking, and surface malformed/missing/expired tracking or final errors safely.
+These are **application safety requirements**, not vendor-documented error
+semantics. Existing transport rejects redirects; this report changes neither
+that policy nor implements polling, automatic 303 following or result fetching.
+Loss of tracking does not establish a safe-to-retry write.
+
+### Independent migration assessments and preflight gaps
+
+**A: Vision 5.4.9 to CC 10.10.7-labelled content - unverified, blocked.**
+Both references document the five matched operations, providing Vision
+site/device lookup evidence that E-034 lacked. Neither provides the legacy
+Physical/Organization export operations, LDAP endpoints, scheduler paths, site
+creation or device PUT. Thus source root/hierarchy/completeness and destination
+site creation still lack qualification. Device creation has the unresolved
+request/response/type contradictions above. No field/type/enum, hierarchy,
+access-secret, permission or task transformation is established; absence of a
+documented difference is not an identity transform. Partial device lookup
+coverage does not constitute a complete migration source.
+
+**B: CC 10.10.7 to CC 10.10.7-labelled content - unverified, blocked.**
+The same five documented pairs are available as content evidence for both
+roles, subject to the unresolved C provenance. Independently declare and
+qualify actual source/destination versions/builds; a shared PDF or matching
+release strings do not prove equal state, native IDs, permissions or schemas.
+Missing tree/export/site-create/update/LDAP/task contracts still block a full
+workflow; undocumented patch-level behavior must not be generalized.
+
+**Both directions:** destination preflight must independently establish native
+root/parent/device IDs, hierarchy/type and reference compatibility, destination
+inventory completeness, name/address conflicts, authorized roles, license
+eligibility, credential policy, supported completion/read-back and recovery.
+V/C 12/2 document RTU limits and inability to configure invalid-license devices;
+they do not supply a complete preflight implementation. Name/address uniqueness
+error prose is not proof of name/IP migration identity or tree scope. Root-name
+examples are not authorization for name matching or fallback-to-root placement.
+Require explicit qualified destination mappings; never copy source `ormID`,
+merge by IP, equate nested access IDs, overwrite/delete, or strip unknown fields.
+
+Passwords, usernames, SNMP communities/authentication/privacy material and
+session IDs remain sensitive. A string schema does not establish plaintext
+export permission, masking interpretation, encryption compatibility or
+credential portability. Local `secret_ref` is an application contract, **not a
+documented vendor wire representation**. Bound device-access acknowledgements
+and existing secret-retention protections remain mandatory.
+
+### Proposed offline validation tests and implementation gate
+
+Historical E-035 proposals; see E-036 above for the implemented subset, measured
+tests and remaining unqualified behavior. These proposal rows are not claims
+that every suggested validator, hash check or live policy is now implemented.
+
+No application code, validator, fixture or capability is changed in this
+documentation task. Proposed tests, **not implemented or executed**:
+
+| Proposed coverage | Expected assertion / prerequisite |
+| --- | --- |
+| Provenance and product/version binding | Correct V/C file hashes and cited page/operation bindings; reject nonexistent references, wrong product/version, changed bytes and wildcard/adjacent-release inheritance. Preserve C's conflict and block unambiguous exact-release qualification until clarified. |
+| Inventory and scheduler binding | All 12 pairs and 17 product-specific rows accounted for; 5 Both / 7 Neither; all four INI bindings unresolved until sanitized literal paths are supplied. Do not activate absent methods or infer scheduler aliases. |
+| Documented lookup/model subsets | Synthetic SitePojo required/optional fields and nested DeviceSetup/DeviceAccess field types; reject malformed shapes while preserving permitted unknown JSON. Model-only checks must not masquerade as full endpoint/create validators. |
+| Missing/null, ordering and JSON types | Preserve existing missing/null and dictionary/array-order behavior; no string-to-number/boolean coercion, fabricated defaults or guessed enum values. Null policy awaits evidence; Required=false does not mean nullable. |
+| Authentication and secrets | Synthetic 200/401 examples; reject/sanitize malformed session evidence, never retain credentials/session values in errors/reports. No actual login, renewal or remote logout. |
+| Async state transitions | Model 202/Location -> tracking 200 -> 303/result Location -> final result/error entirely in memory. Cases for missing/wrong-origin Location, mismatched IDs, final failure, timeout/expiry uncertainty and no write replay; distinguish app safety policy from undocumented vendor behavior. |
+| Identity and cross-product separation | Explicit independent destination IDs and role/build contexts; reject by-name/IP guessing, source-ID reuse, access-ID aliasing and credential portability assumptions. |
+
+Complete endpoint validators must wait for resolution of undefined DevicePojo,
+create-result UserPojo, model/example and by-name parameter contradictions,
+null/unknown-field/completeness rules and C provenance. Do not weaken existing
+contracts to accommodate incomplete documentation. Production capability
+catalogue stays **empty/default-deny**, synthetic mocks remain `0.0-test` only,
+and runtime behavior stays UNVERIFIED. See
+[E-035](PROGRESS.md#e-035---ccv-009-b-approved-vendor-pdf-analysis-2026-11-18).
+
+## CCV-009-B - offline schema qualification result
+
+**Historical pre-PDF checkpoint (E-034).** The absent-document findings and
+zero-documented-operation statements in this section and the original A
+register below describe the material available then. The approved vendor
+reference analysis above is the current evidence overlay; it preserves legacy,
+mock and runtime classifications rather than rewriting historical observations.
+
+Review date: **2026-11-18**. Owner-authorized scope is offline documentation
+analysis and version-specific schema qualification only. **Partial qualification
+report delivered; vendor/schema qualification blocked; technical review pending.
+No owner acceptance is recorded.**
+
+### Available documentation inventory
+
+The workspace file inventory was repeated, including hidden root entries and
+the project instruction file, without reading Git metadata or using Git.
+The six project Markdown documents, Python/shell sources, and 20 JSON test/example
+inputs are the available reference material. **Zero approved vendor documents,
+OpenAPI/Swagger specifications, vendor KB articles, or exact product/build
+declarations were found.** No PDF, HTML, Word, YAML or INI reference files were
+present. This is a workspace-local result, not a claim about vendor availability
+or files outside the workspace. No external material or private portal was
+accessed. The supplied B authorization is scope evidence, not vendor evidence.
+
+The project documents reviewed are [PROJECT](PROJECT.md),
+[API_MATRIX](API_MATRIX.md), [ARCHITECTURE](ARCHITECTURE.md),
+[DECISIONS](DECISIONS.md), [PROGRESS](PROGRESS.md) and [ROADMAP](ROADMAP.md).
+Existing synthetic inputs and historical test results cannot qualify a vendor
+schema. The baseline revision `ae06e0f` and requested branch
+`feature/ccv-009b-api-schema-evidence` are owner-supplied context, **not verified**:
+Git operations are prohibited in B.
+
+### Evidence vocabulary and version binding
+
+These labels expand, rather than replace, A's evidence terminology:
+
+| B classification | Existing equivalent | B result and limits |
+| --- | --- | --- |
+| LEGACY_OBSERVED | L / source-observed | Canonical sources below re-read statically; eight of eight existing fingerprints reconfirmed. No source establishes an exact product release/build. |
+| OWNER_REPORTED | O | Target families/directions and baseline context only; no exact per-operation build/result evidence supplied. |
+| VENDOR_DOCUMENTED | D / officially documented | None available; zero operations qualified. |
+| MOCK_VERIFIED | M / mock-tested | Existing `0.0-test` authentication and API-02/API-03/API-10 contracts only; historical results, not rerun in B. Not vendor schemas. |
+| LIVE_LAB_VERIFIED | T / live-tested | None supplied at operation/build level; none performed. |
+| UNVERIFIED | Existing unknown/unverified status | Every real-target request/response schema, compatibility and operational behavior without supporting evidence. This is a qualification status, not positive evidence. |
+
+| Product / role | Exact version/build evidence | Operation scope | Qualification |
+| --- | --- | --- | --- |
+| APSolute Vision source A | Not supplied; `5.4.x` is only an OWNER_REPORTED target | API-01-V, API-10, CFG-01 through CFG-03; additional source object/access APIs unknown | UNVERIFIED; no exact supported version |
+| Cyber Controller source B | Not supplied; `10.10.x` is only an OWNER_REPORTED target | API-01-C, API-02/API-03/API-05/API-06; other source-domain APIs missing | UNVERIFIED; no exact supported version |
+| Cyber Controller destination A/B | Not supplied independently of source | API-01-C, API-02/API-03/API-04 inventory candidates; API-07/API-08/API-09 write candidates | UNVERIFIED; no exact supported version |
+| Vision legacy destination / auxiliary service | Not an approved A/B destination | API-11, CFG-04 / API-12 | Outside direction scope / excluded |
+
+No `5.4.x`, `10.10.x`, wildcard, inferred patch, or synthetic marker is an exact
+vendor compatibility binding. The same CC family on both sides supplies no
+schema-equivalence evidence.
+
+### Request/response field evidence ledger
+
+This ledger supplements the existing method/path, authentication, dependency
+and safety tables; it introduces **no new operation or schema**. All entries are
+**LEGACY_OBSERVED, exact product version unknown, vendor qualification
+UNVERIFIED**. Field paths are source expressions, not vendor-required fields.
+Direct indexing means the script expects a field; `.get` or a constructed
+default means client behavior, **not documented optionality or server defaults**.
+For every row, vendor-required, optional and nullable field sets are **unknown**.
+Missing and explicit null are not interchangeable; neither can be accepted or
+defaulted on the strength of these scripts.
+
+| Record | Request structure / parameters observed | Response structure / status checks observed | Evidence / unresolved schema semantics |
+| --- | --- | --- | --- |
+| API-01-C | JSON-text `username`, `password`; Basic credentials also assigned | Client accepts 200; no body schema checked | OD 54-85; OC/OU 52-84. Required auth combination, cookie/CSRF/token format and error bodies unknown. |
+| API-01-V | JSON object `username`, `password` | HTTP error check then JSON object `.get("status") == "ok"` | LD 16-23; LU 13-20. Login status is a client check, not a complete response schema. |
+| API-02 | No body/query parameters supplied; fixed Physical path | OD traverses `children[]`; node `meIdentifier.managedElementClass`, `managedElementID`; `name`; devices additionally `type`, `managementIp`; destination reader consumes root ID | OD 110-142, 180-216; OC/OU 143-150. Root class, complete fields, cardinality, nullability and HTTP success contract unknown. |
+| API-03 | No body/query parameters supplied; fixed Organization path | Same client field selections as API-02, independently selected tree | Same source ranges as API-02. Shared traversal is not documented cross-tree schema equivalence. |
+| API-04 | Raw `site_name` path parameter; no qualified tree/parent selector supplied | Parsed object; OD reads `ormID`; OC/OU try `meIdentifier.managedElementID`, then `ormID`; text used for absence | OD 88-96; OC/OU 86-120. No documented success/absence/error status, alias equivalence or duplicate-name behavior. |
+| API-05 | Raw `site_id` path parameter from source hierarchy | Parsed object `name`; response text checked for absence | OD 99-107, 124-126. Native identifier scope and response/error contract unknown. |
+| API-06 | Raw `device_ip` path parameter | Object `deviceSetup.deviceAccess`; nested `ormID` deleted by script | OD 145-163. Native detail device ID, access field types, masking, missing/null and errors unknown; deletion is not an allowed transform. |
+| API-07 | Object `parentOrmID`, `name` | Client accepts 200; on failure assumes JSON `message` | OC 152-175. Created ID, body, completion, duplicate behavior and error schema unknown. |
+| API-08 | Object `name`, `parentOrmID`, `type`, nested `deviceSetup.deviceAccess` copied from flat input | Client accepts 200; failure `message` assumed | OC 177-202. Full access schema, accepted fields/types and created-ID/completion contract unknown. |
+| API-09 | API-08 fields plus `ormID` from exported `id` | Client accepts 200; failure `message` assumed | OU 152-184. PUT replace/merge, field mutability and destination identity binding unknown; source-ID reuse prohibited. |
+| API-10 | No body/query parameters supplied | LD saves parsed JSON after HTTP error check; LU iterates entries and indexes `attributeValue` | LD 17-29; LU 14-24. List-of-objects is consumer expectation, not a qualified full response/pagination schema. |
+| API-11 | Object `objectClassName`, `attributeName`, `attributeValue`; `requireDeviceLock` forced true; `networkPolicies` defaults to []; `roleGroupPairList[]` selects `groupName`, `roleName` and defaults to [] | Client accepts 200/201; response text may trigger scope-changing retry | LU 28-39. Defaults/lock/scope changes are unsafe legacy behavior, not vendor requirements. Vision destination only, not a CC schema. |
+| API-12 | Raw `index`, `document_id` path parameters; opaque `_source` object from `hits.hits[]` | HTTP error check, then parsed JSON printed | DR 8-11. Auxiliary service/version/schema unknown; excluded from product qualification. |
+| CFG-01 | Configured path unresolved; JSON `username`, `password` | HTTP error check; JSON `.get("status")`; `.get("jsessionid")` printed | SD 23-26, 41-70; SU 23-26, 46-75. Session identifier is sensitive; name alone does not establish a cookie/session contract. |
+| CFG-02 | Configured path unresolved; no body supplied | Status/body ignored; exceptions suppressed | SD 28-31, 73-81; SU 28-31, 78-86. No logout/invalidation/error contract established. |
+| CFG-03 | Configured path unresolved; no body/query parameters supplied | SD saves parsed JSON after HTTP error check; SU expects list of objects with truthy `name`, otherwise returns empty set | SD 33-36, 84-117; SU 89-108. Empty fallback is not completeness evidence or valid malformed-response handling. |
+| CFG-04 | Configured path unresolved; task copied minus `ormID`, `taskStatus`, `jobstatus`, `previousFeedMd5` | Client accepts 200/201 only | SU 111-123, 157-197. Task types, required/server-owned fields, activation, timezone and nested references unknown; no stripping authorized. |
+
+For **all 17 rows**: no vendor-required headers, query parameters, pagination,
+ordering rules, unknown-field policy, missing/null behavior, complete nested
+schemas or error responses are documented. GET call sites supply no body, which
+is not a vendor prohibition on GET bodies. Observed headers are only the client
+choices in authentication profiles A/B/C/D: JSON Accept/Content-Type and, for
+Vision scripts, XMLHttpRequest; OC/OU also set `supportasync: true`. Browser-style
+headers in object scripts do not become requirements. The async header and a
+200/201 check establish neither asynchronous behavior nor completion.
+
+Authentication requirements, session lifetime/renewal/logout, RBAC,
+preconditions, pagination, asynchronous result/completion, idempotency and error
+behavior remain **UNVERIFIED** for every target operation. Dependencies recorded
+in A are client workflow observations or application safety prerequisites, not
+vendor-proven dependency contracts. No behavior is inferred from HTTP verbs.
+
+### Identity and credential field qualification
+
+| Field / context | Available evidence | Qualification / offline boundary |
+| --- | --- | --- |
+| `meIdentifier.managedElementID` | OD tree extraction and OC/OU root/name lookup | Native source identifier candidate, not portable identity; scope/stability/alias semantics unverified. Keep controller/tree/type context. |
+| `ormID` / `parentOrmID` | OD/OC/OU lookups, constructed payloads and access-ID deletion | Object, parent and nested access occurrences must not be conflated. Equivalence to managed-element ID and cross-controller reuse are unverified. |
+| Flat `id`, `parentOrmID`, `parent_site_name` | OD constructs export fields | Legacy export representation, not an independently documented wire schema; parent name/IP cannot establish destination identity. |
+| LDAP `attributeValue`, `groupName`, `roleName`, `networkPolicies` | LU selected fields and equality-based skipping | Authorization/reference fields; native identity and permission equivalence unknown. Explicit destination reference mappings required. |
+| Scheduler `ormID`, `name`, removed status fields | SU task selection/sanitization | Native identity candidate versus display name/status semantics unqualified; field removal and name-only equivalence prohibited. |
+| Login `username`, `password`; Basic/authorization/cookie/session material, `jsessionid` | OD/LD/SD authentication source | Sensitive identity/credential/session material; never reproduce values, log bodies, or collect real credentials. |
+| `cliUsername`, `cliPassword`, `httpUsername`, `httpPassword`, `httpsUsername`, `httpsPassword`, `snmpV3Username`, `snmpV3AuthenticationPassword`, `snmpV3PrivacyPassword` | [Credential transformer](../legacy/app/update_json_credentials.py), lines 47-134, static only | Sensitive access fields, not complete version-qualified lists. Server representation, masking, encryption, requiredness and portability unknown. |
+| `secret_ref` | Existing application artifact/controller contracts | Local protected-reference representation, **not a vendor API field**. It does not resolve a credential or establish migration eligibility. |
+
+The transformer SHA-256 inspected in B is
+`efc935bcfd32e14b40960f1a37f93906e54b07dacc5faaabb9253cef447990a3`;
+the eight original fingerprints below were also reconfirmed. No legacy code was
+imported, executed or modified.
+
+### Direction-specific schema qualification
+
+**Vision to CC (A): UNVERIFIED / blocked.** Source Vision tree/root/site/device
+and detail/access export paths and schemas are absent. API-10 is a legacy LDAP
+read candidate, not a qualified 5.4 release schema; CFG-03 is unresolved.
+Destination CC requires independently versioned root/inventory, object types,
+parent/identity/reference, access/secret, creation-result and completion schemas.
+CC LDAP and scheduler equivalents are missing. No documented field/type/enum,
+hierarchy, permission-scope, credential or task transformation is available.
+Their differences are **unknown**, not established equivalences or an invitation
+to invent transforms. Controller objects/access, LDAP and scheduler migration
+all remain unsupported for the target direction.
+
+**CC to CC (B): UNVERIFIED / blocked.** Legacy source candidates API-02/API-03/
+API-05/API-06 and destination API-07/API-08/API-09 require separate exact
+source/destination build schemas, including within 10.10.x. Tree completeness,
+native detail association, secret portability, device types, allowed writes,
+read-back and completion remain unknown. CC LDAP/task contracts are missing.
+No patch-level equality, automatic source-ID reuse, name/IP guessing, overwrite
+or delete is permitted; explicit independently established destination mappings
+remain mandatory. Even identical declared build strings would not establish
+portable native identifiers or verified backend behavior.
+
+### Missing evidence and next gate
+
+DOC-V54, DOC-CC1010, CFG-SCHED and TEST-OWNER above remain requests, not evidence
+references that can support an assertion. Exact document titles cannot honestly
+be supplied from available material. Request owner-approved **REST API references
+and schema/specification appendices** for the selected exact Vision 5.4 patch/build
+and independently selected source/destination CC 10.10 patch/builds, plus applicable
+authentication/session, tree/site/device/access, LDAP and task sections, release
+schema changes, and KB articles relevant to the canonical legacy scripts.
+Include result/error, completeness/pagination, identity, sensitive-field,
+dependency, write completion and idempotency sections; full backup coverage is
+still unestablished. Supply only sanitized scheduler path declarations and
+operation-level testing provenance, not AUTH sections, hosts or operational data.
+
+For each supplied approved reference, record actual title, publisher/product,
+exact version/build applicability, revision/date (or explicitly unavailable),
+section/page/operation, local file and SHA-256, approval/review provenance and
+limitations. An assertion must reference an existing reviewed source that
+supports that operation/field/version; a missing ID, title, family label,
+synthetic fixture or unrelated section cannot qualify it.
+
+**No schema validator or new evidence registry is introduced:** zero exact
+vendor schemas meet the implementation gate. Existing strict parsers,
+order-preserving controller artifacts, missing/null distinctions, secret
+protections, qualified mappings and sanitized errors are reused unchanged, not
+relabeled vendor-qualified. Production capabilities remain empty/default-deny,
+and `0.0-test` stays mock-only. No application/tests/fixtures, HTTP backend,
+credential transformation or production activation change is warranted.
+Documentation-only verification and test-execution limits are recorded in
+[E-034](PROGRESS.md#e-034---ccv-009-b-offline-partial-schema-qualification-2026-11-18).
+Stop for technical review and missing evidence; do not begin another milestone.
 
 ## CCV-009-A - approved targets and evidence boundaries
 
