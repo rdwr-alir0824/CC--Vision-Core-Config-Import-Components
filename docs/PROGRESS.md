@@ -1,6 +1,60 @@
 # Persistent Development Tracker
 
-Last updated: 2026-11-19
+Last updated: 2026-11-21
+Latest owner acceptance: **E-051 - CCV-010-C OFFLINE SUPERVISED-OPERATION
+PROTOTYPE - ACCEPT WITH EXPLICIT LIMITATIONS**, accepted **2026-11-21**.
+Scope: offline supervised-operation control model only, based on independent
+E-050 verification; no remaining confirmed defects within the reviewed scope.
+See the [owner decision](DECISIONS.md#owner-prototype-acceptance---ccv-010-c-offline-supervised-operation-prototype-2026-11-21)
+and [E-051](#e-051---ccv-010-c-owner-acceptance-of-offline-supervised-operation-prototype-2026-11-21).
+**Full CCV-010-C milestone acceptance: WITHHELD. CCV-010-B laboratory Gates A-D:
+NOT PASSED. Laboratory readiness: NOT READY. Laboratory execution: NOT AUTHORIZED.**
+Production capabilities remain default-deny and concrete product dispatch disabled.
+No import, update, delete or configuration migration operation is authorized.
+The dated overlays below retain their historical scope; E-051 supersedes pending
+prototype acceptance only, not full milestone or runtime/laboratory restrictions.
+Latest correction overlay: **E-050 - callback-retargeting corrected:
+491 offline tests passed (486 retained + five focused regression methods).**
+Current-operation actions bind their entry reference and immutable identity,
+reject callback-induced substitution, and preserve failure/recovery evidence.
+Scope is only the confirmed MEDIUM operation-substitution defect and equivalent
+current-operation lookup paths. No network/process or production integration,
+owner acceptance or full milestone acceptance was added. Gates A-D NOT PASSED.
+Prior correction overlay: **E-049 - reentrant admission and supervisor fencing
+corrected: 486 offline tests passed (481 retained + five focused regressions).**
+Scope is only the two confirmed independent-review findings. No network/process
+or production integration was added. Independent acceptance of these corrections
+has not been recorded; full C acceptance remains withheld and Gates A-D NOT PASSED.
+Prior implementation overlay: **E-048 - isolated, network-incapable CCV-010-C
+supervised-operation prototype: 481 offline tests passed (425 retained + 56 new).**
+Current task authorization covers offline control logic, synthetic tests and
+documentation only. No process/network implementation or production integration
+was added. Shared in-memory quarantine survives logical supervisor replacement;
+durable restart recovery remains stopped/unimplemented. Both new Python files
+have no syntax errors or Pylance diagnostics. No owner acceptance is recorded.
+**Gates A-D remain NOT PASSED; full C acceptance withheld; no laboratory authority.**
+Latest policy overlay: **E-047 - CCV-010-C — REVISED DEADLINE-CONTAINMENT POLICY
+APPROVED**, owner decision 2026-11-20. The
+[dated decision](DECISIONS.md#owner-policy-decision---ccv-010-c-deadline-containment-2026-11-20)
+replaces unconditional whole-operation hard-interruption acceptance with qualified,
+deadline-accounted, fail-closed containment. Approval is of acceptance-policy
+direction only, not implementation, runtime compatibility, laboratory execution
+or full milestone acceptance. The independent E-046 review accepted revised
+architectural direction with explicit limitations; integration, Windows lifecycle,
+IPC/recovery, revocation races, runtime/TLS/product qualification and independent
+implementation/security review remain prerequisites. **CONTINUE FAIL-CLOSED.**
+E-043 through E-046 remain unchanged historical evidence; the 425-test result
+was not rerun. This update performed documentation-only verification.
+Prior implementation overlay: **CCV-010-C review and authorized corrections,
+E-044: 425 tests passed (423 retained + two new), zero guarded network attempts.**
+E-043's original 423-test evidence remains historical and unchanged.
+Response-body limits and exact destination/operation scope are implemented and
+offline-tested; absolute-deadline accounting is implemented, not qualified hard
+runtime interruption. Hard DNS cancellation is blocked. Built-in HTTPS dispatch
+fails closed before resolution. **Full C technical acceptance withheld; owner
+acceptance not recorded. Gates A-D remain NOT PASSED. No laboratory execution.**
+Historical acceptance/checkpoint passages below retain their original scope.
+
 Authoritative checkpoint: **CCV-001 approved as the static baseline;
 CCV-002-A technically reviewed; CCV-002-B implemented and offline-verified.
 CCV-002-C completed and locally committed per owner confirmation;
@@ -653,6 +707,7 @@ execution is authorized. **CCV-010-B: PROPOSED — NOT AUTHORIZED**; not started
 | CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted CCV-009-A; E-035/E-036; independent technical acceptance review; explicit owner decision | OWNER ACCEPTED — 2026-11-18; ACCEPT WITH NON-BLOCKING OBSERVATIONS | Complete for accepted version-pinned offline scope only; full vendor/runtime qualification remains blocked | E-037 accepts 350 passing application tests (321 existing + 29 new), eight additional guarded probes, six security-subset checks and clean Pylance diagnostics; no runtime support enabled |
 | CCV-010-A | Concrete HTTP backend and offline compliance | P0 | Accepted CCV-009-B; E-038/E-039; independent follow-up; explicit owner decision | OWNER ACCEPTED — 2026-11-19; ACCEPT OFFLINE SCOPE | Complete for accepted offline backend scope; all four findings independently verified corrected; no default/CLI activation | E-040 accepts 394 passing tests (380 retained + 14 new), 41 additional guarded scenarios, scoped backend guards 0/660 and dispatch spies 0/88, no scoped syntax/Pylance errors or warnings; no rerun for acceptance; real dispatch unverified |
 | CCV-010-B | Read-only laboratory qualification planning | P1 | Accepted CCV-010-A; E-041; independent static review; explicit planning-only owner decision | PLANNING OWNER ACCEPTED — 2026-11-19; ACCEPT WITH NON-BLOCKING OBSERVATIONS; offline planning/documentation only | Plan complete; no application implementation or laboratory execution | E-042 accepts planning deliverable only; E-041 preserved; Gates A-D NOT PASSED; NOT READY — EXECUTION NOT AUTHORIZED; 394-test baseline historical, not rerun |
+| CCV-010-C | HTTP backend safety hardening; offline supervised-operation prototype | P0 | Accepted A offline scope; B safety requirements; E-047 policy; E-048 through E-050 implementation/corrections and independent verification | E-051: offline prototype OWNER ACCEPTED - 2026-11-21; ACCEPT WITH EXPLICIT LIMITATIONS; full milestone acceptance WITHHELD | Network-incapable prototype accepted; all three confirmed findings corrected and independently verified; actual workers, durable recovery and runtime/TLS/product qualification absent | Independent verification: 491 passed (486 retained + five E-050 methods); historical E-043 through E-050 preserved; default-deny and concrete dispatch disabled; Gates A-D NOT PASSED; NOT READY; laboratory execution NOT AUTHORIZED |
 
 ## Task details and handoff
 
@@ -686,6 +741,7 @@ entries identify implemented files. Test evidence is absent unless stated.
 | CCV-009-B | Acceptance recorded only in this tracker and [DECISIONS.md](DECISIONS.md); implementation/tests/PDFs/other documentation unchanged by this record | E-037 accepts E-035/E-036 and independent review: 350 application tests, eight probes, six security-subset checks; scoped guards 0/435, 0/120, 0/90; clean Pylance diagnostics; no new execution | Accepted non-blocking permanent-regression recommendations; CC provenance, complete/create/null/credential/async/runtime/inventory/build/preflight gaps remain | Preserve owner-accepted bounded offline scope and observations; no follow-up implementation, next milestone or live work without separate authorization |
 | CCV-010-A | E-040 records acceptance only in this tracker and [DECISIONS.md](DECISIONS.md); E-038/E-039 implementation history preserved; application/tests/other documentation unchanged by acceptance | Accepted prior results: 394 tests (380 retained + 14 new), 41 additional guarded scenarios, no failures/errors/skips; backend network attempts 0/660 and dispatch calls 0/88; no scoped syntax/Pylance errors/warnings; no new execution | Actual TLS/product/cookie behavior and other interpreters unverified; DNS/total-duration/body-size limits unresolved; parser-exposed defects/private cookie helpers; all B compatibility limitations remain | Preserve accepted offline scope and non-blocking permanent cookie-probe recommendation; no implementation, CCV-010-B or live work without separate authorization |
 | CCV-010-B | Planning: [Laboratory plan](LAB_QUALIFICATION_PLAN.md), [roadmap](ROADMAP.md), this tracker; acceptance: this tracker and [DECISIONS.md](DECISIONS.md) only | E-041 planning record preserved; E-042 planning-only owner acceptance and independent static review; no application tests rerun | Exact builds/targets/roles absent; C metadata conflict; DNS/total-duration/body-size, allowlisting and authentication/session-cleanup prerequisites; storage/authorization pending; Gates A-D NOT PASSED | Stop after acceptance documentation; historical-status cleanup and all further implementation/laboratory work require separate authorization |
+| CCV-010-C | [Backend](../src/cc_vision_import/http_backend.py), [transport](../src/cc_vision_import/transport.py), their two existing test files, architecture/roadmap/this tracker; no files created | E-044: complete 425-test suite, 0 failures/errors/skips; 4-file syntax validation; Pylance no errors/warnings under active settings; 0/6390 aggregate network observations and 0/134 scoped dispatch observations | Hard DNS lifecycle/cancellation and whole-operation interruption/cleanup unqualified; no IP/peer binding; actual TLS/platform/product compatibility and numeric policy approval absent | Completed offline safeguards recommended for acceptance with explicit limitations; full milestone withheld. Owner review of runtime alternatives required; do not activate or start another milestone |
 
 CCV-004/005/006 sequencing remains flexible until API/schema readiness is verified
 for each selected slice. CCV-009 may run in parallel after explicit authorization;
@@ -883,6 +939,951 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-051 - CCV-010-C owner acceptance of offline supervised-operation prototype, 2026-11-21
+
+**Owner decision:** **CCV-010-C OFFLINE SUPERVISED-OPERATION PROTOTYPE -
+ACCEPT WITH EXPLICIT LIMITATIONS**.
+**Acceptance date:** 2026-11-21. **Owner:** project owner, by explicit approval
+in the project conversation. **Scope:** offline supervised-operation control
+model only. This documentation-only authorization modifies this tracker and
+[DECISIONS.md](DECISIONS.md) only.
+
+**Technical basis:** independent E-050 correction verification recommended
+**ACCEPT OFFLINE PROTOTYPE WITH EXPLICIT LIMITATIONS** and found no remaining
+confirmed defects within the reviewed scope. This owner decision accepts that
+narrow prototype, not full CCV-010-C, production integration or physical
+containment. See the
+[dated owner decision](DECISIONS.md#owner-prototype-acceptance---ccv-010-c-offline-supervised-operation-prototype-2026-11-21).
+
+**Accepted network-incapable functionality (simulated/offline guarantees only):**
+
+- Strict versioned JSON IPC framing with four-byte big-endian message lengths
+  and finite IPC size and structural budgets.
+- Explicit coordinator state transitions, immutable operation deadlines and
+  authorization-generation fencing.
+- Supervisor and operation identity binding, reentrant-admission reservation
+  and callback-retargeting protection.
+- Candidate validation and immutable successful commitment.
+- Simulated worker lifecycle, with separate termination, exit, reaping and
+  resource-disposition evidence.
+- In-memory quarantine/recovery and fail-closed rejection of stale or late results.
+- Sanitized errors/reporting and no automatic authentication or
+  configuration-write replay.
+
+**Independently executed verification evidence, not rerun in this update:**
+
+| Check | Independent E-050 verification |
+| --- | --- |
+| Complete regression suite | **491 passed in 99.018 seconds** |
+| Retained/new regressions | 486 retained; five new E-050 methods covering 21 scenarios |
+| Failures/errors/skips | **0 / 0 / 0** |
+| Independent direct diagnostic scenarios | 21; not calls to the permanent regression helper |
+| Additional E-049 confirmation probes | Four |
+| Runtime/platform | CPython 3.13.14; Windows 11 AMD64, Windows-11-10.0.26300-SP0 |
+| Supervised test guards | Zero prohibited attempts across 1,650 observations |
+| Aggregate network guards | Zero attempts across 7,380 observations |
+| Concrete HTTP dispatch guards | Zero attempts across 134 observations |
+| Syntax/Pylance | Syntax parsing passed; scoped Pylance diagnostics empty |
+
+These are scoped Python-level observations and simulated dispatch evidence,
+not OS-level isolation or proof of physical lifecycle/resource release.
+Application tests were **not rerun** during this documentation-only acceptance
+update. E-050's earlier implementation-run timings remain historical.
+
+**Corrected findings:** independent verification passed the corrections for
+(1) reentrant admission bypass, (2) superseded-supervisor admission and
+(3) callback operation-retargeting during dispatch and commitment. They are
+corrected, not unresolved historical defects. E-048, E-049 and E-050 are preserved.
+
+**Explicit acceptance limitations:**
+
+- No actual OS worker execution, Windows Job Object containment, real process
+  termination/reaping qualification or physical resource-release guarantees.
+- No durable quarantine across application restarts or demonstrated multithreaded
+  synchronization safety. Injected clocks and recovery evidence remain trusted.
+  The prototype is not a process sandbox.
+- No actual nonblocking TCP/TLS integration, DNS or whole-operation runtime
+  deadline qualification. No hard-real-time guarantee is accepted.
+- No live authentication or JSESSIONID qualification, Vision or Cyber Controller
+  runtime compatibility, or migration execution approval.
+
+**Mandatory project restrictions:**
+
+- **Full CCV-010-C milestone acceptance: WITHHELD.**
+- **CCV-010-B laboratory Gates A-D: NOT PASSED.**
+- **Laboratory readiness: NOT READY.**
+- **Laboratory execution: NOT AUTHORIZED.**
+- Production capabilities remain default-deny; concrete product dispatch remains
+  disabled. No import, update, delete or configuration migration operation is
+  authorized.
+
+**Future work requiring separate authorization; not begun:**
+
+1. Actual Windows process-supervisor implementation.
+2. Bounded IPC integration.
+3. Windows worker creation and termination qualification.
+4. Durable quarantine/recovery.
+5. Approved static-address nonblocking TLS transport.
+6. Independent runtime and security verification.
+7. Exact lab/build/operation authorization.
+
+This update records only the owner acceptance and performs static documentation
+verification. No application/test changes, test execution, Git operations,
+dependency installation, network/product/laboratory operations or subsequent
+milestone work occurred. Stop after this documentation-only acceptance record.
+
+### E-050 - CCV-010-C callback-retargeting correction, 2026-11-20
+
+**Authority:** the user separately authorized the single confirmed MEDIUM
+callback-retargeting correction, equivalent operation-substitution paths,
+focused permanent regressions, full guarded offline verification and updates
+only to the implementation, its tests, architecture and this tracker.
+No Git operation, dependency installation, live worker/network execution,
+product authentication, capability activation, laboratory test, owner acceptance
+or subsequent milestone work was authorized or performed.
+
+**Root cause and prior independent evidence:** the E-049 review confirmed that
+the shared current-operation lookup observed `self._current`, invoked its clock,
+then reread `self._current`. A same-owner callback could retire/recover generation
+1 and admit generation 2. The original dispatch then dispatched generation 2,
+or the original commit published generation 2's staged result. These are
+confirmed logical operation-identity substitutions through a trusted callback,
+not demonstrated remote attacks. The independent review reran 486 tests and
+withheld prototype acceptance despite those passes. E-047 through E-049 remain
+unchanged historical evidence.
+
+**Correction and callback-boundary assessment:**
+
+- [supervised_operations.py](../src/cc_vision_import/supervised_operations.py):
+  the shared lookup captures the operation reference and immutable UUID/generation
+  before observation, rechecks supervisor ownership and current reference/identity
+  afterward, and returns only the captured operation. A substituted call fails
+  with the original failure category (or generation failure if none exists).
+  It never modifies the replacement or clears its reservation/recovery evidence.
+- Dispatch, commitment, current snapshots, worker events and candidate actions
+  share that lookup. State advancement, admission, explicit historical snapshots,
+  revocation and recovery already carry explicit operation references across
+  observations; no equivalent fresh-current selection was found there. There is
+  no injected validator callback; candidate validation checks frozen contracts.
+- Preserve E-049's admission reservation and supervisor fencing, deadline and
+  authorization checks, legal transitions, immutable commitment, exit/reaping/
+  disposition distinctions, quarantine/recovery, sanitized errors and strict IPC.
+  No production integration or competing coordinator was added.
+- [test_supervised_operations.py](../tests/test_supervised_operations.py):
+  five new methods cover dispatch and commit substitution at both operation
+  observation/transition clocks, callback exceptions, expiry/revocation/supervisor
+  replacement, and equivalent current-snapshot substitution. The 21 scenarios
+  assert that the replacement is unchanged, retired failure/recovered quarantine
+  survive, and no result is published by the stale call. Dispatch/commit tests
+  also prove later legitimate explicit replacement actions still succeed.
+
+**Verification:**
+
+| Check | Actual result |
+| --- | --- |
+| Before correction | New dispatch, commit and snapshot regressions reproduced substitution; expiry/revocation variants also reproduced it. The authorization fixture was adjusted to use increasing generations before final validation. |
+| Targeted supervised suite after correction | 66 tests passed in 0.559 seconds; failures/errors/skips 0 |
+| Complete offline discovery, `python -B`, `discover -s tests -v` | **491 passed in 61.748 seconds; failures 0, errors 0, skips 0** |
+| Retained/new methods | All 486 existing methods rerun and retained; five new methods |
+| Python/platform | CPython 3.13.14, 64-bit AMD64; Windows-11-10.0.26300-SP0 |
+| Supervised network/process/live-dispatch guards | 66 cases, 1,650 observations, zero attempts |
+| Supervised simulated-dispatch spies | 76 explicit calls, 59 accepted, 17 rejected |
+| Aggregate per-test network guards | 7,380 observations, zero attempts |
+| Additional outer guards | 11 network and 13 supported process targets, zero calls |
+| HTTP backend scoped report | 67 tests; zero/1,005 network and zero/134 concrete-dispatch observations |
+| Schema scoped report | 29 cases; zero/435 network observations |
+| Syntax/Pylance | Both modified Python files parse successfully; diagnostic lists empty under active settings |
+
+The documented source/tests `PYTHONPATH` was used. The full discovery ran through
+unittest's `__main__` with the requested verbose discovery arguments inside an
+in-memory guard wrapper; `python -B` prevented bytecode writes. Existing test
+guards remained active. Observations count intercepted Python entry points and
+logical dispatch calls, not OS isolation or real worker execution. No sleeps,
+DNS, sockets, TLS/HTTP requests, live authentication or actual workers were used.
+
+**Disposition and limitations:** the confirmed MEDIUM substitution defect is
+corrected and regression-verified. Technical recommendation: accept this narrow
+offline correction with explicit limitations, subject to separate independent
+follow-up review; no owner acceptance is recorded. The model remains serialized,
+not thread-safe or a sandbox. Injected clocks and synthetic recovery evidence are
+trusted. Durable recovery, Windows lifecycle/termination/reaping, physical
+resource release, runtime deadlines and TLS/product compatibility remain
+unimplemented/unverified. Production capabilities remain empty/default-deny and
+concrete dispatch disabled. **Full CCV-010-C acceptance remains withheld;
+Gates A-D remain NOT PASSED. Stop at this correction; no new milestone work.**
+
+### E-049 - CCV-010-C reentrant admission and supervisor fencing corrections, 2026-11-20
+
+**Authority:** the user separately authorized correction of only the two
+confirmed CCV-010-C independent-review findings, permanent regressions, complete
+offline verification and these documentation updates. This is correction
+evidence, not owner acceptance, independent follow-up acceptance, laboratory
+authority or a new milestone.
+
+**Independent review of E-048:** all 56 prototype test methods and relevant
+implementation/contracts/documentation were inspected. The complete suite was
+independently rerun: 481 tests passed in 81.481 seconds, zero failures/errors/skips,
+zero outer network/process attempts, empty Pylance diagnostics and valid syntax.
+Despite those passes, deterministic trusted-clock probes confirmed:
+
+| Finding | Reviewed source lines | Severity / confidence | Observed failure |
+| --- | --- | --- | --- |
+| F1: reentrant admission | [supervised_operations.py](../src/cc_vision_import/supervised_operations.py), original 650-684 | MEDIUM / 10 of 10 | Outer ADMITTED, inner RUNNING, two active operations; current pointer belongs to inner operation |
+| F2: supervisor replacement | Same file, original 643-645 and 671-684 | MEDIUM / 10 of 10 | A replaced supervisor returns successful admission; fencing applies only to its next call |
+
+The independent recommendation was **DO NOT ACCEPT** E-048 until corrected.
+These are confirmed policy defects through a trusted injected callback, not
+demonstrated external attacker exploits. The original 56 tests omitted both
+reentrancy scenarios. That review recommendation remains historical; this entry
+does not claim the corrections have independently passed review.
+
+**Changes made:**
+
+- [supervised_operations.py](../src/cc_vision_import/supervised_operations.py):
+  reserve admission on the shared ledger before the first callback; reject
+  nested admission while reserved; release in `finally`. Replacement cannot
+  acquire that reservation while the original call is unwinding.
+- Retire pending NOT_ADMITTED operations on supervisor replacement. Revalidate
+  ownership before/after clock callbacks, before state transitions and before
+  admission commitment. Continue checking the current authorization generation
+  before admission. Preserve ownership failure classification instead of
+  converting it to clock failure; stale calls cannot publish admission/success.
+- [test_supervised_operations.py](../tests/test_supervised_operations.py):
+  five permanent regressions cover nested admission at both clock boundaries;
+  failed reentrant callback with safe state/reservation release; replacement at
+  both admission callbacks including replacement's nested admission; changed
+  authorization generation before admission; and replacement during commitment.
+  The pre-fix guarded tests reproduced the confirmed defects.
+- [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker document these corrections.
+  No other component or contract schema was changed.
+
+**Verification after corrections:**
+
+| Check | Result |
+| --- | --- |
+| Runtime/platform | Python 3.13.14; Windows-11-10.0.26300-SP0 |
+| Targeted prototype suite | 61 passed in 0.397 seconds |
+| Complete offline suite with additional outer guards | **486 passed in 66.246 seconds; failures 0, errors 0, skips 0** |
+| Retained/new cases | All 481 existing cases retained; five new focused regressions |
+| Prototype guard observations | 61 x 25 = 1,525 observations; zero network/process/live-dispatch attempts |
+| Additional complete-suite guards | Six network entry points, two process entry points; zero attempts |
+| Prototype simulated dispatch spies | 44 explicit calls, 37 accepted, seven rejected; no automatic replay |
+| Existing HTTP backend report | 67 tests; zero/1,005 network and zero/134 concrete-dispatch observations |
+| Existing schema guard report | 29 cases; zero/435 network observations |
+| Syntax and Pylance | Both Python files parse successfully; diagnostic lists empty |
+
+Validation used `python -B` with source/tests on `PYTHONPATH`, existing offline
+guards and additional outer DNS/socket/TLS/process-entry guards. No real network,
+DNS, TLS handshake, process worker, product authentication, Git operation,
+dependency installation, laboratory test or capability activation was performed.
+Guards are Python-level observations, not proof of OS-level isolation.
+
+**Remaining limitations and next action:** both reported defects are corrected
+and regression-tested; independent follow-up review is still required. The model
+remains serialized/single-owner, not thread-safe or a sandbox for hostile callers.
+Injected clocks and synthetic disposition evidence remain trusted seams. Durable
+recovery, actual Windows workers/termination/reaping, physical release, network
+deadlines and product/TLS compatibility remain unimplemented/unverified. Keep
+production capabilities empty/default-deny and concrete dispatch disabled.
+**Full CCV-010-C acceptance remains withheld; Gates A-D remain NOT PASSED.
+No owner acceptance is recorded.**
+
+### E-048 - CCV-010-C network-incapable supervised-operation prototype, 2026-11-20
+
+**Authority and scope:** the current task separately authorized the first
+offline prototype of E-047's deadline-accounted, fail-closed control policy.
+Only isolated application logic, synthetic tests and related documentation are
+implemented. This entry is implementation/test evidence, not owner acceptance,
+independent security review, laboratory authorization or permission to continue
+to another milestone. E-043 through E-047 retain their historical scope.
+
+**Files created:**
+
+- [supervised_operations.py](../src/cc_vision_import/supervised_operations.py)
+- [test_supervised_operations.py](../tests/test_supervised_operations.py)
+
+**Files modified:** [ARCHITECTURE.md](ARCHITECTURE.md) and this tracker only.
+Existing dirty application/test/design changes and vendor PDFs were preserved.
+No existing transport, session, authentication, capability, planner, product
+client or CLI behavior was edited or used to activate the prototype.
+No dependencies were installed and no live requests were made.
+
+**Contract and implementation evidence:**
+
+- Frozen schema-1 local UUID/generation identities, operation requests and
+  deadlines, candidates, recovery evidence and sanitized snapshots. References
+  are synthetic UUIDs, not raw credentials, cookies, tokens or product payloads.
+- Explicit normal transitions NOT_ADMITTED -> ADMITTED -> STARTING -> READY ->
+  RUNNING -> CANDIDATE_RECEIVED -> VALIDATING -> READY_TO_COMMIT -> COMPLETED,
+  with explicit failure/timeout/termination/quarantine transitions. Illegal
+  transitions and duplicate dispatch/commit are rejected; completed state is
+  immutable and failed generations never become successful.
+- Admission starts one deadline before request validation; a separate request
+  freshness cutoff can reject admission. All active transitions observe the
+  injected monotonic clock/current authorization; READY never renews the deadline.
+  Revocation and supersession fence stale generations. Invalid/backward clocks
+  fail closed. First failure/timeout classification remains observable.
+- Candidates remain untrusted staged references until schema/scope/generation,
+  complete/validated flags, authorization and deadline checks pass. Final commit
+  additionally requires normal worker exit, reaping and successful resource
+  release, with another deadline/authorization observation. No authentication,
+  cookie, product-response or configuration transaction is implemented.
+- Worker doubles explicitly model startup, readiness, simulated dispatch,
+  candidate/error/timeout, termination request, exit, reaping and disposition.
+  `dispatch()` has no callback and only changes state/counter. Exit/reaping/
+  disposition observations carry exact worker identity/generation; stale worker
+  evidence cannot complete or modify a replacement operation.
+- Failure after possible worker creation requires quarantine and a logical
+  termination request. Request is not exit, exit is not reaping/disposition, and
+  successful release is not failure/abort disposition. Missing or failed evidence
+  blocks success. No actual termination or cleanup is claimed.
+- Mandatory bounded shared `RecoveryLedger` retains used identities/generations
+  without eviction. A replacement coordinator fences the old owner and retains
+  quarantine, including timeout classification observed during replacement.
+  Exact matched exit/reap/abort evidence can clear the dispatch restriction but
+  cannot revive the failed generation. Evidence is synthetic/trusted-owner
+  input, not verified OS state or independent authorization provenance.
+- Protocol-1 whole-frame in-memory encoder/decoder: four-byte unsigned
+  big-endian length and strict UTF-8 JSON; exact envelope/payload fields, bound
+  deadline/identities/generations, bidirectional sequence/order and terminal
+  checks. REQUEST/READY/PERMIT/CANDIDATE/FAILURE/CANCEL only; optional candidate
+  `evidence_ref` only. Duplicate/unknown keys, malformed/truncated/oversized frames,
+  nonfinite/unsupported values and nesting/byte/count excesses fail closed.
+  Request/result/frame/aggregate/wire/count/nesting limits are mandatory and
+  configurable below proposed offline ceilings, not approved runtime settings.
+  Rejected transcripts cannot be reused. No executable-object deserialization.
+
+The exact wire and state contracts and deliberate smaller message subset are
+documented in the
+[architecture overlay](ARCHITECTURE.md#ccv-010-c-network-incapable-prototype-overlay---2026-11-20).
+
+**Permanent regression coverage:** 56 unittest cases, with table-driven subcases,
+cover the requested A-Z categories: normal completion; expiry before admission,
+within admission validation, startup, execution, validation and commitment; late
+success; pre-dispatch/pre-commit revocation; stale authorization/operation/worker
+generations; illegal transitions, duplicate dispatch/results/commit; partial or
+failed candidate validation; failed/missing release, exit or reaping; unconfirmed
+termination; quarantine/recovery and unrelated/stale evidence; supervisor
+replacement and old-owner fencing; malformed/oversized/truncated/duplicate/
+unknown/invalid-UTF-8 IPC; protocol/order/sequence/deadline mismatches; exact byte,
+prefix/aggregate/frame-count/nesting boundaries; timeout/error precedence;
+sanitized reports and callback failures; no retry/authentication/write replay;
+and absence of prototype imports from existing entry points. All timing uses
+injected clocks, not sleeps.
+
+**Verification performed:**
+
+| Check | Observed result |
+| --- | --- |
+| Runtime/platform | Python 3.13.14; Windows-11-10.0.26300-SP0 |
+| Before implementation: source on `PYTHONPATH`, `python -B -m unittest discover -s tests -q` | 425 passed in 107.331 seconds |
+| Final targeted: `python -B -m unittest discover -s tests -p test_supervised_operations.py -q` | 56 passed in 0.918 seconds |
+| Final complete: source on `PYTHONPATH`, `python -B -m unittest discover -s tests -q` | **481 passed in 171.043 seconds; failures 0, errors 0, skips 0** |
+| Existing regressions retained | All 425; no existing test cases edited |
+| New prototype guards in complete run | 56 cases x 25 guards = 1,400 observations; **0 network/process/live-dispatch attempts** |
+| Prototype dispatch spies in complete run | 43 explicit simulated dispatch calls; 36 accepted, seven rejected; no automatic retry/replay |
+| Existing HTTP backend guard report | 67 tests; 0/1,005 network observations; 0/134 real-dispatch observations |
+| Existing schema guard report | 29 cases; 0/435 network observations |
+| Pylance syntax checks, both new files | No syntax errors |
+| Pylance `textDocument/diagnostic`, both new files | Empty diagnostic lists |
+
+The prototype guards include DNS/socket, HTTP, TLS and process entry points plus
+existing backend/transport/authentication/product dispatch spies. These are
+Python-level test observations, **not OS-level isolation or live compatibility
+evidence**. Counts are scoped reports, not a claim that every OS/API path is
+instrumented. The initial targeted run exposed one test expecting invalid-state
+instead of the preserved worker-error classification; that expectation was
+corrected. Subsequent targeted and complete runs pass.
+
+**Procedural deviation:** one read-only `git status --short` command was run
+during initial inspection before the attachment's no-Git instruction was reached.
+No further Git command, commit or branch operation was performed. It changed no
+repository content; it is recorded rather than presented as fully compliant.
+
+**Security findings (scoped implementation self-check, not independent review):**
+
+| Severity | File | Lines | Vulnerability | Confidence |
+| --- | --- | --- | --- | --- |
+| None confirmed unresolved within the offline model | Not applicable | Not applicable | No confirmed unresolved finding; limitations below are not verified containment guarantees | Scoped self-check only |
+
+**Stopped component and remaining limitations:** durable parent-crash/restart
+recovery requires further architecture and is not implemented. Replacement is
+modeled only with the same retained ledger/clock domain. A fresh ledger cannot
+prove prior quarantine was resolved and must not be used as recovery. The model
+is single-owner/serialized, not thread-safe, a Python sandbox, an authenticated
+approval loader or proof of arbitrary caller honesty. Candidate/disposition
+evidence is synthetic, not product validation or real resource observation.
+Windows job-before-run creation, real processes, termination, reaping, kernel/
+provider resource release, DNS/TCP/TLS/HTTP dispatch, durable ownership,
+cross-process revocation races, remote session effects, actual report delivery,
+runtime scheduling/overrun measurements and product compatibility remain
+unimplemented/unverified. No hard-real-time guarantee is claimed.
+
+**Technical recommendation:** retain fail-closed operation and stop at this
+authorized offline prototype. Require independent implementation/security review
+and explicit architecture/authorization before any durable recovery, actual
+Windows lifecycle or transport integration. Production capabilities remain
+empty/default-deny; concrete HTTPS dispatch remains disabled.
+**CCV-010-B Gates A-D remain NOT PASSED. Full CCV-010-C acceptance is withheld.
+No owner acceptance, product compatibility or laboratory authority is recorded.**
+
+### E-047 - CCV-010-C revised deadline-containment policy, 2026-11-20
+
+**CCV-010-C — REVISED DEADLINE-CONTAINMENT POLICY APPROVED.**
+**Decision date:** 2026-11-20. **Owner:** project owner, explicit decision in the
+project conversation. Approval replaces C's unconditional whole-operation
+hard-interruption acceptance requirement with qualified, deadline-accounted,
+fail-closed containment. This is approval of acceptance-policy direction only:
+**not implementation, runtime compatibility, laboratory execution or full
+milestone acceptance**.
+
+**Policy:** one immutable monotonic operation deadline covers initial authorization,
+worker creation, authentication, transport, response/contract/cookie validation,
+commitment, cleanup and reporting. Authorization, dispatch, validation and
+commitment check deadline and authorization generation. Expired/stale operations
+cannot succeed; no new dispatch after observed expiry or authorization revocation;
+late worker results cannot commit authentication, cookies, configuration or
+successful results. Deadline excess requires termination escalation and explicit
+worker-exit, reaping and resource-disposition evidence. Unconfirmed termination
+or disposition requires quarantine; no replacement operation while required
+restrictions remain unresolved, including across parent restart/recovery.
+No automatic authentication or configuration-write replay. Measure startup,
+termination, cleanup and reporting overruns on approved runtime/platform builds
+and document all timing/scheduling/resource-lifecycle uncertainty.
+
+**Excluded guarantees:** no unconditional hard-real-time termination, successful
+report delivery or complete resource release by deadline. Expiry detection, safe
+failure reporting, termination requests, confirmed exit, reaping and resource
+disposition are separate evidence. A kill request does not prove exit/release;
+worker death does not prove remote logout, secure erasure or immediate kernel
+reclamation. Reporting delays do not make an expired operation successful.
+The former acceptance requirement is explicitly replaced, not retrospectively met.
+
+**Evidence chain:** [E-043](#e-043---ccv-010-c-offline-http-safety-hardening-2026-11-19)
+initial safeguards;
+[E-044](#e-044---ccv-010-c-review-and-authorized-corrections-2026-11-19)
+corrections and historical 425-test verification;
+[E-045](#e-045---ccv-010-c-architecture-a-offline-design-2026-11-19)
+initial Architecture A design;
+[E-046](#e-046---ccv-010-c-design-revision-and-supervised-containment-2026-11-20)
+revised design; the subsequent independent E-046 technical/security review in
+the project conversation; and the owner's separate revised policy decision.
+The review concluded **ACCEPT REVISED DESIGN WITH EXPLICIT LIMITATIONS** at
+architectural-direction scope, resolved both original documentation findings,
+identified no remaining confirmed defect/vulnerability in the reviewed proposal,
+and withheld hard-real-time, implementation and laboratory acceptance.
+The owner policy decision does not upgrade that review into runtime evidence.
+E-043 through E-046 remain unchanged; **425 passing tests is historical E-044
+evidence, not a new test execution**.
+
+**Documents updated:** [DECISIONS.md](DECISIONS.md) holds the authoritative dated
+policy; [ARCHITECTURE.md](ARCHITECTURE.md) adds its current overlay;
+[NONBLOCKING_TLS_DESIGN.md](NONBLOCKING_TLS_DESIGN.md) aligns current acceptance
+and remaining limitations; [LAB_QUALIFICATION_PLAN.md](LAB_QUALIFICATION_PLAN.md)
+adds policy precedence over historical interruption/release demands and updates
+Gate B's required evidence without passing it; this tracker records E-047.
+[ROADMAP.md](ROADMAP.md) remains unchanged: its dated hard-interruption
+qualification limits are historical facts, not a directly contradictory current
+unconditional acceptance requirement. No direct roadmap conflict was found.
+
+**Remaining prerequisites:** exact IPC wire-contract specification; worker/session
+ownership; Windows process creation and job containment; parent-crash and quarantine
+recovery; authorization revocation races; termination and reaping verification;
+runtime-specific deadline qualification; TLS and product compatibility qualification;
+independent implementation/security review. Numeric laboratory settings remain
+unapproved. No prototype, supervised-containment implementation or subsequent
+milestone is authorized by this decision.
+
+**Boundaries:** production capabilities remain default-deny; concrete laboratory
+dispatch remains disabled. No product authentication, laboratory connections,
+configuration import/update/deletion or runtime compatibility is authorized or
+established. **CCV-010-B Gates A-D remain NOT PASSED. Full CCV-010-C milestone
+acceptance remains withheld.** No owner acceptance of the full milestone is recorded.
+Policy approval passes no laboratory readiness gate.
+
+**Verification:** documentation-only local links/anchors, Markdown structure,
+evidence-reference integrity, current policy/cross-document consistency, required
+restrictions and historical limitation checks. Content fingerprints verify
+preservation of the E-043-through-E-046 block and files outside the five-file
+authorized scope, including the roadmap. No new files, application/test changes,
+application test execution, Git operations, network/DNS requests, product
+authentication, configuration changes, dependency installations, PDF modifications,
+production activation, implementation or laboratory execution occurred.
+Stop after this documentation update; later work requires separate authorization.
+
+### E-046 - CCV-010-C design revision and supervised containment, 2026-11-20
+
+**Status: PROPOSED DESIGN REVISION — NOT IMPLEMENTED.**
+Authorized scope: revise only
+[NONBLOCKING_TLS_DESIGN.md](NONBLOCKING_TLS_DESIGN.md) and this tracker.
+No new files, application/test/dependency/configuration/vendor PDF changes,
+network/DNS/laboratory/product-authentication activity, production activation,
+configuration writes or subsequent milestone work. No owner acceptance.
+The historical **425 passing offline tests** belong to E-044; no application
+tests or proposed regressions were implemented or executed for this revision.
+
+**MEDIUM correction:** the proposed operation coordinator owns one absolute
+monotonic D from initial authorization/policy validation and secret preparation
+through transport, authentication interpretation, schema/contract/cookie
+validation, state commitment, disposition and reporting. Session lifetime and
+approval wall-clock freshness are separate. A shared context/enclosing boundary
+survives transport return; serialized deadline/generation/revocation barriers
+reject stale/late results and reentrant sends. Expiry cannot authenticate a role,
+commit a cookie candidate, authorize another send or become successful completion.
+This is a future integration proposal, not an implemented runtime contract.
+
+**LOW correction:** successful network release retains bounded response/cookie
+candidates through required caller validation, confirmed release and final
+deadline/ownership checks; only then may coordinator-owned state be published.
+Abort discards uncommitted candidates. Cleanup failure precludes success and
+quarantines uncertain ownership. Caller validation failure cannot silently
+commit cookies. Confirmed non-2xx priority, role-local 401 expiry and 403
+non-expiry remain unchanged.
+
+**Combined proposal:** A retains exact numeric authorization/no DNS, original-
+hostname TLS, nonblocking I/O, strict parsing and budgets. Parent supervisor
+owns D, authorization/generation registry, one worker slot, IPC/process/job
+handles, termination/reaping and final publication. One isolated, one-shot
+role/workflow worker owns complete authentication/read/validation/cleanup work,
+credentials/tokens/private candidate jars and network state. No reusable
+authenticated session, token or cookie is exported. Parent publishes only
+bounded sanitized validated read results after normal exit and disposition.
+All B gates and separate laboratory/RBAC/authentication approval still apply.
+
+**Windows/IPC:** CPython 3.13.14 on the recorded Windows target is an unexecuted
+qualification target. Proposed job-before-run creation, bounded startup and
+operation/cleanup budgets, explicit handle inheritance/ownership, health states,
+process-generation IDs and single occupied/quarantined slot prevent uncontrolled
+replacement by design logic. Orphan-safe creation/parent-crash behavior remains
+a blocking Windows integration proof, not an assumed property of ordinary spawn.
+Termination requests are not exit/reaping/resource-release evidence. Unconfirmed
+termination, reaping or handle disposition keeps failure and quarantine.
+Versioned length-prefixed bounded primitive JSON, fixed schemas/sequences/IDs,
+local channel access controls and proposed finite protocol ceilings reject
+truncation, malformed/oversized frames and stale results. No pickle/executable
+objects or raw secret diagnostics; IPC confidentiality assumes trusted OS/account.
+Worker death may leave remote sessions: no secure-erasure/revocation claim,
+automatic authentication/write replay, logout or restart.
+
+**Regression specifications:** all 22 A-01..A-22 groups retained. Added negative
+oracles for approval revocation/clock rollback, native DNS versus Python mocks,
+Windows peer/error failures, BIO saturation/WANT/partial writes, late caller
+authentication validation, cookie rollback, HTTP/1.0 TE and no-body semantics,
+fragmented termination and independent budget boundaries, candidate allocations,
+reentrancy and diagnostic secrecy. S-01..S-07 propose per-stage timeout, malformed/
+partial IPC, late/crashed worker, generation/commit races, termination/reaping/
+parent-crash failures and remote-authentication uncertainty cases.
+Synthetic control tests are explicitly distinct from separately authorized
+Windows native/process and product qualification. None was executed.
+
+**Feasibility:** standalone A cannot interrupt every synchronous operation.
+Complete-operation containment adds external observation and a termination
+option, but parent scheduling/preflight/spawn/IPC/reporting, Windows job/orphan
+integration, check-to-use revocation and kill/reap/kernel-release uncertainty
+prevent a defensible unconditional whole-operation deadline guarantee.
+Nonblocking, supervisor-observed, termination-dependent, platform-qualified,
+best-effort and not-currently-achievable claims are separated in the design.
+The unchanged mandatory requirement is not weakened: continue fail-closed;
+independent design review is required before separately authorizing implementation.
+Full CCV-010-C acceptance remains withheld; CCV-010-B Gates A-D remain NOT PASSED.
+
+**Verification and procedural deviation:** documentation-only local links/
+anchors, section/required-content consistency, Markdown structure, evidence-ID
+integrity, preserved E-043/E-044/E-045 block fingerprint and out-of-scope content
+fingerprint checks. A read-only `git status --short` and branch-name check ran
+before the attachment's no-Git restriction was fully read. This violated that
+procedural restriction; no repository write or subsequent Git operation followed.
+Existing unrelated working-tree changes were left untouched. Scope verification
+uses filesystem content hashes, not a further Git command. No dependencies or
+verification files were created. Historical evidence is preserved, not reissued.
+
+**Independent review requested:** verify the two corrected contracts, complete
+operation/commit boundary, one-shot session semantics, parent residual stalls,
+Windows job-before-run/orphan/termination/reap/handle lifecycle, bounded IPC/
+secret/status handling, added regression oracles and explicit feasibility
+against the unchanged requirement. Review is not implementation/lab authority.
+Stop after this design revision and documentation verification.
+
+### E-045 - CCV-010-C Architecture A offline design, 2026-11-19
+
+**Scope:** explicit DESIGN AND DOCUMENTATION ONLY authorization. Created
+[NONBLOCKING_TLS_DESIGN.md](NONBLOCKING_TLS_DESIGN.md) and updated this tracker.
+Status: **PROPOSED — NOT IMPLEMENTED — NOT APPROVED FOR EXECUTION**.
+This is design evidence, not owner acceptance, implementation authorization,
+runtime qualification, approval of actual bindings/numeric settings or gate
+acceptance. The user supplied branch `feature/ccv-010c-http-safety`; no Git
+operation was performed to inspect it.
+
+**Source basis:** static inspection of
+[http_backend.py](../src/cc_vision_import/http_backend.py),
+[transport.py](../src/cc_vision_import/transport.py),
+[sessions.py](../src/cc_vision_import/sessions.py),
+[authentication.py](../src/cc_vision_import/authentication.py),
+[contracts.py](../src/cc_vision_import/contracts.py),
+[_contract_validation.py](../src/cc_vision_import/_contract_validation.py),
+[capabilities.py](../src/cc_vision_import/capabilities.py),
+[mock_capabilities.py](../src/cc_vision_import/mock_capabilities.py), backend/
+transport/authentication tests and offline guards, plus
+[ARCHITECTURE.md](ARCHITECTURE.md), [LAB_QUALIFICATION_PLAN.md](LAB_QUALIFICATION_PLAN.md),
+[DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) and E-043/E-044 here.
+The existing **425 passing offline tests** remain E-044 historical evidence;
+no test suite or platform/network experiment was run for this design.
+
+**Proposed architecture:** immutable independently authorized hostname/port/
+ordered numeric IPv4/IPv6 bindings, exact selected connected-peer checks,
+raw nonblocking TCP with Windows write/exception readiness and SO_ERROR
+verification, original-host SNI/certificate/Host/cookie identity, explicit
+SSLObject/MemoryBIO encrypted-byte pumping, and a bounded incremental HTTP/1
+parser. No resolver, DNS fallback, proxy, connection pooling, insecure TLS,
+cross-role/origin TLS reuse or automatic credential/write replay is proposed.
+Existing strict header/cookie/status rules, body limits, exact operation scope,
+both E-044 corrections and independent role-session contracts are retained.
+Additional A-only protocol/resource restrictions require independent review.
+
+**Deadline/disposition assessment:** one monotonic operation expiry covers
+initialization, all address attempts/TLS/send/headers/body, eligible GET retries,
+validation and local disposition, with an explicit cleanup reserve. Readiness
+waits and cooperative checks are plausible; synchronous Python/SSL/trust/OS/
+parsing/close operations have no demonstrated worst-case return time.
+No hard whole-operation or cleanup-release bound is claimed. Failed/uncertain
+cleanup quarantines the backend and prohibits further acquisition/dispatch.
+A stuck in-process call requires external containment, not a timeout thread.
+
+**Feasibility recommendation: FEASIBLE WITH EXPLICIT RESTRICTIONS**, limited
+to a separately approved synthetic offline implementation. Architecture A alone
+does not satisfy mandatory hard whole-operation interruption. Continue
+fail-closed runtime dispatch or separately review complete-operation supervised
+process containment with bounded IPC, verified termination/reaping and resource
+ownership. No unconditional Windows hard-real-time guarantee is inferred.
+The design supplies a minimum later implementation sequence, A-01..A-22
+permanent synthetic regression matrix, platform qualification boundary and
+explicit independent design-review requirements.
+
+**Verification/boundary:** documentation-only structural, evidence-ID and local
+link checks; no application behavior or runtime compatibility certification.
+No application/test/vendor PDF/configuration changes, Git operations, dependency
+installations, DNS/network requests, live authentication, laboratory connectivity,
+production activation or subsequent milestone work. No real product addresses,
+hostnames or credentials were inserted. No owner acceptance is recorded.
+**Full CCV-010-C technical acceptance remains withheld; CCV-010-B Gates A-D
+remain NOT PASSED; laboratory execution remains UNAUTHORIZED.**
+E-043/E-044 and all historical owner decisions remain unchanged.
+Stop after the design documentation; independent design review is the pending
+decision input, not permission to implement or execute.
+
+### E-044 - CCV-010-C review and authorized corrections, 2026-11-19
+
+**Scope:** resumed source-based technical/security review of C, followed by the
+owner's explicit **"Fix all issues"** selection for the two confirmed findings.
+The earlier independent agent was cancelled without returning a report; this
+record uses freshly inspected source, guarded in-memory probes and fresh tests,
+not that agent's unreturned conclusions or the implementation summary alone.
+The review phase made no project changes. The subsequent selection authorized
+only the reported corrections, permanent regressions and related documentation.
+No Git operation, dependency installation, DNS/HTTP/product/laboratory request,
+capability activation, alternative-architecture implementation or subsequent
+milestone occurred. No owner acceptance is recorded; Gates A-D remain NOT PASSED.
+
+#### Confirmed findings and corrections
+
+| # | Severity | File | Lines | Vulnerability | Confidence |
+|---|----------|------|-------|---------------|------------|
+| 1 | 🟡 MEDIUM | [http_backend.py](../src/cc_vision_import/http_backend.py) | 295 | Malformed chunk delimiters were accepted by the delegated stdlib parser. Corrected: bounded chunk reads verify CRLF before accepting the next chunk or completion. | 10/10 |
+| 2 | ⚪ LOW | [transport.py](../src/cc_vision_import/transport.py) | 290 | Expiry during initial deadline validation was mapped to backend_failure. Corrected: preserve BackendFailure's timeout category; no dispatch/retry and conservative write uncertainty remain. | 10/10 |
+
+Line references identify the correction sites; the pre-correction chunk read was
+at line 430. A guarded wire probe with `1\r\nAXY0\r\n\r\n` returned body `A`,
+demonstrating unchecked delimiter acceptance. The new decoder retains bounded
+stdlib reads and file ownership while explicitly validating that delimiter.
+It does not introduce decompression or claim exhaustive HTTP/trailer validation.
+A clock returning 0 then 5 for a five-second operation reproduced the second
+finding with zero dispatch. New regressions cover valid binary/chunked exact
+limits, malformed delimiters, cleanup, and creation-time expiry for GET/POST.
+
+Both findings are fixed and offline-verified. The existing body caps, malformed
+length/header checks, known 401/403 precedence, atomic cookies, role isolation,
+no write replay, bounded GET retries, quarantine and production/client gates
+remain passing. The changes touch the same seven source/test/documentation files
+as E-043 and create no files.
+
+#### Review verdicts and limitations
+
+- All 29 original C test methods were inspected: 22 backend and seven transport
+  methods. Independent pre-correction full-suite rerun: **423 tests passed in
+  107.201 seconds**, zero failures/errors/skips; **0/6360** network observations,
+  **0/132** backend dispatch-spy observations.
+- Entity-body accumulation is bounded independently of declared length, including
+  exact/plus-one, binary, missing/misleading lengths and interruption. Oversized
+  declarations and non-identity compression fail before body collection. Errors
+  retain sanitized categories/status/cleanup data, not bodies/cookies/credentials.
+  Falsely short Content-Length tails are discarded rather than interpreted as
+  body or reused. This is not a header/wire quota; the private cookie jar also has
+  no lifetime count/byte cap. A 20-response zero-body probe retained 20 distinct
+  cookies: a pre-existing resource-policy observation, not a body-cap bypass.
+- Deadlines use actual monotonic readings and one expiry across retries; exhausted
+  budgets cannot renew or dispatch. They remain **cooperative checks**, not forced
+  interruption of DNS, bundled TCP/TLS, buffered I/O, CA loading, parsing or
+  resource cleanup. Known 401/403 remain prioritized once exposed to the adapter.
+  Incomplete header processing may prevent a status from being exposed.
+- Default and exact built-in factories fail before DNS. An in-memory
+  HTTPS-derived wrapper demonstrated that arbitrary injected code still executes
+  its connect method: the seam is trusted-only Python, not a network sandbox.
+  No untrusted configuration/client route to that seam was identified; nominal
+  mock declarations are likewise developer assertions, not OS isolation.
+- Exact validated targets are passed to dispatch without another URL join.
+  Origin comparison retains hostname case/default-443 equivalence, while changed
+  schemes, hosts, ports, methods, paths and queries are denied. Encoded traversal,
+  separators and noncanonical query forms are rejected. No redirect is followed.
+  TLS context/certificate/hostname requirements remain; actual TLS/IP/peer
+  behavior is unqualified. Production capabilities remain empty; concrete
+  backends remain non-mock, and controller-specific planning guards still pass.
+- An initial closed-socket probe was rejected as an invalid finding after local
+  stdlib source inspection confirmed makefile reference-counted descriptor
+  ownership. It is not included as a vulnerability.
+
+#### Architecture alternatives - evaluation only
+
+**A: approved static bindings/nonblocking socket and TLS** is the preferred
+design candidate for the narrow laboratory slice: no resolver/worker lifecycle,
+no second lookup, fewer secret/IPC boundaries and preserved per-role cookie
+ownership. Require canonical approved IPv4/IPv6 socket addresses, peer checks,
+original-host SNI/verification, remaining-budget waits across addresses, a
+nonblocking complete read/write/header/body path and a cleanup reserve. Windows
+socket selectors/nonblocking SSL are plausible, not qualified here. Reusing
+blocking makefile/http.client operations unchanged would not meet the deadline.
+State-machine/parser integration adds maintenance and needs deterministic doubles
+plus separately authorized Windows TLS/timeout/cleanup qualification.
+
+**B: supervised complete-operation processes** can retain synchronous stdlib
+HTTP internals and provide stronger containment of blocking calls, but needs
+bounded Windows spawn/IPC, per-role session/secret ownership, bounded worker
+counts and lifetime, verified termination/reaping/descriptor disposition and
+failure-closed behavior when termination cannot be confirmed. Resolution results
+must bind connect without re-resolution and preserve original-host TLS. Killing
+a worker cannot undo a remote write/session creation or prove remote revocation.
+Persistent per-role workers versus transferring cookie state is an unresolved
+architectural choice. Windows process/job lifecycle and stalled IPC require
+runtime qualification; a timed wait alone is insufficient. Complexity is higher.
+
+Neither architecture is implemented or sufficiently qualified for activation.
+If preserving blocking stdlib operations is mandatory, B is the containment
+candidate; A is simpler in lifecycle terms only if the full I/O path becomes
+nonblocking. No absolute OS scheduling/termination guarantee is inferred.
+
+#### Final correction verification and recommendation
+
+- Targeted HTTP/transport regressions: **96 passed in 54.146 seconds**.
+- Final complete guarded unittest discovery: **425 passed in 154.097 seconds**,
+  **0 failures, 0 errors, 0 skips, exit 0**; all 423 prior methods retained plus
+  two new methods.
+- Revalidation after the owner restated the two-finding-only correction scope:
+  **425 passed in 151.670 seconds**, **0 failures/errors/skips**, exit 0.
+  Existing guards again measured **0/6390** aggregate network observations and
+  **0/134** backend dispatch observations; four-file AST validation passed.
+  Both corrections and their permanent regressions were already present, so
+  this revalidation changed no application code or tests and expanded no scope.
+- Runtime: **Python 3.13.14, Windows-11-10.0.26300-SP0**.
+- Aggregate: **0/6390 network observations** from **426 existing guard-assertion
+  invocations**. Backend scope: **67 tests, 0/1005 network observations,
+  0/134 constructor/connect spy observations**. These scopes overlap; do not sum
+  them or infer OS isolation. Concrete-dispatch measurements are backend-scoped.
+- Four changed Python files passed AST syntax validation. Pylance diagnostics
+  reported no errors/warnings under active settings; unused-symbol hints remain.
+  Valid stdlib chunking remains dependent on private response-helper behavior and
+  needs supported-runtime qualification. No product compatibility is inferred.
+
+**Technical recommendation: ACCEPT OFFLINE SAFEGUARDS WITH EXPLICIT LIMITATIONS**
+for the implemented body budget, exact authorization, cooperative accounting and
+these corrections. **DO NOT ACCEPT the full CCV-010-C milestone.**
+Remaining blockers: hard DNS cancellation or approved enforced no-DNS binding;
+whole-operation interruption and bounded cleanup/reserve; address/peer/IPv4/IPv6
+qualification; actual TLS/platform behavior; numeric policy and laboratory/role/
+build/authentication/remote-session approvals. No readiness gate is promoted.
+
+### E-043 - CCV-010-C offline HTTP safety hardening, 2026-11-19
+
+**Priority:** P0. **Dependencies:** accepted A offline backend, B's documented
+safety prerequisites and explicit C offline-development authorization in the
+project conversation. **Implementation:** body limits and exact authorization
+implemented/offline-tested; absolute-deadline accounting implemented/offline-tested,
+not a hard runtime-interruption guarantee. **DNS component: STOPPED / BLOCKED.**
+**Technical recommendation: WITHHOLD full CCV-010-C acceptance.**
+No owner acceptance is recorded. No Gate A-D status or B acceptance is changed.
+
+#### A. Files and boundaries
+
+Modified, with no files created:
+
+- [http_backend.py](../src/cc_vision_import/http_backend.py)
+- [transport.py](../src/cc_vision_import/transport.py)
+- [test_http_backend.py](../tests/test_http_backend.py)
+- [test_transport.py](../tests/test_transport.py)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [ROADMAP.md](ROADMAP.md)
+- [PROGRESS.md](PROGRESS.md)
+
+No Git operation, installation, live API/DNS request, laboratory connection,
+product authentication, export, configuration change, vendor PDF/legacy edit or
+legacy execution was performed. No production capability, online CLI, product
+client or next milestone was activated.
+
+#### B-F. Root causes, safeguards and actual guarantees
+
+- **Response limits:** the prior unbounded `read()` is replaced with incremental
+  reads sized to remaining payload budget plus one detection byte, with a
+  65,536-byte per-read ceiling. A positive integer body budget must be explicitly
+  configured; there is no production-approved default. Oversized declared length
+  is rejected before reading, while returned bytes are independently counted.
+  Missing, excessive, false and contradictory lengths, exact limit/plus-one,
+  binary payloads, chunking/EOF framing, malformed headers/framing and unsupported
+  content encoding receive permanent regressions. Non-identity Content-Encoding
+  is rejected; no decompression is introduced. Bodies never enter sanitized
+  failure records. Buffering/final bytes copies remain bounded by caller policy.
+- **Absolute accounting:** the old independent socket timeouts are not an
+  operation deadline. Optional `TransportConfig.operation_timeout` creates one
+  monotonic absolute `OperationDeadline` before request TLS-context setup and
+  shares it across GET attempts. The concrete backend requires that deadline.
+  Supported blocking boundaries, socket writes and file reads/readlines refresh
+  remaining time; small chunks cannot renew expiry. Expired operations cannot
+  dispatch or retry, late success is rejected, and cookie candidates are not
+  committed after deadline/cleanup failure. Clock errors are sanitized failures.
+  Existing finite timeout ceiling is reused, not promoted to approved lab policy.
+- **DNS and hard-interruption blocker:** local Python 3.13.14 source inspection
+  of `socket.create_connection`, `HTTPSConnection.connect`, send and response
+  read paths showed uncancellable blocking `getaddrinfo` before socket timeout
+  setup, timeout reuse across addresses, bundled TCP/TLS and buffered blocking
+  calls. Boundary checks cannot interrupt a call that does not return. Thread/
+  future waiting timeouts do not stop the resolver and can leak workers. No
+  resolver worker is started. The built-in factory, and injection of that same
+  factory, now fail closed **before construction/DNS/connect**, including hostname,
+  IPv4 and IPv6 origins. This is refusal, not successful bounded resolution.
+  No multi-address resolver, address-selection/allowlist, rebinding protection or
+  peer-binding implementation is claimed.
+- **Alternatives for owner review only:** (1) approved static no-DNS address
+  bindings and actual-peer checks, plus reviewed nonblocking socket/SSL lifecycle;
+  (2) bounded supervised resolver/operation process with bounded IPC, confirmed
+  termination/reaping and descriptor disposition. Either must share one deadline
+  across approved IPv4/IPv6 addresses, connect without a second lookup, and keep
+  original-host SNI/certificate verification (or exact approved IP SAN). Neither
+  alternative is implemented, authorized for execution or platform-qualified.
+- **Explicit scope:** `DestinationAuthorization` binds one HTTPS origin and a
+  nonempty, duplicate-free finite tuple of exact method/target pairs. Hostname
+  case and implicit/explicit 443 retain same-origin equivalence. Other origin,
+  port, method, path and query changes are denied before the factory. Traversal,
+  encoded separators/double encoding, noncanonical escaping, empty components,
+  path parameters, fragments, control characters and wildcard paths are refused.
+  Canonical query key/value encoding and exact matching are required. No product
+  family/version or nominal mock declaration creates authorization. Omitted
+  authorization, response budget or deadline returns `safety_policy_rejection`.
+
+#### G-H. Compatibility and permanent regressions
+
+All **394 prior test methods are retained**. Fixture adaptation explicitly grants
+only finite synthetic method/targets, adds synthetic deadline/body budgets and
+implements bounded cursor-based reads. The existing timeout assertion now permits
+recalculation before each operation; the cleanup assertion accounts for the
+required bounded EOF probe. No prior behavior expectation is removed to hide a
+failure. The sensitive-query fixture now uses a canonical key/value encoding.
+
+**29 new permanent methods:** 22 in the existing backend test class and seven in
+the transport test class. Coverage includes actual/declared byte thresholds,
+early oversized-length refusal, absent/false lengths, binary data, wire chunk/EOF
+limits, compression/framing denial, no sensitive diagnostics, expiry before
+factory/connect/dispatch/headers/body and after cleanup, trickle chunks, internal
+stdlib chunk-loop checks, each socket write's remaining budget, shared GET retry
+budget/no expired retry, invalid clocks/configuration, known 401/403/500 priority
+with cleanup failure, cross-role expiration isolation, and default-deny exact
+origin/method/path/query/encoding restrictions. Controlled resolution-failure
+doubles prove owned-connection disposition only, not resolver cancellation.
+Built-in factory refusal is exercised for hostname, IPv4 and IPv6 origins and
+direct factory injection. Multiple-address resolution remains unimplemented,
+therefore no successful multi-address deadline test is claimed.
+
+Prior cross-role cookies, failed cookie updates after candidate deletion,
+malformed headers, atomic updates, authentication isolation, TLS checks, redirect
+denial, no backend retries, bounded eligible GET retries, no write replay,
+indeterminate writes, explicit cleanup/quarantine and concrete-backend rejection
+under synthetic capabilities all still pass. No authentication/session policy or
+generic/controller planning module is changed.
+
+Constructor/protocol compatibility: existing constructor arguments remain valid;
+new backend safety parameters and transport clock are keyword-only.
+`BackendRequest.deadline` is appended with a default, preserving prior positional
+fields; generic mocks may omit operation_timeout. Concrete sends without safety
+configuration intentionally no longer dispatch. `_Response.read(size)` now
+requires finite reads; relevant doubles were updated, not wrapped in an unbounded
+fallback. Pylance's signature checker resolved one compatible HttpTransport call;
+it found no statically resolved backend constructor calls (tests use dynamic
+imports), so it is not claimed as exhaustive proof. The full runtime suite
+exercises the constructor, session and injected-factory paths.
+
+#### I-J. Executed verification and observations
+
+- Baseline rerun: **394 passed in 97.405 seconds**. An initial invocation without
+  PYTHONPATH failed source imports; explicitly setting the local source path
+  corrected the harness without dependency installation.
+- Targeted final HTTP/transport run:
+  `python -B -m unittest test_http_backend test_transport`, with local source/test
+  directories on PYTHONPATH: **94 passed in 44.126 seconds**.
+- Final complete suite: stdlib unittest discovery over `tests`, run by
+  `TextTestRunner` with an in-process wrapper counting the existing guard-cleanup
+  assertions: **423 tests in 128.458 seconds, 0 failures, 0 errors, 0 skips,
+  exit 0**. All 394 existing methods plus 29 new methods passed. Equivalent
+  ordinary command from the repository root:
+  `$env:PYTHONPATH = Join-Path (Get-Location) 'src'; python -B -m unittest discover -s tests`.
+- Runtime: **Python 3.13.14; Windows-11-10.0.26300-SP0**.
+- Aggregate monitored network attempts: **0 / 6,360 guard-check observations**
+  across **424 cleanup-assertion invocations**, each observing the existing 15
+  guarded Python entrypoints. These are check invocations, not a count of unique
+  tests or OS isolation; nested/explicit guard assertions can add observations.
+- Backend scope: **66 tests, 0 / 990 network-guard observations** and **0 / 132
+  concrete HTTPS constructor/connect spy observations**. Existing schema scope:
+  **29 cases, 0 / 435 observations**. These overlap the aggregate and must not be
+  added to it. Concrete-dispatch counters are backend-scoped, not suite-wide.
+- Syntax: all four changed Python files passed AST parsing; Pylance syntax checks
+  reported no syntax errors. Pylance diagnostics for those files reported
+  **no errors or warnings under the active editor configuration**; unused-symbol
+  hints remain. This is not a separate strict cross-version type certification.
+- All observations are from guarded network-incapable doubles/local files;
+  no product endpoint, external resolver or network service was contacted.
+
+#### K-M. Remaining limitations, findings and technical recommendation
+
+The factory seam is trusted test injection, **not** a sandbox for arbitrary
+Python or a supported way to enable live traffic. Built-in dispatch is disabled;
+origin allowlisting is not IP authorization, egress filtering or actual-peer
+validation. No real TLS negotiation, DNS/multiple-address handling, certificate
+identity behavior, product compatibility, platform cancellation or bounded
+cleanup was exercised. The budget limits entity payload returned by the parser,
+not packet/header overhead: falsely short Content-Length tails are not returned
+as body/reused and are discarded on connection close. A status not exposed by a
+failed `getresponse` cannot be recovered as known status. In-call buffered I/O,
+TLS, filesystem trust loading/validation, cleanup and OS scheduling cannot be
+hard-interrupted by these boundary checks. No cleanup reserve is implemented.
+These limitations prohibit claiming B/C's full hard-deadline requirement passed.
+
+Numeric laboratory policy, target/IP sets, authentication/session evidence,
+remote revocation/expiry, exact builds, CC document provenance and all laboratory
+approvals remain pending. The existing laboratory-plan proposed values remain
+unapproved; synthetic test numbers are not recommendations or defaults.
+
+Security findings below distinguish corrected offline paths from unresolved
+activation blockers; this is not an independent exhaustive security review.
+
+| Severity | File | Lines | Vulnerability / disposition | Confidence |
+| --- | --- | --- | --- | --- |
+| HIGH | [Backend](../src/cc_vision_import/http_backend.py) | 424 | Unbounded response accumulation: corrected with mandatory payload budget and bounded reads; offline verified. | High |
+| HIGH | [Backend](../src/cc_vision_import/http_backend.py) | 96 | Implicit first-destination/operation scope: corrected by explicit exact origin/method/target authorization; offline verified. | High |
+| HIGH | [Backend](../src/cc_vision_import/http_backend.py) | 377 | Blocking DNS lacks cancellable deadline: unresolved architectural blocker; built-in dispatch now denied before DNS. | High |
+| HIGH | [Backend](../src/cc_vision_import/http_backend.py) | 183 | Buffered I/O/TLS/cleanup may outlive a call-level budget: hard interruption unqualified; built-in dispatch denied, injected doubles do not prove runtime bounds. | High |
+
+**Recommendation:** completed offline safeguards are ready for independent
+technical review, but **WITHHOLD full CCV-010-C technical acceptance** until a
+separately approved cancellable/no-DNS runtime architecture resolves the blockers
+and its lifecycle/interruption guarantees are qualified. Stop this milestone's
+implementation here. Do not interpret passing synthetic tests as product
+compatibility, Gate completion, owner acceptance or execution permission.
 
 ### E-042 - CCV-010-B owner planning acceptance, 2026-11-19
 
@@ -4439,6 +5440,18 @@ These are implementation/qualification gates, not permission to investigate
 external systems during offline contract development.
 
 ## Next-session checkpoint
+
+Latest bounded documentation work is
+[E-047](#e-047---ccv-010-c-revised-deadline-containment-policy-2026-11-20):
+**REVISED DEADLINE-CONTAINMENT POLICY APPROVED**, 2026-11-20, policy direction only.
+The independent E-046 review accepted architectural direction with explicit
+limitations; the owner then replaced unconditional hard-interruption acceptance
+with qualified deadline-accounted fail-closed containment. Continue fail-closed.
+No new implementation/laboratory authorization, runtime compatibility or full C
+acceptance; Gates A-D remain NOT PASSED. Exact IPC, ownership, Windows containment/
+parent-crash/quarantine recovery, revocation races, exit/reaping evidence,
+runtime/TLS/product qualification and independent implementation/security review
+remain prerequisites. E-043 through E-046 and prior owner decisions are preserved.
 
 **CCV-003-A/B/C's implemented mock-only scope is owner-accepted on 2026-11-17.
 Its 130-test acceptance evidence is preserved in E-012. Separately authorized

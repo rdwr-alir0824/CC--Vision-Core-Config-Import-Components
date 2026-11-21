@@ -1,6 +1,6 @@
 # Master Application Architecture
 
-Date: 2026-11-19
+Date: 2026-11-20
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
 foundation and contracts implemented; CCV-003-A/B transport and authentication
 mock-tested; CCV-003-C adds synthetic-version read clients and a mocked
@@ -44,6 +44,367 @@ directional approval does not authorize later milestones or live operations.
 The [progress tracker](PROGRESS.md) records approval and verification evidence.
 Decision records are in [DECISIONS.md](DECISIONS.md); their proposal-time labels
 are superseded by the approval record in the progress tracker.
+
+## CCV-010-C network-incapable prototype overlay - 2026-11-20
+
+The current task separately authorizes the first **offline supervised-operation
+control prototype**, recorded in [E-048](PROGRESS.md#e-048---ccv-010-c-network-incapable-supervised-operation-prototype-2026-11-20).
+This overlay supersedes earlier no-prototype statements only for this isolated
+application-development scope. The dated policy/design records remain historical.
+No owner acceptance, real containment, laboratory execution or subsequent
+milestone is authorized or recorded.
+
+The subsequent independent review confirmed two MEDIUM policy defects in E-048:
+reentrant admission could create two active operations, and replacement during a
+clock callback could allow admission by a superseded supervisor. The owner
+separately authorized corrections only for those findings.
+[E-049](PROGRESS.md#e-049---ccv-010-c-reentrant-admission-and-supervisor-fencing-corrections-2026-11-20)
+records the corrected implementation and **486 passing tests** (all 481 retained
+plus five focused regressions), not independent acceptance of the corrections.
+
+The independent E-049 review then confirmed a MEDIUM same-supervisor operation
+substitution defect: a clock callback could retire/recover the entry operation,
+admit a newer generation, and let the outer dispatch or commit act on that
+replacement. The narrowly authorized correction is recorded in
+[E-050](PROGRESS.md#e-050---ccv-010-c-callback-retargeting-correction-2026-11-20):
+**491 passing offline tests**, retaining all 486 prior cases plus five regression
+methods covering 21 callback scenarios. This is correction evidence, not owner
+acceptance or full milestone acceptance.
+
+Admission now reserves the shared ledger slot before its first clock callback,
+rejects nested admission even through a replacement coordinator, and releases
+the reservation in `finally` on success or failure. A replacement retires a
+pending NOT_ADMITTED operation as an ownership failure. Clock observations check
+supervisor ownership before and after the callback; transitions also check
+ownership. Admission rechecks ownership and the current authorization generation
+before becoming ADMITTED. Callback failures retain sanitized failure state, and
+ownership failures cannot become clock failures or successful commitment.
+Current-operation actions capture one operation reference and its immutable
+UUID/generation before observation. After the clock boundary they revalidate
+supervisor ownership and the current operation reference/identity, then return
+only the captured operation. Substitution rejects the outer action with the
+original failure category, or a generation failure if none exists; it cannot
+dispatch, commit or report the replacement. Clock exceptions remain sanitized,
+and original failure/quarantine/recovery evidence is preserved. Later legitimate
+recovery, admission and explicit replacement actions remain supported. Other
+transition, candidate, worker and historical-recovery paths already retain
+explicit operation references rather than selecting a fresh current operation.
+This is reentrant-call protection in the serialized offline model, **not
+thread-safe synchronization, real process containment or durable recovery**.
+Independent follow-up review and owner acceptance remain separate and pending.
+
+### Implemented contracts and ownership
+
+[supervised_operations.py](../src/cc_vision_import/supervised_operations.py)
+has no application, network, TLS or process imports, endpoints or execution
+callbacks. Nothing imports it through existing transport, sessions, authentication,
+product clients or CLI entry points. `dispatch()` changes logical state and a
+counter only. Worker doubles exist exclusively in
+[test_supervised_operations.py](../tests/test_supervised_operations.py).
+
+Schema version 1 defines frozen local UUID-v4/generation identities, operation
+requests, admitted/expiry timestamps, candidates, recovery evidence and reporting
+snapshots. Operation, authorization and worker identities are separate; native
+controller IDs and PIDs are not identities. Request/result/evidence references
+are synthetic UUIDs, not credentials, cookies, product bodies or reusable sessions.
+Versions, exact scalar types, finite timestamps and bounded generations are
+checked; bool is not an integer generation/version. Candidate schemas are
+rechecked at receipt. Snapshots and staged/committed candidates contain only
+immutable values. Errors expose fixed `Failure` categories, not input or callback
+exception text.
+
+The coordinator deliberately owns its injected monotonic clock separately from
+the frozen `Deadline` timestamps. It does not import the existing transport
+deadline or authentication contracts: these are distinct offline internal
+contracts, not replacements or permission to integrate them.
+
+`RecoveryLedger(capacity=...)` is mandatory, in-memory and bounded to at most
+128 retained operations and 128 authorization identities. Exhaustion fails
+explicitly; history is not evicted to reuse a generation. One operation is
+active per ledger. Operation/worker UUID reuse and nonincreasing generations
+are denied. Authorization replacement requires a higher generation; revocation
+cannot be undone for the old generation.
+
+### Coordinator and candidate transaction
+
+The normal explicit transition chain is:
+
+`NOT_ADMITTED -> ADMITTED -> STARTING -> READY -> RUNNING ->
+CANDIDATE_RECEIVED -> VALIDATING -> READY_TO_COMMIT -> COMPLETED`.
+
+Admission reserves the logical worker slot; STARTING models possible worker
+existence. READY is an additional explicit state, not permission to dispatch.
+Illegal transitions, duplicate dispatch/commit and restarting a completed
+operation are rejected. Admission/active failures transition to FAILED or
+TIMED_OUT; failure-only transitions allow TERMINATION_REQUESTED and QUARANTINED.
+The first failure category is retained through cleanup, termination and recovery.
+No failed, timed-out or quarantined generation can become successful.
+
+Admission samples the injected clock before request validation and establishes
+one immutable deadline. A separate admission-freshness cutoff can reject an
+already-expired request; it never renews the operation budget. Startup, READY,
+dispatch, candidate receipt, validation and final commitment observe the same
+deadline and current authorization. Invalid, nonfinite or backward clock
+observations fail closed. Cleanup/recovery evidence remains admissible after
+failure/expiry, but can never publish success. No retry or replay exists.
+
+Candidates remain staged until exact schema/identity/generation, complete and
+validated flags, current authorization and deadline checks pass. This models
+envelope validation of a synthetic reference, not product-result semantic
+validation or proof that a compromised worker told the truth. Successful commit
+also requires separately observed normal exit, successful reaping and
+`successful_release`. Exit/reaping/disposition observations are scoped to the
+exact worker generation. A stale operation candidate cannot modify a replacement
+operation. The final commitment transition checks deadline/authorization again;
+the frozen completed snapshot records that observation, not a guarantee of
+physical report delivery before expiry or authorization for later work.
+
+### Failure disposition, quarantine and replacement
+
+Any abort after startup logically requests termination and requires quarantine.
+A request never implies exit; exit never implies reaping or complete disposition.
+`successful_release` and `failure_abort_disposition` are distinct. Failed cleanup,
+abnormal exit, missing evidence or failed reaping cannot commit a result.
+Failure snapshots retain independent termination, exit, reaping, disposition and
+quarantine fields, including when a timeout remains the primary failure.
+
+Unresolved quarantine blocks new admission/dispatch. Clearing its restriction
+requires explicit recovery evidence matching the exact operation and worker,
+confirmed exit, reaping and failure/abort disposition. Such evidence is a trusted
+offline owner's declaration, not a cryptographic proof or OS observation. Recovery
+marks the failed generation QUARANTINED/RECOVERED; it never revives it. Confirmed
+exit without a known status is reported separately from normal/abnormal exit.
+
+Constructing a replacement coordinator with the **same ledger and clock domain**
+fences the old owner, observes outstanding expiry and fails/quarantines any
+possibly running operation. Existing quarantine/history cannot be discarded by
+that replacement. This is serialized, single-owner logical ownership, not a
+thread-safe supervisor or a sandbox for caller-supplied Python.
+
+**Stopped durable-recovery component:** there is no persistence, recovery loader,
+parent-crash protocol, Windows job/process implementation or independent way to
+prove that a newly constructed ledger represents a previously clean owner.
+The trusted caller must retain the original ledger; constructing a fresh one is
+not recovery. Actual restart durability, evidence provenance and cross-process
+revocation fencing require additional architecture/authorization and remain
+unimplemented, not silently treated as recovered.
+
+### In-memory IPC protocol version 1
+
+`FrameCodec(request, deadline, limits)` models one bounded bidirectional transcript.
+Each call accepts/emits exactly one complete frame: **four-byte unsigned
+big-endian payload length**, followed by strict UTF-8 JSON. No actual channel,
+pipe, endpoint, process or incremental unbounded receive buffer exists.
+The codec binds the immutable admitted deadline, identities and generations.
+Decoded frozen frames retain their scope and immutable primitive payload pairs.
+
+All messages require exactly `version`, `type`, `sequence`, `operation_id`,
+`operation_generation`, `authorization_id`, `authorization_generation`,
+`worker_id`, `worker_generation`, and `payload`. Sequences start at 1 and
+increase across both directions. IDs/generations must match the codec's request.
+
+| Message/direction | Exact payload fields |
+| --- | --- |
+| REQUEST, parent to worker | `request_ref`, `admitted_at`, `expires_at`, `clock_domain` (fixed `injected-monotonic`); timestamps must match the bound deadline |
+| READY, worker to parent | Empty |
+| PERMIT, parent to worker | Empty; envelope fixes operation/authorization/worker scope |
+| CANDIDATE, worker to parent | `schema_version`, `candidate_ref`, `result_ref`, `complete`, `validated`; optional `evidence_ref` only |
+| FAILURE, worker to parent | `category`, a fixed `Failure` value |
+| CANCEL, parent to worker | `category`, a fixed `Failure` value |
+
+Transcript order is REQUEST -> READY -> PERMIT -> one CANDIDATE, or a terminal
+FAILURE/CANCEL after REQUEST. READY/health is not success. Unexpected direction/
+type/order, repeated terminal messages, stale sequence/generation, missing or
+unknown fields, duplicate JSON keys at any level, malformed UTF-8/JSON, unsupported
+JSON/Python values, nonfinite numbers and truncated/trailing frames are rejected.
+Any rejected encode/decode poisons that transcript; it cannot be reused.
+This intentionally smaller offline subset does not implement the proposed
+STAGE/CONFIRMED_STATUS messages or a real permission-delivery mechanism.
+
+`ProtocolLimits` requires explicit positive request/result/frame/aggregate-payload/
+total-wire/frame-count/nesting maxima. Proposed offline implementation ceilings
+are respectively 16 KiB / 64 KiB / 64 KiB / 256 KiB / 262272 bytes / 32 / 8;
+they are **not defaults or approved production/laboratory settings**. Prefixes
+count toward the separate wire budget. Shape/string domains are fixed and bounded:
+ten envelope fields, at most six payload fields, UUID strings and fixed enums.
+Oversized declarations/aggregate/count are rejected before JSON parsing; nesting
+is scanned before decoding objects. The caller must not allocate an unbounded
+input first: accepting a bounded existing bytes object is not OS-level memory,
+CPU or parser-interruption containment.
+
+### Verification and unchanged boundaries
+
+E-048 records **481 passing offline tests**, retaining all 425 prior cases plus
+56 permanent deterministic cases. Injected clocks use no sleeps. Python-level
+network/TLS/process/live-dispatch guards and simulated-dispatch spies observe
+the boundaries; they are not proof of OS isolation. Both new Python files have
+no syntax errors or Pylance diagnostics.
+
+Actual Windows creation/termination/reaping, network/DNS/TCP/TLS deadlines,
+physical cleanup, durable recovery, scheduling/reporting timing, remote-session
+effects and product compatibility remain unimplemented/unverified. Production
+capabilities remain empty/default-deny and concrete HTTPS dispatch stays disabled.
+**CCV-010-B Gates A-D remain NOT PASSED; full CCV-010-C acceptance is withheld.**
+Independent implementation/security review and separate authorization are still
+required before considering any real lifecycle or integration work.
+
+## CCV-010-C deadline-containment policy overlay - 2026-11-20
+
+**CCV-010-C — REVISED DEADLINE-CONTAINMENT POLICY APPROVED.**
+The owner's [2026-11-20 decision](DECISIONS.md#owner-policy-decision---ccv-010-c-deadline-containment-2026-11-20),
+recorded in [E-047](PROGRESS.md#e-047---ccv-010-c-revised-deadline-containment-policy-2026-11-20),
+replaces C's unconditional whole-operation hard-interruption acceptance
+requirement with qualified, deadline-accounted, fail-closed containment.
+It does not accept an implementation, runtime compatibility, laboratory execution
+or the full milestone. Earlier dated implementation/evidence descriptions below
+remain historical; their hard-interruption limitations are not retroactively fixed.
+
+The proposed coordinator/parent owns one immutable monotonic deadline from initial
+authorization through startup, authentication, transport, parsing/contract/cookie
+validation, commitment, disposition and final reporting. Check deadline and current
+authorization/generation at authorization, dispatch, validation and commitment.
+Expired/stale operations cannot succeed; late worker results cannot commit
+authentication, cookies, configuration or successful results. No new dispatch
+after observed expiry or authorization revocation; no automatic authentication
+or configuration-write replay.
+
+The [revised design](NONBLOCKING_TLS_DESIGN.md) keeps credentials, tokens, cookies
+and network state in a one-shot role/workflow worker. Parent owns lifecycle and
+sanitized final publication. Deadline excess requires termination escalation,
+explicit exit/reaping/resource-disposition evidence and quarantine on uncertainty.
+Required quarantine blocks replacement operations, including after parent recovery.
+Measure startup, termination, cleanup and reporting overruns on approved builds.
+Distinguish expiry detection, failure reporting, termination request, confirmed exit
+and resource disposition; none alone proves the others.
+
+No unconditional hard-real-time termination or complete resource release by deadline
+is claimed. Scheduling/native-call/reporting delays, revocation check-to-use races,
+kernel/provider reclamation and remote-session effects remain explicit uncertainties.
+Exact IPC wire schemas, worker/session ownership, Windows job-before-run creation,
+parent-crash/quarantine recovery, termination/reaping verification, runtime deadline,
+TLS/product qualification and independent implementation/security review remain
+prerequisites. No prototype or containment code is authorized by this policy.
+
+Production capabilities stay default-deny and concrete laboratory dispatch disabled.
+No laboratory connections, product authentication or configuration import/update/
+deletion are authorized; no runtime compatibility is established.
+**Gates A-D remain NOT PASSED; full CCV-010-C acceptance remains withheld.**
+E-043 through E-046 and the historical E-044 425-test result are preserved;
+no application tests were rerun for this policy update.
+
+## CCV-010-C safety overlay - 2026-11-19
+
+This dated overlay supersedes historical backend implementation descriptions
+below, not prior owner decisions. [E-043](PROGRESS.md#e-043---ccv-010-c-offline-http-safety-hardening-2026-11-19)
+records **423 passing offline tests**, including all 394 prior cases and 29 new
+regressions. Subsequent source-based review and separately authorized corrections
+are recorded in [E-044](PROGRESS.md#e-044---ccv-010-c-review-and-authorized-corrections-2026-11-19):
+**425 tests pass**, retaining those 423 cases and adding two regressions.
+The backend now verifies chunk-data CRLF delimiters rather than accepting the
+stdlib decoder's unchecked two-byte discard; valid chunked binary responses,
+incremental budgets and resource ownership are preserved. This bounded decoder
+uses private stdlib response helpers and still needs supported-runtime
+qualification; it is not a claim of exhaustive HTTP/trailer grammar validation.
+Deadline expiry during initial deadline validation now retains the timeout
+category instead of becoming a backend failure. Neither correction implements
+DNS, hard interruption or a new live dispatch path.
+C's response-body and authorization safeguards are implemented and
+offline-tested; absolute-deadline accounting is implemented but **hard runtime
+interruption is not qualified**. Hard DNS cancellation is **blocked**, not
+implemented. Full C technical acceptance is withheld; no owner acceptance is
+recorded. B's Gates A-D remain NOT PASSED, and production remains default-deny.
+
+### Explicit concrete-backend contracts
+
+- [StdlibHttpBackend](../src/cc_vision_import/http_backend.py) remains inert on
+  construction and is never a `MockSessionBackend`. Sending now requires a
+  caller-supplied positive integer `max_response_bytes`, a
+  `DestinationAuthorization`, and a shared `OperationDeadline`. Omitted safety
+  inputs produce a sanitized `safety_policy_rejection`; no numeric live defaults
+  or laboratory permissions are supplied.
+- `DestinationAuthorization` binds one approved HTTPS origin and a nonempty,
+  duplicate-free tuple of exact `(HttpMethod, origin-form target)` operations.
+  Hostname case and omitted HTTPS port 443 denote the same origin; other hosts,
+  ports and schemes do not. Paths and queries must match exactly. Canonical
+  component encoding is required; traversal, encoded separators/double encoding,
+  empty path components, path parameters, fragments, controls and wildcards are
+  rejected. Queries must have canonical explicit key/value encoding. This is
+  deliberately narrower than arbitrary valid HTTP URLs and is not vendor URI
+  qualification. Capabilities, product families and versions grant no scope.
+- Body reads request at most the lesser of 65,536 bytes and remaining payload
+  allowance plus one detection byte. That read chunk is an implementation detail,
+  **not** an approved response-size setting. Declared oversize is rejected before
+  body reads; absent/misleading lengths cannot enlarge the returned payload
+  budget. Exact-limit binary bodies survive unchanged. Existing strict framing
+  and malformed-header checks remain; non-identity Content-Encoding is rejected,
+  not decompressed. Failure diagnostics retain categories/status/cleanup state,
+  not bodies. Accumulation and the final bytes copy are bounded, not streaming
+  directly to persistent records.
+- `TransportConfig.operation_timeout` is optional only for backward-compatible
+  generic mock use. When supplied it uses the existing finite positive,
+  at-most-300-second validation ceiling, not an approved laboratory deadline.
+  `HttpTransport` creates one absolute monotonic expiry before request TLS setup,
+  shares it across eligible GET retries, checks before dispatch/after response
+  validation and cannot begin an expired retry. Concrete dispatch rejects an
+  absent deadline. Backend boundaries, each guarded socket write and each
+  stdlib file read/readline recompute remaining budget and lower supported
+  socket timeouts. Known non-success status retains priority over secondary
+  deadline/cleanup failure; 401 expiration and 403 non-expiration remain intact.
+  Writes are never replayed and retain conservative indeterminate outcomes.
+  Cleanup failures remain explicit, block retries/reuse and retain resources
+  for local cleanup; no cookie candidate is committed after failure/expiry.
+
+### Fail-closed runtime boundary and stopped DNS component
+
+The built-in HTTPS factory, including direct injection of that same factory, is
+now **rejected before construction, resolution or connection**, even with safety
+configuration. The remaining factory seam is for trusted **network-incapable
+offline doubles only**, not a supported live escape hatch, authorization
+mechanism or sandbox for caller-supplied Python. CLI, clients, production
+capabilities, authentication policy and session contracts are not activated or
+changed. Certificate/hostname checks and TLS key-log denial remain mandatory.
+
+Local Python 3.13.14 source inspection confirmed that `socket.create_connection`
+calls blocking `getaddrinfo` before setting socket timeouts, then reuses a timeout
+across returned addresses. HTTPS connect also bundles TCP and TLS, while buffered
+read/readline and cleanup can block within one call. Boundary checks cannot
+interrupt those calls. A timed-out thread/future cannot cancel the underlying
+resolver, and repeated workers could leak indefinitely. **No resolver thread,
+process, DNS lookup, address selection, IP allowlist or peer-binding implementation
+is introduced.** IPv4/IPv6 origins are tested for fail-closed refusal, not
+successful resolution or multiple-address failover.
+
+DNS rebinding, exact approved address sets, IPv4/IPv6 ordering, multi-address
+budget sharing and actual peer checks remain architectural/runtime blockers.
+Origin allowlisting alone is not an egress firewall. Buffered-read timing,
+TLS handshake interruption, bounded cleanup, OS scheduling and cancellation
+cannot be certified by the synthetic clock/doubles. A status not exposed because
+`getresponse` fails cannot be treated as a known status. A falsely short
+Content-Length delimits the stdlib entity: trailing wire bytes are not returned
+as body or reused on another request, and are discarded on connection close;
+the payload cap is not a total-wire/packet quota.
+
+Smallest alternatives for separate owner review, **neither implemented nor
+authorized for execution**:
+
+1. Approved static address bindings with no DNS, exact approved IPv4/IPv6 socket
+   addresses and actual-peer validation, without re-resolution. TLS must keep
+   the original approved hostname/SNI and verified certificate identity (or the
+   approved IP SAN for an IP origin). A reviewed nonblocking socket/SSL state
+   machine must share the deadline across every address and I/O stage.
+2. A bounded, supervised resolver/operation process with bounded IPC/results,
+   verified cancellation/termination/reaping and descriptor ownership. No
+   further dispatch if worker termination cannot be confirmed. Validate all
+   returned addresses against approval, bind connect to the selected address
+   without a second lookup, and retain original-host TLS verification.
+
+Both need lifecycle/resource-leak tests and supported-platform qualification
+before activation. No dependency installation or alternative implementation is
+started. Proposed lab numbers remain separately unapproved in
+[the laboratory plan](LAB_QUALIFICATION_PLAN.md#5-mandatory-network-and-backend-safety-prerequisites).
+That accepted planning document remains a historical planning artifact; its
+implementation observations are not evidence that these newer controls were
+present when B was accepted.
 
 ## Offline API schema qualification boundary - CCV-009-B
 

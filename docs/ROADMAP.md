@@ -23,6 +23,20 @@ and incomplete contracts; production remains default-deny.**
 Broader/future implementation remains proposed/not authorized. Live product
 compatibility and qualification are explicitly pending.
 
+**2026-11-19 C overlay:** separately authorized CCV-010-C implements bounded
+response bodies, explicit destination/operation authorization and shared
+monotonic deadline accounting. Following source-based review and owner-selected
+"Fix all issues", E-044 corrects chunk-delimiter validation and initial expiry
+classification: **425 offline tests pass** (394 baseline + 29 C regressions +
+two correction regressions). **Hard DNS cancellation is blocked; hard whole-operation interruption
+remains unqualified.** Built-in HTTPS dispatch now fails closed before DNS.
+The injected factory is an offline-double seam only. Full C technical acceptance
+is withheld pending a separately reviewed runtime design; no owner acceptance
+is recorded. See [E-043](PROGRESS.md#e-043---ccv-010-c-offline-http-safety-hardening-2026-11-19)
+and [E-044 corrections](PROGRESS.md#e-044---ccv-010-c-review-and-authorized-corrections-2026-11-19),
+plus the [architecture overlay](ARCHITECTURE.md#ccv-010-c-safety-overlay---2026-11-19).
+B's planning acceptance and all NOT PASSED Gates A-D are unchanged.
+
 Priorities: P0 = foundation/safety gate; P1 = initial migration functionality;
 P2 = release-readiness expansion. Ordering does not authorize implementation.
 Each milestone requires explicit authorization and separate implementation and
@@ -48,6 +62,7 @@ runtime or API certification.
 | CCV-009-B | Version-pinned API evidence and offline schema qualification | P1 | Accepted A; E-035/E-036 and independent review | Owner-accepted with non-blocking observations on 2026-11-18 (E-037), bounded offline scope only; 350 tests plus review probes accepted; CC provenance/schema gaps unresolved; no production/runtime qualification. |
 | CCV-010-A | Concrete HTTP backend and offline compliance | P0 | Accepted CCV-009-B; E-038/E-039; independent follow-up and explicit owner decision | OWNER ACCEPTED - offline scope, 2026-11-19 (E-040); 394 historical passing tests; no actual dispatch or production activation. |
 | CCV-010-B | Read-only laboratory qualification planning | P1 | Accepted CCV-010-A; exact evidence/builds; backend safety; separate lab and execution approvals | Planning/documentation only; plan prepared (E-041). Gates A-D not passed; lab activation/execution unauthorized; no application implementation. |
+| CCV-010-C | HTTP backend safety hardening | P0 | Accepted A offline scope; B safety prerequisites; separate C offline-development authorization | Implemented/offline-tested body limits and exact operation scope; shared deadline accounting verified; DNS cancellation blocked and hard runtime interruption unqualified. E-043 review followed by authorized E-044 corrections: 425 passes, zero guarded attempts. Built-in dispatch denied; full C technical acceptance withheld; no owner acceptance or lab permission. |
 
 Milestone numbers identify workstreams, not a rigid execution order. CCV-009 is
 able to run alongside approved development after the CCV-001 gate, not wait

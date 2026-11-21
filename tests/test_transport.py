@@ -2,7 +2,7 @@ import importlib
 import ssl
 import traceback
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from offline_support import OfflineTestCase
 
@@ -40,6 +40,146 @@ class TransportTests(OfflineTestCase):
     def transport(self, *outcomes, **configuration):
         session = FakeSession(*outcomes)
         return self.t.HttpTransport(self.config(**configuration), session), session
+
+    def test_deadline_retries_share_absolute_budget_and_clock_domain(self):
+        clock = Mock(return_value=10.0)
+        requests, remaining = [], []
+        def send(request):
+            requests.append(request)
+            remaining.append(request.deadline.remaining())
+            clock.return_value += 2.0
+            if len(requests) == 1:
+                raise self.t.BackendFailure(self.t.ErrorCategory.CONNECTION)
+            return self.t.HttpResponse(200, b"ok")
+        transport = self.t.HttpTransport(
+            self.config(operation_timeout=5, read_retries=3),
+            Mock(send=Mock(side_effect=send)), clock=clock,
+        )
+        self.assertEqual(transport.request(self.t.HttpMethod.GET, ()).body, b"ok")
+        self.assertEqual(remaining, [5.0, 3.0])
+        self.assertIs(requests[0].deadline, requests[1].deadline)
+        self.assertEqual(requests[0].deadline.expires_at, 15.0)
+
+    def test_deadline_expired_get_cannot_retry_after_timeout_or_connection_failure(self):
+        for reason in (self.t.ErrorCategory.CONNECTION, self.t.ErrorCategory.TIMEOUT):
+            clock = Mock(return_value=0.0)
+            def send(request):
+                clock.return_value = 5.0
+                raise self.t.BackendFailure(reason)
+            backend = Mock(send=Mock(side_effect=send))
+            transport = self.t.HttpTransport(
+                self.config(operation_timeout=5, read_retries=3), backend, clock=clock,
+            )
+            with self.assertRaises(self.t.TransportError) as caught:
+                transport.request(self.t.HttpMethod.GET, ())
+            self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+            self.assertEqual(caught.exception.attempts, 1)
+            self.assertEqual(backend.send.call_count, 1)
+
+    def test_deadline_expiry_during_tls_setup_prevents_backend_dispatch(self):
+        clock = Mock(return_value=0.0)
+        backend = Mock()
+        transport = self.t.HttpTransport(
+            self.config(operation_timeout=5, read_retries=3), backend, clock=clock,
+        )
+        original = self.t._tls_context
+        def slow_context(trusted_ca):
+            context = original(trusted_ca)
+            clock.return_value = 5.0
+            return context
+        with patch.object(self.t, "_tls_context", side_effect=slow_context):
+            with self.assertRaises(self.t.TransportError) as caught:
+                transport.request(self.t.HttpMethod.GET, ())
+        self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+        self.assertEqual(caught.exception.attempts, 1)
+        backend.send.assert_not_called()
+
+    def test_deadline_late_success_is_not_accepted_and_writes_remain_indeterminate(self):
+        for method in (self.t.HttpMethod.GET, self.t.HttpMethod.POST):
+            clock = Mock(return_value=0.0)
+            def send(request):
+                clock.return_value = 5.0
+                return self.t.HttpResponse(200, b"ok")
+            backend = Mock(send=Mock(side_effect=send))
+            transport = self.t.HttpTransport(
+                self.config(operation_timeout=5, read_retries=3), backend, clock=clock,
+            )
+            with self.assertRaises(self.t.TransportError) as caught:
+                transport.request(method, ())
+            self.assertEqual(caught.exception.reason, self.t.ErrorCategory.TIMEOUT)
+            self.assertEqual(caught.exception.category, (
+                self.t.ErrorCategory.TIMEOUT if method == self.t.HttpMethod.GET
+                else self.t.ErrorCategory.INDETERMINATE_WRITE
+            ))
+            self.assertEqual(backend.send.call_count, 1)
+
+    def test_deadline_known_rejection_and_cleanup_failure_remain_primary(self):
+        for status in (401, 403, 500):
+            clock = Mock(return_value=0.0)
+            def send(request):
+                clock.return_value = 5.0
+                raise self.t.BackendFailure(
+                    self.t.ErrorCategory.TIMEOUT, status=status, cleanup_failed=True,
+                )
+            backend = Mock(send=Mock(side_effect=send))
+            transport = self.t.HttpTransport(
+                self.config(operation_timeout=5, read_retries=3), backend, clock=clock,
+            )
+            with self.assertRaises(self.t.TransportError) as caught:
+                transport.request(self.t.HttpMethod.GET, ())
+            self.assertEqual(caught.exception.status, status)
+            self.assertTrue(caught.exception.cleanup_failed)
+            self.assertEqual(caught.exception.category, {
+                401: self.t.ErrorCategory.AUTHENTICATION,
+                403: self.t.ErrorCategory.AUTHORIZATION, 500: self.t.ErrorCategory.HTTP,
+            }[status])
+            self.assertEqual(backend.send.call_count, 1)
+
+    def test_deadline_invalid_clock_values_and_exceptions_fail_sanitized(self):
+        for value in (None, True, float("inf"), float("nan"), "secret"):
+            backend = Mock()
+            clock = Mock(return_value=value)
+            transport = self.t.HttpTransport(
+                self.config(operation_timeout=5), backend, clock=clock,
+            )
+            with self.assertRaises(self.t.TransportError) as caught:
+                transport.request(self.t.HttpMethod.GET, ())
+            self.assertEqual(caught.exception.category, self.t.ErrorCategory.BACKEND)
+            self.assertNotIn("secret", "".join(traceback.format_exception(caught.exception)))
+            backend.send.assert_not_called()
+        backend = Mock()
+        transport = self.t.HttpTransport(
+            self.config(operation_timeout=5), backend,
+            clock=Mock(side_effect=RuntimeError("secret")),
+        )
+        with self.assertRaises(self.t.TransportError) as caught:
+            transport.request(self.t.HttpMethod.GET, ())
+        self.assertIsNone(caught.exception.__context__)
+        self.assertNotIn("secret", "".join(traceback.format_exception(caught.exception)))
+        backend.send.assert_not_called()
+
+    def test_deadline_configuration_requires_finite_positive_bounded_seconds(self):
+        for value in (0, -1, True, "5", float("inf"), float("nan"), 301):
+            with self.assertRaises(self.contracts.ContractValidationError) as caught:
+                self.config(operation_timeout=value)
+            self.assertEqual(caught.exception.result.issues[0].path, "$.operation_timeout")
+
+    def test_deadline_expiry_during_creation_remains_a_timeout_without_dispatch(self):
+        for method in (self.t.HttpMethod.GET, self.t.HttpMethod.POST):
+            backend = Mock()
+            transport = self.t.HttpTransport(
+                self.config(operation_timeout=5, read_retries=3), backend,
+                clock=Mock(side_effect=[0.0, 5.0]),
+            )
+            with self.assertRaises(self.t.TransportError) as caught:
+                transport.request(method, ())
+            self.assertEqual(caught.exception.reason, self.t.ErrorCategory.TIMEOUT)
+            self.assertEqual(caught.exception.category, (
+                self.t.ErrorCategory.TIMEOUT if method == self.t.HttpMethod.GET
+                else self.t.ErrorCategory.INDETERMINATE_WRITE
+            ))
+            self.assertEqual(caught.exception.attempts, 1)
+            backend.send.assert_not_called()
 
     def test_all_five_methods_forward_exactly_once_and_protect_representations(self) -> None:
         marker = "sensitive-fixture-marker"

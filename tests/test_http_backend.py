@@ -19,10 +19,14 @@ class MemorySocket:
     def __init__(self, events):
         self.events = events
         self.timeouts = []
+        self.writes = []
 
     def settimeout(self, value):
         self.events.append("read-timeout")
         self.timeouts.append(value)
+
+    def sendall(self, data):
+        self.writes.append(data)
 
 
 class MemoryResponse:
@@ -34,17 +38,22 @@ class MemoryResponse:
         self.close_failures = close_failures
         self.close_calls = 0
         self.events = []
+        self.offset = 0
+        self.read_sizes = []
 
     def getheaders(self):
         if self.failure is not None and self.failure[0] == "headers":
             raise self.failure[1]
         return self.headers
 
-    def read(self):
+    def read(self, size):
         self.events.append("read")
+        self.read_sizes.append(size)
         if self.failure is not None and self.failure[0] == "read":
             raise self.failure[1]
-        return self.body
+        chunk = self.body[self.offset:self.offset + size]
+        self.offset += len(chunk)
+        return chunk
 
     def close(self):
         self.events.append("response-close")
@@ -96,6 +105,19 @@ class MemoryConnection:
         if self.close_failures:
             self.close_failures -= 1
             raise RuntimeError(SECRET)
+
+
+class IncrementalResponse(MemoryResponse):
+    def __init__(self, *args, clock=None, delay=0, chunk_size=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clock = clock
+        self.delay = delay
+        self.chunk_size = chunk_size
+
+    def read(self, size):
+        if self.clock is not None:
+            self.clock.return_value += self.delay
+        return super().read(min(size, self.chunk_size))
 
 
 class WireFile(io.BytesIO):
@@ -218,20 +240,49 @@ class HttpBackendTests(OfflineTestCase):
             method=self.t.HttpMethod.GET, url="https://backend.invalid/",
             headers={}, body=None, connect_timeout=2, read_timeout=4,
             tls_context=self.context,
+            deadline=self.t.OperationDeadline(float("1e100")),
         )
         values.update(overrides)
         return self.t.BackendRequest(**values)
 
     def backend(self, *connections):
         factory = Mock(side_effect=connections)
-        backend = self.b.StdlibHttpBackend(connection_factory=factory)
+        backend = self.b.StdlibHttpBackend(
+            connection_factory=factory, authorization=self.authorization(),
+            max_response_bytes=4096,
+        )
         self.addCleanup(backend.close)
         return backend, factory
 
+    def authorization(self):
+        # Exact synthetic fixture scope only; no product capabilities are consulted.
+        return self.b.DestinationAuthorization(
+            "https://backend.invalid",
+            tuple((method, target) for method in self.t.HttpMethod for target in (
+                "/", "/api", "/restricted/item", "/mgmt/system/user/login",
+                "/?marker=" + SECRET,
+                "/api/name%20%3F%23%3A%40?filter=x%26next%3Dhttps%3A%2F%2Fother.invalid",
+            )),
+        )
+
+    def bounded_backend(self, *connections, maximum=4, authorization=None, clock=None):
+        clock = Mock(return_value=0.0) if clock is None else clock
+        factory = Mock(side_effect=connections)
+        backend = self.b.StdlibHttpBackend(
+            connection_factory=factory, max_response_bytes=maximum,
+            authorization=self.authorization() if authorization is None else authorization,
+        )
+        self.addCleanup(backend.close)
+        return backend, factory, self.t.OperationDeadline(5.0, clock), clock
+
     def transport(self, *connections, **overrides):
         backend, factory = self.backend(*connections)
-        values = dict(base_url="https://backend.invalid", connect_timeout=2, read_timeout=4)
+        values = dict(
+            base_url="https://backend.invalid", connect_timeout=2, read_timeout=4,
+            operation_timeout=30,
+        )
         values.update(overrides)
+        backend._authorization = replace(self.authorization(), origin=values["base_url"])
         return self.t.HttpTransport(self.t.TransportConfig(**values), backend), backend, factory
 
     def safe(self, error):
@@ -270,6 +321,7 @@ class HttpBackendTests(OfflineTestCase):
                 self.t.TransportConfig(
                     base_url="https://backend.invalid", connect_timeout=2, read_timeout=4,
                     read_retries=read_retries,
+                    operation_timeout=30,
                 ),
             )
         return manager, source, destination, source_factory, destination_factory, resolver
@@ -296,7 +348,8 @@ class HttpBackendTests(OfflineTestCase):
         backend.send(self.request(connect_timeout=1.5, read_timeout=7.25))
         self.assertEqual(factory.call_args.args, ("backend.invalid", 443))
         self.assertEqual(factory.call_args.kwargs, {"timeout": 1.5, "context": self.context})
-        self.assertEqual(connection.sock.timeouts, [7.25])
+        self.assertTrue(connection.sock.timeouts)
+        self.assertTrue(all(timeout == 7.25 for timeout in connection.sock.timeouts))
         self.assertEqual(self.context.verify_mode, ssl.CERT_REQUIRED)
         self.assertTrue(self.context.check_hostname)
         self.assertEqual(connection.events[:3], ["connect", "read-timeout", "request"])
@@ -681,7 +734,8 @@ class HttpBackendTests(OfflineTestCase):
         connection = MemoryConnection(MemoryResponse(body=b"synthetic"))
         backend, factory = self.backend(connection)
         self.assertEqual(backend.send(self.request()).body, b"synthetic")
-        self.assertEqual(connection.events[-3:], ["read", "response-close", "connection-close"])
+        self.assertEqual(connection.events[-2:], ["response-close", "connection-close"])
+        self.assertEqual(connection.response.read_sizes, [4097, 4088])
         backend.close()
         backend.close()
         self.assertEqual(connection.close_calls, 1)
@@ -735,7 +789,10 @@ class HttpBackendTests(OfflineTestCase):
                 failure = RuntimeError(SECRET)
                 failure.add_note(SECRET)
                 if stage == "factory":
-                    backend = self.b.StdlibHttpBackend(connection_factory=Mock(side_effect=failure))
+                    backend = self.b.StdlibHttpBackend(
+                        connection_factory=Mock(side_effect=failure),
+                        authorization=self.authorization(), max_response_bytes=4096,
+                    )
                     self.addCleanup(backend.close)
                 else:
                     response = MemoryResponse(
@@ -746,7 +803,7 @@ class HttpBackendTests(OfflineTestCase):
                     ))
                 with self.assertRaises(self.t.BackendFailure) as caught:
                     backend.send(self.request(
-                        url="https://backend.invalid/?" + SECRET,
+                        url="https://backend.invalid/?marker=" + SECRET,
                         headers={"Authorization": SECRET, "Cookie": SECRET},
                     ))
                 self.assertEqual(caught.exception.category, self.t.ErrorCategory.BACKEND)
@@ -1107,4 +1164,402 @@ class HttpBackendTests(OfflineTestCase):
             with self.assertRaises(self.t.BackendFailure):
                 source.send(self.request(url="https://other.invalid/"))
             self.assertEqual(sf.call_count, 2)
+            self.safe(caught.exception)
+
+    def test_safety_actual_byte_limit_with_missing_and_misleading_lengths(self):
+        for body, length, accepted in (
+            (b"1234", None, True), (b"1234", "4", True),
+            (b"12345", None, False), (b"12345", "4", False),
+            (b"1234", "3", False), (b"123", "4", False),
+        ):
+            response = MemoryResponse(
+                body=body, headers=[] if length is None else [("Content-Length", length)],
+            )
+            connection = MemoryConnection(response)
+            backend, factory, deadline, _ = self.bounded_backend(connection)
+            if accepted:
+                self.assertEqual(backend.send(self.request(deadline=deadline)).body, body)
+            else:
+                with self.assertRaises(self.t.BackendFailure) as caught:
+                    backend.send(self.request(deadline=deadline))
+                self.assertEqual(caught.exception.category, self.t.ErrorCategory.MALFORMED_RESPONSE)
+                self.safe(caught.exception)
+            self.assertTrue(all(0 < size <= 5 for size in response.read_sizes))
+            self.assertEqual(factory.call_count, 1)
+            self.assertEqual((response.close_calls, connection.close_calls), (1, 1))
+
+    def test_safety_declared_oversize_is_rejected_without_reading_or_retaining_body(self):
+        response = MemoryResponse(
+            body=SECRET.encode(), headers=[("Content-Length", "1000000000")],
+        )
+        connection = MemoryConnection(response)
+        backend, _, deadline, _ = self.bounded_backend(connection)
+        with self.assertRaises(self.t.BackendFailure) as caught:
+            backend.send(self.request(deadline=deadline))
+        self.safe(caught.exception)
+        self.assertEqual(response.read_sizes, [])
+        self.assertEqual(backend._pending, [])
+        self.assertNotIn(SECRET, repr(vars(backend)))
+        self.assertEqual((response.close_calls, connection.close_calls), (1, 1))
+
+    def test_safety_binary_incremental_reads_preserve_exact_limit(self):
+        body = bytes(range(256)) * 257
+        response = IncrementalResponse(body=body, chunk_size=1000)
+        backend, _, deadline, _ = self.bounded_backend(
+            MemoryConnection(response), maximum=len(body),
+        )
+        self.assertEqual(backend.send(self.request(deadline=deadline)).body, body)
+        self.assertGreater(len(response.read_sizes), 2)
+        self.assertLessEqual(max(response.read_sizes), 65536)
+        self.assertEqual(response.read_sizes[-1], 1)
+
+    def test_safety_framing_and_content_transformations_are_conservatively_rejected(self):
+        for headers in (
+            [("Content-Length", "4, 4")], [("Content-Length", "+4")],
+            [("Content-Length", "4"), ("content-length", "5")],
+            [("Content-Length", "4"), ("Transfer-Encoding", "chunked")],
+            [("Transfer-Encoding", "chunked, gzip")],
+            [("Content-Encoding", "gzip")], [("Content-Encoding", "br")],
+            [("Content-Encoding", "identity, gzip")],
+        ):
+            response = MemoryResponse(body=SECRET.encode(), headers=headers)
+            backend, _, deadline, _ = self.bounded_backend(MemoryConnection(response))
+            with self.assertRaises(self.t.BackendFailure) as caught:
+                backend.send(self.request(deadline=deadline))
+            self.safe(caught.exception)
+            self.assertEqual(response.read_sizes, [])
+            self.assertEqual(caught.exception.category, self.t.ErrorCategory.MALFORMED_RESPONSE)
+
+    def test_safety_wire_chunked_and_eof_limits_close_streams(self):
+        for size in (4, 5):
+            for framing, payload in (
+                (b"", b"x" * size),
+                (b"Transfer-Encoding: chunked\r\n",
+                 b"".join(b"1\r\nx\r\n" for _ in range(size)) + b"0\r\n\r\n"),
+            ):
+                connection = WireConnection(b"HTTP/1.1 200 OK\r\n" + framing + b"\r\n" + payload)
+                self.addCleanup(connection.stream.close)
+                backend, _, deadline, _ = self.bounded_backend(connection)
+                if size == 4:
+                    self.assertEqual(backend.send(self.request(deadline=deadline)).body, b"xxxx")
+                else:
+                    with self.assertRaises(self.t.BackendFailure) as caught:
+                        backend.send(self.request(deadline=deadline))
+                    self.assertEqual(caught.exception.category, self.t.ErrorCategory.MALFORMED_RESPONSE)
+                self.assertTrue(connection.stream.closed)
+                self.assertEqual(backend._pending, [])
+
+    def test_safety_chunk_delimiters_are_validated_before_success(self):
+        for delimiter in (b"\r\n", b"XY", b"\rX", b"\n"):
+            payload = b"\x00\xff"
+            connection = WireConnection(
+                b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+                + b"1\r\n" + payload[:1] + delimiter
+                + b"1\r\n" + payload[1:] + delimiter + b"0\r\n\r\n",
+            )
+            self.addCleanup(connection.stream.close)
+            backend, factory, deadline, _ = self.bounded_backend(connection, maximum=2)
+            if delimiter == b"\r\n":
+                self.assertEqual(backend.send(self.request(deadline=deadline)).body, payload)
+            else:
+                with self.assertRaises(self.t.BackendFailure) as caught:
+                    backend.send(self.request(deadline=deadline))
+                self.assertEqual(caught.exception.category, self.t.ErrorCategory.MALFORMED_RESPONSE)
+                self.assertEqual(caught.exception.status, 200)
+                self.safe(caught.exception)
+            self.assertTrue(connection.stream.closed)
+            self.assertEqual(factory.call_count, 1)
+            self.assertEqual(backend._pending, [])
+
+    def test_safety_deadline_expired_before_factory_has_no_resources(self):
+        backend, factory, deadline, clock = self.bounded_backend()
+        clock.return_value = 5.0
+        with self.assertRaises(self.t.BackendFailure) as caught:
+            backend.send(self.request(deadline=deadline))
+        self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+        factory.assert_not_called()
+        self.assertEqual(backend._pending, [])
+        self.safe(caught.exception)
+
+    def test_safety_deadline_checks_factory_connect_dispatch_and_headers(self):
+        for stage in ("factory", "connect", "request", "getresponse", "getheaders"):
+            connection = MemoryConnection()
+            backend, factory, deadline, clock = self.bounded_backend(connection)
+            if stage == "factory":
+                def expired_factory(*args, **kwargs):
+                    clock.return_value = 5.0
+                    return connection
+                factory.side_effect = expired_factory
+            else:
+                owner = connection.response if stage == "getheaders" else connection
+                original = getattr(owner, stage)
+                def expire(*args, **kwargs):
+                    result = original(*args, **kwargs)
+                    clock.return_value = 5.0
+                    return result
+                self.stack.enter_context(patch.object(owner, stage, side_effect=expire))
+            with self.assertRaises(self.t.BackendFailure) as caught:
+                backend.send(self.request(deadline=deadline))
+            self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+            self.assertEqual(connection.close_calls, 1)
+            self.assertEqual(connection.requests == [], stage in ("factory", "connect"))
+            self.assertEqual(connection.response.read_sizes, [])
+            self.safe(caught.exception)
+
+    def test_safety_slow_incremental_chunks_cannot_renew_deadline(self):
+        clock = Mock(return_value=0.0)
+        response = IncrementalResponse(
+            body=b"x" * 100, clock=clock, delay=1.0,
+            headers=[("Set-Cookie", "new=" + SECRET + "; Path=/")],
+        )
+        backend, _, deadline, _ = self.bounded_backend(
+            MemoryConnection(response), maximum=100, clock=clock,
+        )
+        with self.assertRaises(self.t.BackendFailure) as caught:
+            backend.send(self.request(deadline=deadline))
+        self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+        self.assertEqual(len(response.read_sizes), 5)
+        self.assertEqual(tuple(backend._cookies), ())
+        self.safe(caught.exception)
+
+    def test_safety_wire_reads_recheck_deadline_inside_stdlib_chunk_loop(self):
+        clock = Mock(return_value=0.0)
+        connection = WireConnection(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+            + b"1\r\nx\r\n" * 20 + b"0\r\n\r\n",
+        )
+        self.addCleanup(connection.stream.close)
+        original = connection.stream.read
+        def slow_read(size):
+            clock.return_value += 2.0
+            return original(size)
+        self.stack.enter_context(patch.object(connection.stream, "read", side_effect=slow_read))
+        backend, _, deadline, _ = self.bounded_backend(connection, maximum=100, clock=clock)
+        with self.assertRaises(self.t.BackendFailure) as caught:
+            backend.send(self.request(deadline=deadline))
+        self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+        self.assertLessEqual(clock.return_value, 6.0)
+        self.assertTrue(connection.stream.closed)
+        self.safe(caught.exception)
+
+    def test_safety_remaining_budget_is_recalculated_between_phases(self):
+        connection = MemoryConnection()
+        backend, factory, deadline, clock = self.bounded_backend(connection)
+        def connect():
+            clock.return_value = 2.0
+        def dispatch(*args, **kwargs):
+            clock.return_value = 4.0
+        self.stack.enter_context(patch.object(connection, "connect", side_effect=connect))
+        self.stack.enter_context(patch.object(connection, "request", side_effect=dispatch))
+        backend.send(self.request(deadline=deadline))
+        self.assertEqual(factory.call_args.kwargs["timeout"], 2)
+        self.assertEqual(connection.sock.timeouts[:2], [3.0, 1.0])
+        self.assertTrue(all(0 < timeout <= 1 for timeout in connection.sock.timeouts[1:]))
+
+    def test_safety_deadline_and_cleanup_failures_preserve_known_401_and_403(self):
+        for status in (200, 401, 403, 500):
+            connection = MemoryConnection(MemoryResponse(status, close_failures=1))
+            backend, factory, deadline, clock = self.bounded_backend(connection)
+            original = connection.response.read
+            def expired_read(size):
+                result = original(size)
+                clock.return_value = 5.0
+                return result
+            self.stack.enter_context(patch.object(connection.response, "read", side_effect=expired_read))
+            transport = self.t.HttpTransport(self.t.TransportConfig(
+                base_url="https://backend.invalid", connect_timeout=2, read_timeout=4,
+                read_retries=3, operation_timeout=5,
+            ), backend, clock=clock)
+            with self.assertRaises(self.t.TransportError) as caught:
+                transport.request(self.t.HttpMethod.GET, ())
+            self.assertEqual(caught.exception.status, status)
+            self.assertTrue(caught.exception.cleanup_failed)
+            self.assertEqual(caught.exception.category, {
+                200: self.t.ErrorCategory.TIMEOUT, 401: self.t.ErrorCategory.AUTHENTICATION,
+                403: self.t.ErrorCategory.AUTHORIZATION, 500: self.t.ErrorCategory.HTTP,
+            }[status])
+            self.assertEqual(caught.exception.backend_failure, self.t.ErrorCategory.TIMEOUT)
+            self.assertEqual(caught.exception.attempts, 1)
+            self.assertEqual(factory.call_count, 1)
+            self.safe(caught.exception)
+
+    def test_safety_cleanup_deadline_expiry_blocks_cookie_commit_and_success(self):
+        connection = self.login("synthetic-new")
+        backend, _, deadline, clock = self.bounded_backend(connection, maximum=100)
+        original = connection.close
+        def slow_close():
+            original()
+            clock.return_value = 5.0
+        self.stack.enter_context(patch.object(connection, "close", side_effect=slow_close))
+        with self.assertRaises(self.t.BackendFailure) as caught:
+            backend.send(self.request(deadline=deadline))
+        self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+        self.assertEqual(tuple(backend._cookies), ())
+        self.safe(caught.exception)
+
+    def test_safety_expired_401_still_expires_session_without_other_role_loss(self):
+        clock = Mock(return_value=0.0)
+        rejected = MemoryConnection(MemoryResponse(401, close_failures=1))
+        manager, _, _, sf, _, _ = self.manager(
+            [self.login("synthetic-source"), rejected],
+            [self.login("synthetic-destination"), MemoryConnection()], read_retries=3,
+        )
+        for role in self.a.SessionRole:
+            manager.authenticate(role)
+        source = self.a.SessionRole.SOURCE
+        transport = manager._sessions[source].transport
+        transport._clock = clock
+        transport._config = replace(transport._config, operation_timeout=5)
+        def expire(size):
+            clock.return_value = 5.0
+            return b""
+        self.stack.enter_context(patch.object(rejected.response, "read", side_effect=expire))
+        with self.assertRaises(self.a.AuthenticationError) as caught:
+            manager.request(source, self.t.HttpMethod.GET, ("api",))
+        self.assertEqual(caught.exception.failure.status, 401)
+        self.assertEqual(manager.snapshot(source).state, self.a.SessionState.EXPIRED)
+        self.assertIn("Local backend resource cleanup failed.", caught.exception.__notes__)
+        self.assertTrue(manager.is_authenticated(self.a.SessionRole.DESTINATION))
+        manager.request(self.a.SessionRole.DESTINATION, self.t.HttpMethod.GET, ("api",))
+        self.assertEqual(sf.call_count, 2)
+        self.safe(caught.exception)
+
+    def test_safety_absent_policy_budget_or_deadline_is_default_deny(self):
+        for missing in ("authorization", "max_response_bytes", "deadline"):
+            factory = Mock()
+            values = dict(
+                connection_factory=factory, authorization=self.authorization(),
+                max_response_bytes=4,
+            )
+            request = self.request()
+            if missing == "deadline":
+                request = replace(request, deadline=None)
+            else:
+                values[missing] = None
+            backend = self.b.StdlibHttpBackend(**values)
+            self.addCleanup(backend.close)
+            with self.assertRaises(self.t.BackendFailure) as caught:
+                backend.send(request)
+            self.assertEqual(caught.exception.category, self.t.ErrorCategory.SAFETY_POLICY)
+            factory.assert_not_called()
+
+    def test_safety_builtin_dispatch_fails_before_dns_for_host_ipv4_and_ipv6(self):
+        for origin in (
+            "https://backend.invalid", "https://192.0.2.1", "https://[2001:db8::1]",
+        ):
+            backend = self.b.StdlibHttpBackend(
+                authorization=self.b.DestinationAuthorization(origin, ((self.t.HttpMethod.GET, "/"),)),
+                max_response_bytes=4,
+            )
+            self.addCleanup(backend.close)
+            with self.assertRaises(self.t.BackendFailure) as caught:
+                backend.send(self.request(url=origin + "/"))
+            self.assertEqual(caught.exception.category, self.t.ErrorCategory.SAFETY_POLICY)
+            self.assertEqual(backend._pending, [])
+            self.assertIsNone(backend._origin)
+            self.safe(caught.exception)
+
+    def test_safety_resolution_failure_double_releases_connection_without_dispatch(self):
+        for failure, category in (
+            (TimeoutError(SECRET), self.t.ErrorCategory.TIMEOUT),
+            (OSError(SECRET), self.t.ErrorCategory.CONNECTION),
+        ):
+            connection = MemoryConnection(failure=("connect", failure))
+            backend, factory, deadline, _ = self.bounded_backend(connection)
+            with self.assertRaises(self.t.BackendFailure) as caught:
+                backend.send(self.request(deadline=deadline))
+            self.assertEqual(caught.exception.category, category)
+            self.assertEqual(connection.close_calls, 1)
+            self.assertEqual(connection.requests, [])
+            self.assertEqual(factory.call_count, 1)
+            self.assertEqual(backend._pending, [])
+            self.safe(caught.exception)
+
+    def test_safety_exact_operation_scope_denies_origin_method_path_and_query_changes(self):
+        authorization = self.b.DestinationAuthorization(
+            "https://backend.invalid", ((self.t.HttpMethod.GET, "/api?id=1"),),
+        )
+        connection = MemoryConnection()
+        backend, factory, deadline, _ = self.bounded_backend(
+            connection, authorization=authorization,
+        )
+        for overrides in (
+            {"url": "https://other.invalid/api?id=1"},
+            {"url": "https://backend.invalid:8443/api?id=1"},
+            {"url": "https://backend.invalid/other?id=1"},
+            {"url": "https://backend.invalid/api?id=2"},
+            {"url": "https://backend.invalid/api?id=1&extra=1"},
+            {"url": "https://backend.invalid/api?id=1", "method": self.t.HttpMethod.POST},
+        ):
+            with self.assertRaises(self.t.BackendFailure):
+                backend.send(self.request(deadline=deadline, **overrides))
+        factory.assert_not_called()
+        backend.send(self.request(url="https://backend.invalid/api?id=1", deadline=deadline))
+        self.assertEqual(factory.call_count, 1)
+
+    def test_safety_ambiguous_authorization_paths_cannot_be_granted_or_dispatched(self):
+        for target in (
+            "//api", "/a/../api", "/a/./api", "/%61pi", "/%2e%2e/api",
+            "/%2Fapi", "/%2fapi", "/%252fapi", "/api\\x", "/api;x=1",
+            "/api/", "/api//x", "/api?", "/api?id=%31", "/api?id=1#fragment",
+            "/api?id=%0a", "/api?id=%0A", "/api?id=%252F", "/api*",
+        ):
+            with self.assertRaises(ValueError):
+                self.b.DestinationAuthorization(
+                    "https://backend.invalid", ((self.t.HttpMethod.GET, target),),
+                )
+            backend, factory, deadline, _ = self.bounded_backend()
+            with self.assertRaises(self.t.BackendFailure) as caught:
+                backend.send(self.request(url="https://backend.invalid" + target, deadline=deadline))
+            factory.assert_not_called()
+            self.safe(caught.exception)
+
+    def test_safety_invalid_byte_budgets_are_rejected_without_dispatch(self):
+        for maximum in (0, -1, True, 1.5, float("inf"), "4"):
+            with self.assertRaises(ValueError):
+                self.b.StdlibHttpBackend(max_response_bytes=maximum)
+
+    def test_safety_each_socket_write_receives_only_remaining_budget(self):
+        connection = MemoryConnection()
+        backend, _, deadline, clock = self.bounded_backend(connection)
+        def dispatch(*args, **kwargs):
+            connection.sock.sendall(b"synthetic-headers")
+            clock.return_value = 4.0
+            connection.sock.sendall(b"synthetic-body")
+            clock.return_value = 5.0
+            connection.sock.sendall(b"forbidden-late-write")
+        self.stack.enter_context(patch.object(connection, "request", side_effect=dispatch))
+        with self.assertRaises(self.t.BackendFailure) as caught:
+            backend.send(self.request(deadline=deadline, method=self.t.HttpMethod.POST))
+        self.assertEqual(caught.exception.category, self.t.ErrorCategory.TIMEOUT)
+        self.assertEqual(connection.sock.writes, [b"synthetic-headers", b"synthetic-body"])
+        self.assertEqual(connection.sock.timeouts[-2:], [4.0, 1.0])
+        self.assertEqual(connection.close_calls, 1)
+
+    def test_safety_injected_builtin_factory_is_not_an_authorization_escape(self):
+        backend = self.b.StdlibHttpBackend(
+            connection_factory=self.b.http.client.HTTPSConnection,
+            authorization=self.authorization(), max_response_bytes=4,
+        )
+        self.addCleanup(backend.close)
+        with self.assertRaises(self.t.BackendFailure) as caught:
+            backend.send(self.request())
+        self.assertEqual(caught.exception.category, self.t.ErrorCategory.SAFETY_POLICY)
+        self.dispatch_guards[1].assert_not_called()
+
+    def test_safety_failure_during_deadline_clock_read_is_sanitized_and_releases(self):
+        for value in (float("nan"), float("inf"), True, None, RuntimeError(SECRET)):
+            connection = MemoryConnection()
+            backend, _, deadline, clock = self.bounded_backend(connection)
+            def connect():
+                if isinstance(value, Exception):
+                    clock.side_effect = value
+                else:
+                    clock.return_value = value
+            self.stack.enter_context(patch.object(connection, "connect", side_effect=connect))
+            with self.assertRaises(self.t.BackendFailure) as caught:
+                backend.send(self.request(deadline=deadline))
+            self.assertEqual(caught.exception.category, self.t.ErrorCategory.BACKEND)
+            self.assertEqual(connection.close_calls, 1)
+            self.assertEqual(connection.requests, [])
             self.safe(caught.exception)

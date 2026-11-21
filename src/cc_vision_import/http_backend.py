@@ -10,13 +10,13 @@ from dataclasses import dataclass, field
 from email.message import Message
 from http.cookiejar import Cookie, CookieJar, DefaultCookiePolicy, parse_ns_headers
 from typing import BinaryIO, Literal, Protocol
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit
 from urllib.request import Request
 
 from .contracts import ContractValidationError
 from .transport import (
     BackendFailure, BackendRequest, ErrorCategory, HttpMethod, HttpResponse,
-    _headers, _origin, _timeouts,
+    OperationDeadline, _headers, _origin, _timeouts,
 )
 
 
@@ -27,6 +27,7 @@ class _Closable(Protocol):
 class _Socket(_Closable, Protocol):
     def settimeout(self, value: float) -> None: ...
     def makefile(self, mode: Literal["rb"]) -> BinaryIO: ...
+    def sendall(self, data: bytes) -> None: ...
 
 
 class _Response(_Closable, Protocol):
@@ -34,7 +35,7 @@ class _Response(_Closable, Protocol):
     def status(self) -> int: ...
 
     def getheaders(self) -> list[tuple[str, str]]: ...
-    def read(self) -> bytes: ...
+    def read(self, size: int) -> bytes: ...
 
 
 class _Connection(_Closable, Protocol):
@@ -53,11 +54,72 @@ class _Connection(_Closable, Protocol):
 
 
 class ConnectionFactory(Protocol):
-    """Injection seam for offline doubles, not a mock-capability declaration."""
+    """Trusted offline-double seam, not a resolver or live-dispatch authorization."""
 
     def __call__(
         self, host: str, port: int, *, timeout: float, context: ssl.SSLContext,
     ) -> _Connection: ...
+
+
+def _target(value: str) -> str:
+    if (
+        not isinstance(value, str) or not value.startswith("/") or "#" in value
+        or "\\" in value or ";" in value or "*" in value
+        or any(not 33 <= ord(c) <= 126 for c in value)
+    ):
+        raise ValueError("Unsafe authorized target.")
+    path, separator, query = value.partition("?")
+    if path != "/":
+        for segment in path[1:].split("/"):
+            decoded = unquote(segment)
+            if (
+                not decoded or decoded in (".", "..")
+                or any(c in decoded for c in "/\\%;")
+                or any(not c.isprintable() for c in decoded)
+                or quote(decoded, safe="") != segment
+            ):
+                raise ValueError("Ambiguous authorized path.")
+    if separator and (
+        not query or any("=" not in pair for pair in query.split("&"))
+        or urlencode(parse_qsl(query, keep_blank_values=True)) != query
+        or any(
+            not character.isprintable() or character in "%;\\"
+            for pair in parse_qsl(query, keep_blank_values=True)
+            for component in pair for character in component
+        )
+    ):
+        raise ValueError("Ambiguous authorized query.")
+    return value
+
+
+@dataclass(frozen=True)
+class DestinationAuthorization:
+    """Caller-supplied exact scope; never derived from capabilities or product versions."""
+
+    origin: str = field(repr=False)
+    operations: tuple[tuple[HttpMethod, str], ...] = field(repr=False)
+
+    def __post_init__(self) -> None:
+        _origin(self.origin)
+        if self.origin.endswith("/") or not isinstance(self.operations, tuple) or not self.operations:
+            raise ValueError("An exact origin and finite operations are required.")
+        for operation in self.operations:
+            if (
+                not isinstance(operation, tuple) or len(operation) != 2
+                or not isinstance(operation[0], HttpMethod)
+            ):
+                raise ValueError("Invalid authorized operation.")
+            _target(operation[1])
+        if len(set(self.operations)) != len(self.operations):
+            raise ValueError("Repeated authorized operation.")
+
+    def permits(self, method: HttpMethod, origin: str, target: str) -> bool:
+        approved, actual = urlsplit(self.origin), urlsplit(origin)
+        return (
+            (actual.scheme, actual.hostname, actual.port or 443)
+            == (approved.scheme, approved.hostname, approved.port or 443)
+            and (method, _target(target)) in self.operations
+        )
 
 
 @dataclass(frozen=True)
@@ -118,33 +180,63 @@ class _CleanupTracker:
 
 
 class _FileGuard:
-    def __init__(self, resource: BinaryIO, tracker: _CleanupTracker) -> None:
+    def __init__(
+        self, resource: BinaryIO, tracker: _CleanupTracker,
+        deadline: OperationDeadline, socket: _Socket, timeout: float,
+    ) -> None:
         self._resource = resource
         self._tracker = tracker
+        self._deadline = deadline
+        self._socket = socket
+        self._timeout = timeout
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._resource, name)
 
     def read(self, size: int = -1) -> bytes:
-        return self._resource.read(size)
+        if size < 0:
+            raise ValueError("Unbounded reads are forbidden.")
+        self._socket.settimeout(min(self._timeout, self._deadline.remaining()))
+        result = self._resource.read(size)
+        self._deadline.remaining()
+        return result
 
     def readline(self, size: int = -1) -> bytes:
-        return self._resource.readline(size)
+        if size < 0:
+            raise ValueError("Unbounded reads are forbidden.")
+        self._socket.settimeout(min(self._timeout, self._deadline.remaining()))
+        result = self._resource.readline(size)
+        self._deadline.remaining()
+        return result
 
     def close(self) -> None:
         self._tracker.close(self._resource)
 
 
 class _SocketGuard:
-    def __init__(self, resource: _Socket, tracker: _CleanupTracker) -> None:
+    def __init__(
+        self, resource: _Socket, tracker: _CleanupTracker,
+        deadline: OperationDeadline, timeout: float,
+    ) -> None:
         self._resource = resource
         self._tracker = tracker
+        self._deadline = deadline
+        self._timeout = timeout
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._resource, name)
 
     def makefile(self, mode: Literal["rb"]) -> _FileGuard:
-        return _FileGuard(self._resource.makefile(mode), self._tracker)
+        self._deadline.remaining()
+        return _FileGuard(
+            self._resource.makefile(mode), self._tracker,
+            self._deadline, self._resource, self._timeout,
+        )
+
+    def sendall(self, data: bytes) -> None:
+        self._resource.settimeout(min(self._timeout, self._deadline.remaining()))
+        self._resource.sendall(data)
+        self._deadline.remaining()
 
     def close(self) -> None:
         self._tracker.close(self._resource)
@@ -187,13 +279,59 @@ def _response_headers(response: _Response) -> tuple[dict[str, str], Message]:
     return headers, message
 
 
-class StdlibHttpBackend:
-    """One origin and private cookie jar per session; not thread-safe or a mock backend."""
+def _read_response_body(response: _Response, size: int) -> bytes:
+    if not isinstance(response, http.client.HTTPResponse) or not response.chunked:
+        return response.read(size)
+    if response.fp is None:
+        return b""
+    # Stdlib's chunk decoder discards two bytes without verifying the CRLF.
+    # Keep its bounded reads and ownership, but validate that framing explicitly.
+    chunks: list[bytes] = []
+    remaining = size
+    while remaining:
+        chunk_left = response.chunk_left
+        if not chunk_left:
+            if chunk_left == 0 and response._safe_read(2) != b"\r\n":
+                raise http.client.HTTPException("Invalid chunk delimiter.")
+            chunk_left = response._read_next_chunk_size()
+            if chunk_left < 0:
+                raise http.client.HTTPException("Invalid chunk size.")
+            if chunk_left == 0:
+                response._read_and_discard_trailer()
+                response._close_conn()
+                response.chunk_left = None
+                break
+        count = min(remaining, chunk_left)
+        chunks.append(response._safe_read(count))
+        response.chunk_left = chunk_left - count
+        remaining -= count
+    return b"".join(chunks)
 
-    def __init__(self, *, connection_factory: ConnectionFactory | None = None) -> None:
-        self._factory: ConnectionFactory = (
-            http.client.HTTPSConnection if connection_factory is None else connection_factory
-        )
+
+class StdlibHttpBackend:
+    """Offline-qualified adapter; built-in dispatch is blocked pending hard deadlines.
+
+    Injected factories are trusted, network-incapable test doubles only, not a
+    supported live alternative. Each instance owns one origin/private cookie jar.
+    Not thread-safe and never a nominal mock backend.
+    """
+
+    def __init__(
+        self, *, connection_factory: ConnectionFactory | None = None,
+        authorization: DestinationAuthorization | None = None,
+        max_response_bytes: int | None = None,
+    ) -> None:
+        if authorization is not None:
+            if not isinstance(authorization, DestinationAuthorization):
+                raise ValueError("Invalid destination authorization.")
+            authorization.__post_init__()
+        if max_response_bytes is not None and (
+            type(max_response_bytes) is not int or max_response_bytes <= 0
+        ):
+            raise ValueError("A positive finite byte budget is required.")
+        self._factory = connection_factory
+        self._authorization = authorization
+        self._max_response_bytes = max_response_bytes
         self._cookies = _StrictCookieJar()
         self._origin: tuple[str, int] | None = None
         self._pending: list[_Closable] = []
@@ -231,13 +369,20 @@ class StdlibHttpBackend:
             ):
                 raise ValueError("Unsafe backend request.")
             _timeouts(request.connect_timeout, request.read_timeout)
+            if (
+                self._authorization is None or self._max_response_bytes is None
+                or not isinstance(request.deadline, OperationDeadline)
+            ):
+                raise BackendFailure(ErrorCategory.SAFETY_POLICY)
+            deadline = request.deadline
+            deadline.remaining()
             outgoing = _headers(request.headers)
             if any(name.lower() in ("proxy-authorization", "proxy-connection") for name in outgoing):
                 raise ValueError("Proxy headers are not supported.")
             parts = urlsplit(request.url)
             _origin(f"{parts.scheme}://{parts.netloc}")
             target = parts.path or "/"
-            if parts.query:
+            if "?" in request.url:
                 target += "?" + parts.query
             if (
                 parts.fragment or "#" in request.url or target.startswith("//")
@@ -252,26 +397,42 @@ class StdlibHttpBackend:
             origin = (host.lower(), port)
             if self._origin is not None and self._origin != origin:
                 raise ValueError("A backend cannot change origins.")
+            if not self._authorization.permits(
+                request.method, f"{parts.scheme}://{parts.netloc}", target,
+            ):
+                raise BackendFailure(ErrorCategory.SAFETY_POLICY)
+            # Blocking getaddrinfo and stdlib multi-read operations lack reliable
+            # cancellation. Do not enter the real connection path at all.
+            if self._factory is None or self._factory is http.client.HTTPSConnection:
+                raise BackendFailure(ErrorCategory.SAFETY_POLICY)
             self._origin = origin
             cookie_request = Request(request.url, headers=outgoing, method=request.method.value)
             self._cookies.add_cookie_header(cookie_request)
             outgoing = _headers(dict(cookie_request.header_items()))
             outgoing["Connection"] = "close"
             connection = self._factory(
-                host, port, timeout=request.connect_timeout, context=request.tls_context,
+                host, port, timeout=min(request.connect_timeout, deadline.remaining()),
+                context=request.tls_context,
             )
             resources.append(connection)
             # Explicit connect plus disabled auto-open prevents http.client reconnecting.
             connection.auto_open = 0
             connection.set_debuglevel(0)
+            deadline.remaining()
             connection.connect()
+            deadline.remaining()
             if connection.sock is None:
                 raise http.client.NotConnected()
-            connection.sock.settimeout(request.read_timeout)
+            connection.sock.settimeout(min(request.read_timeout, deadline.remaining()))
             # The public sock attribute is writable on http.client connections;
             # retain the factory protocol's covariant, read-only socket view.
-            setattr(connection, "sock", _SocketGuard(connection.sock, tracker))
+            setattr(connection, "sock", _SocketGuard(
+                connection.sock, tracker, deadline, request.read_timeout,
+            ))
             connection.request(request.method.value, target, body=request.body, headers=outgoing)
+            deadline.remaining()
+            if connection.sock is not None:
+                connection.sock.settimeout(min(request.read_timeout, deadline.remaining()))
             raw = connection.getresponse()
             resources.append(raw)
             if type(raw.status) is not int or not 200 <= raw.status <= 599:
@@ -279,13 +440,32 @@ class StdlibHttpBackend:
             status = raw.status
             if status == 401:
                 self._cookies.clear()
+            deadline.remaining()
             headers, cookie_message = _response_headers(raw)
+            deadline.remaining()
             if tracker.failed:
                 raise RuntimeError("Local cleanup failed.")
-            body = raw.read()
-            if not isinstance(body, bytes):
-                raise ValueError("Invalid response body.")
             length = cookie_message.get("Content-Length")
+            if length is not None and int(length) > self._max_response_bytes:
+                raise ValueError("Response exceeds byte budget.")
+            if cookie_message.get("Content-Encoding", "identity").lower() != "identity":
+                raise ValueError("Response transformations are not qualified.")
+            body_buffer = bytearray()
+            while True:
+                deadline.remaining()
+                if connection.sock is not None:
+                    connection.sock.settimeout(min(request.read_timeout, deadline.remaining()))
+                size = min(65536, self._max_response_bytes - len(body_buffer) + 1)
+                chunk = _read_response_body(raw, size)
+                deadline.remaining()
+                if not isinstance(chunk, bytes) or len(chunk) > size:
+                    raise ValueError("Invalid bounded response read.")
+                if len(body_buffer) + len(chunk) > self._max_response_bytes:
+                    raise ValueError("Response exceeds byte budget.")
+                if not chunk:
+                    break
+                body_buffer.extend(chunk)
+            body = bytes(body_buffer)
             if raw.status not in (204, 304) and length is not None and len(body) != int(length):
                 raise ValueError("Incomplete response body.")
             if tracker.failed:
@@ -296,6 +476,9 @@ class StdlibHttpBackend:
                     candidate.set_cookie(copy.deepcopy(cookie))
                 candidate.extract_cookies(_CookieResponse(cookie_message), cookie_request)
             response = HttpResponse(raw.status, body, headers)
+            deadline.remaining()
+        except BackendFailure as exc:
+            failure = exc.category
         except ssl.SSLError:
             failure = ErrorCategory.TLS
         except TimeoutError:
@@ -316,6 +499,10 @@ class StdlibHttpBackend:
             )
         if response is None:
             return BackendFailure(ErrorCategory.BACKEND)
+        try:
+            deadline.remaining()
+        except BackendFailure as exc:
+            return BackendFailure(exc.category, status=status)
         if candidate is not None:
             self._cookies = candidate
         return response

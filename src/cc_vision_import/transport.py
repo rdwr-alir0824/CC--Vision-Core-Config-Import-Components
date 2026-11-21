@@ -3,7 +3,8 @@
 import math
 import re
 import ssl
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -33,6 +34,7 @@ class ErrorCategory(StrEnum):
     MALFORMED_RESPONSE = "malformed_response"
     INDETERMINATE_WRITE = "indeterminate_write_outcome"
     BACKEND = "backend_failure"
+    SAFETY_POLICY = "safety_policy_rejection"
 
 
 class TransportError(Exception):
@@ -59,6 +61,7 @@ class BackendFailure(Exception):
         if category not in (
             ErrorCategory.CONNECTION, ErrorCategory.TIMEOUT, ErrorCategory.TLS,
             ErrorCategory.MALFORMED_RESPONSE, ErrorCategory.BACKEND,
+            ErrorCategory.SAFETY_POLICY,
         ) or type(cleanup_failed) is not bool or (
             status is not None and (type(status) is not int or not 200 <= status <= 599)
         ):
@@ -104,14 +107,47 @@ def _tls_context(trusted_ca: str | None) -> ssl.SSLContext:
     return context
 
 
+def _timeout(value: float, name: str) -> None:
+    if (
+        type(value) not in (int, float)
+        or not 0 < value <= 300
+        or not math.isfinite(value)
+    ):
+        _reader.fail("invalid_timeout", f"$.{name}", "Timeout must be finite and greater than zero, at most 300 seconds.")
+
+
 def _timeouts(connect_timeout: float, read_timeout: float) -> None:
-    for name, value in (("connect_timeout", connect_timeout), ("read_timeout", read_timeout)):
-        if (
-            type(value) not in (int, float)
-            or not 0 < value <= 300
-            or not math.isfinite(value)
-        ):
-            _reader.fail("invalid_timeout", f"$.{name}", "Timeout must be finite and greater than zero, at most 300 seconds.")
+    _timeout(connect_timeout, "connect_timeout")
+    _timeout(read_timeout, "read_timeout")
+
+
+@dataclass(frozen=True)
+class OperationDeadline:
+    """One monotonic clock domain and absolute expiry shared by every attempt."""
+
+    expires_at: float
+    clock: Callable[[], float] = field(default=time.monotonic, repr=False, compare=False)
+
+    def remaining(self) -> float:
+        failure = ErrorCategory.BACKEND
+        remaining = None
+        try:
+            now = self.clock()
+            if (
+                type(now) in (int, float) and math.isfinite(now)
+                and type(self.expires_at) in (int, float) and math.isfinite(self.expires_at)
+            ):
+                remaining = self.expires_at - now
+                if not math.isfinite(remaining):
+                    remaining = None
+                elif remaining <= 0:
+                    failure = ErrorCategory.TIMEOUT
+                    remaining = None
+        except Exception:
+            pass
+        if remaining is None:
+            raise BackendFailure(failure)
+        return remaining
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -122,12 +158,15 @@ class TransportConfig:
     trusted_ca: str | None = field(default=None, repr=False)
     verify_tls: bool = True
     read_retries: int = 0
+    operation_timeout: float | None = None
 
     def __post_init__(self) -> None:
         _origin(self.base_url)
         if self.verify_tls is not True:
             _reader.fail("unsafe_tls", "$.verify_tls", "TLS verification is mandatory.")
         _timeouts(self.connect_timeout, self.read_timeout)
+        if self.operation_timeout is not None:
+            _timeout(self.operation_timeout, "operation_timeout")
         if type(self.read_retries) is not int or not 0 <= self.read_retries <= 3:
             _reader.fail("invalid_retry_policy", "$.read_retries", "GET retries must be an integer from zero through three.")
         _tls_context(self.trusted_ca)
@@ -192,6 +231,7 @@ class BackendRequest:
     read_timeout: float
     tls_context: ssl.SSLContext = field(repr=False)
     follow_redirects: bool = False
+    deadline: OperationDeadline | None = None
 
 
 @dataclass(frozen=True)
@@ -205,7 +245,9 @@ class HttpBackend(Protocol):
     def send(self, request: BackendRequest) -> HttpResponse:
         """One attempt only: no retries, redirects, auth renewal, or secret logging.
 
-        Honor TLS hostname/certificate checks and both timeouts. Eagerly consume
+        Honor TLS hostname/certificate checks, both timeouts and an optional shared
+        deadline. Concrete adapters must require finite body/deadline budgets and
+        fail closed for operations they cannot bound. Incrementally consume
         and close the response; map IO failures to BackendFailure. The caller
         owns backend/session cleanup. Never use ambient proxy/auth settings.
         """
@@ -213,12 +255,16 @@ class HttpBackend(Protocol):
 
 
 class HttpTransport:
-    def __init__(self, config: TransportConfig, backend: HttpBackend) -> None:
+    def __init__(
+        self, config: TransportConfig, backend: HttpBackend, *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         if not isinstance(config, TransportConfig) or not callable(getattr(backend, "send", None)):
             _reader.fail("invalid_transport", "$", "A validated configuration and injected backend are required.")
         config.__post_init__()
         self._config = config
         self._backend = backend
+        self._clock = clock
 
     def request(
         self, method: HttpMethod, segments: tuple[str, ...], *,
@@ -232,11 +278,27 @@ class HttpTransport:
             _reader.fail("invalid_body", "$.body", "Use bytes for write bodies; GET bodies are not allowed.")
         if type(expect_json) is not bool:
             _reader.fail("invalid_response_policy", "$.expect_json", "JSON expectation must be boolean.")
+        deadline = None
+        if self._config.operation_timeout is not None:
+            failure = None
+            try:
+                now = self._clock()
+                if type(now) not in (int, float) or not math.isfinite(now):
+                    raise ValueError("Invalid monotonic clock.")
+                deadline = OperationDeadline(now + self._config.operation_timeout, self._clock)
+                deadline.remaining()
+            except BackendFailure as exc:
+                failure = self._error(method, exc.category, 1)
+            except Exception:
+                failure = self._error(method, ErrorCategory.BACKEND, 1)
+            if failure is not None:
+                raise failure
         request = BackendRequest(
             method, build_url(self._config.base_url, segments, query),
             _headers({} if headers is None else headers), body,
             self._config.connect_timeout, self._config.read_timeout,
             _tls_context(self._config.trusted_ca),
+            deadline=deadline,
         )
         limit = 1 + (self._config.read_retries if method == HttpMethod.GET else 0)
         for attempt in range(1, limit + 1):
@@ -247,6 +309,9 @@ class HttpTransport:
                 attempt < limit and not outcome.cleanup_failed
                 and outcome.category in (ErrorCategory.CONNECTION, ErrorCategory.TIMEOUT)
             ):
+                expired = self._deadline_failure(request, attempt)
+                if expired is not None:
+                    raise expired
                 continue
             raise outcome
         raise AssertionError("Unreachable transport retry state.")
@@ -257,6 +322,8 @@ class HttpTransport:
         # Return sanitized failures, then raise outside the except scope so raw
         # backend exceptions cannot be exposed through exception chaining.
         try:
+            if request.deadline is not None:
+                request.deadline.remaining()
             response = self._backend.send(request)
         except BackendFailure as exc:
             error = (
@@ -281,6 +348,9 @@ class HttpTransport:
         status = response.status
         if not 200 <= status < 300:
             return self._http_error(request.method, status, attempt)
+        expired = self._deadline_failure(request, attempt, status)
+        if expired is not None:
+            return expired
         if expect_json:
             valid = True
             try:
@@ -289,7 +359,21 @@ class HttpTransport:
                 valid = False
             if not valid:
                 return self._error(request.method, ErrorCategory.MALFORMED_RESPONSE, attempt, status)
+        expired = self._deadline_failure(request, attempt, status)
+        if expired is not None:
+            return expired
         return response
+
+    def _deadline_failure(
+        self, request: BackendRequest, attempt: int, status: int | None = None,
+    ) -> TransportError | None:
+        failure = None
+        try:
+            if request.deadline is not None:
+                request.deadline.remaining()
+        except BackendFailure as exc:
+            failure = self._error(request.method, exc.category, attempt, status)
+        return failure
 
     @classmethod
     def _http_error(cls, method: HttpMethod, status: int, attempt: int) -> TransportError:

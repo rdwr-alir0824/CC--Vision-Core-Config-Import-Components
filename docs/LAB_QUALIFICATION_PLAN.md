@@ -1,10 +1,53 @@
 # CCV-010-B - Read-Only Laboratory Qualification Plan
 
-Date: 2026-11-19
+Date: 2026-11-20
 Status: **PLANNING AND DOCUMENTATION ONLY. NOT READY FOR LABORATORY ACTIVATION.**
 Laboratory execution remains **UNAUTHORIZED**. No readiness gate has passed.
 This plan is not owner acceptance, laboratory authorization or an executable
-test procedure. All approval fields below are pending.
+test procedure. All laboratory readiness/execution approval fields below are pending.
+
+## Current policy overlay - 2026-11-20
+
+**CCV-010-C — REVISED DEADLINE-CONTAINMENT POLICY APPROVED**, decision date
+2026-11-20. The [owner decision](DECISIONS.md#owner-policy-decision---ccv-010-c-deadline-containment-2026-11-20)
+and [E-047](PROGRESS.md#e-047---ccv-010-c-revised-deadline-containment-policy-2026-11-20)
+replace C's unconditional whole-operation hard-interruption acceptance requirement
+with qualified, deadline-accounted, fail-closed containment. Approval is of policy
+direction only, not a compensating-control implementation, runtime compatibility,
+laboratory execution or full milestone acceptance.
+
+One immutable monotonic deadline covers authorization, worker startup,
+authentication, transport, parsing/contract/cookie validation, commitment, cleanup
+and final reporting. Authorization/dispatch/validation/commitment require deadline
+and generation checks. Expired/stale operations cannot succeed; late worker results
+cannot commit authentication, cookies, configuration or successful results.
+No new dispatch after observed expiry or authorization revocation and no automatic
+authentication/configuration-write replay. Worker deadline excess requires termination
+escalation and explicit exit, reaping and resource-disposition evidence. Unconfirmed
+termination/disposition requires quarantine and prohibits replacement operations
+while its restrictions remain unresolved, including during parent recovery.
+
+Record measured startup, termination, cleanup and reporting overruns on approved
+builds, plus all timing/scheduling/resource uncertainty. No unconditional
+hard-real-time termination, report delivery or complete release by deadline is
+claimed. A termination request is not exit evidence; exit is not proof of complete
+kernel/provider reclamation or remote logout. Reporting delays cannot validate an
+expired success. See the [design](NONBLOCKING_TLS_DESIGN.md) for the proposed model.
+
+Exact IPC wire contract, worker/session ownership, Windows process/job containment,
+parent-crash/quarantine recovery, revocation races, termination/reaping verification,
+runtime deadline qualification, TLS/product compatibility and independent
+implementation/security review remain prerequisites. Earlier numeric proposals
+and implementation observations below retain their 2026-11-19 planning scope;
+they are not approved values or fresh implementation facts. This overlay controls
+current deadline/cleanup acceptance where the original plan demanded unconditional
+interruption or proved release within a fixed cleanup window.
+
+**Gates A-D remain NOT PASSED.** Production capabilities remain default-deny;
+concrete laboratory dispatch stays disabled. No product authentication, laboratory
+connections, configuration import/update/deletion, implementation or subsequent
+milestone is authorized. No runtime compatibility or full C acceptance is recorded.
+Full CCV-010-C milestone acceptance remains withheld.
 
 ## 1. Scope, baseline and authority
 
@@ -155,6 +198,14 @@ Proposed numeric ceilings below are **local safety policy awaiting approval**,
 not observed product limits, existing controls or approved lab values. Gate C
 must bind them to each target/role; any change requires procedure review before
 testing. No setting may be omitted or treated as unlimited.
+
+The following table and three-open-controls subsection preserve the original
+2026-11-19 proposal. Their deadline/interruption and "prove bounded release"
+wording is historical, superseded only for C acceptance by the
+[current policy overlay](#current-policy-overlay---2026-11-20).
+Cleanup reserves are budgeted opportunities with measured overruns, not physical
+release guarantees. DNS/no-DNS enforcement, body limits and all independent
+authorization/TLS/data-handling requirements remain mandatory; no gate is waived.
 
 | Safeguard | Required future policy and acceptance evidence |
 | --- | --- |
@@ -381,7 +432,7 @@ release strings or owner acceptance of A's offline implementation passes none.
 | Gate | Required evidence and accountable approval | Current status |
 | --- | --- | --- |
 | A - Documentation readiness | Integration/evidence owner confirms exact operations/paths, product/build applicability, login/cookie and SitePojo contract policy, least-privilege evidence and selected remote cleanup semantics. Resolve C provenance authoritatively; no adjacent-version inference. | **NOT PASSED** - build evidence, auth/cleanup clarification and C provenance unresolved. |
-| B - Backend safety readiness | Backend/security owners approve reviewed DNS, absolute-duration and streaming-size controls or specifically allowed defensible alternatives, numeric bounds, egress/allowlist enforcement, zero retries, TLS, isolation, strengthened auth decisions and bounded cleanup. Record separately authorized offline verification against blocked DNS, trickle/oversize responses and all failure paths. | **NOT PASSED / BLOCKED** - three resource controls and lab integration/auth safeguards not resolved or implemented by this plan. |
+| B - Backend safety readiness | Backend/security owners approve reviewed DNS/no-DNS and streaming-size controls, numeric bounds, egress/allowlist enforcement, zero retries, TLS, isolation and strengthened auth decisions. Apply the 2026-11-20 qualified deadline-containment policy: shared deadline/generation checks, late-result rejection, termination escalation, explicit exit/reap/disposition evidence, quarantine/no replacement and measured overruns/uncertainty. Require separately authorized offline verification, Windows lifecycle/deadline and TLS qualification, and independent implementation/security review. | **NOT PASSED / BLOCKED** - policy direction approved only; implementation, lifecycle/runtime evidence and lab integration/auth safeguards remain unresolved. |
 | C - Laboratory authorization | Lab/product/data/security owners approve restricted checklist, targets/accounts/roles, exact operations/session side effects, concrete limits, remote-session disposition, storage/ACL/retention, test window, incident contacts and change-observation method. | **NOT PASSED** - information and approvals not supplied. |
 | D - Execution authorization | After A/B/C evidence review, project owner explicitly authorizes the exact immutable read-only procedure, implementation revision, operator, target/role bindings, budgets/window and cleanup route. Any material change invalidates authorization. | **NOT PASSED / UNAUTHORIZED** - no execution authorization requested or recorded here. |
 

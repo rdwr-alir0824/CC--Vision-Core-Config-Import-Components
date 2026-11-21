@@ -1,6 +1,23 @@
 # Architecture Decision Register
 
-Date: 2026-11-19
+Date: 2026-11-21
+
+Current prototype decision: **CCV-010-C OFFLINE SUPERVISED-OPERATION PROTOTYPE -
+ACCEPT WITH EXPLICIT LIMITATIONS**, owner accepted **2026-11-21**.
+Scope: offline supervised-operation control model only, based on independent
+E-050 verification; no remaining confirmed defects within the reviewed scope.
+See the [dated acceptance](#owner-prototype-acceptance---ccv-010-c-offline-supervised-operation-prototype-2026-11-21)
+and [E-051](PROGRESS.md#e-051---ccv-010-c-owner-acceptance-of-offline-supervised-operation-prototype-2026-11-21).
+**Full CCV-010-C milestone acceptance: WITHHELD. CCV-010-B laboratory Gates A-D:
+NOT PASSED. Laboratory readiness: NOT READY. Laboratory execution: NOT AUTHORIZED.**
+Production capabilities remain default-deny; concrete product dispatch remains
+disabled. No import, update, delete or configuration migration is authorized.
+
+Current CCV-010-C policy decision: **REVISED DEADLINE-CONTAINMENT POLICY APPROVED**,
+2026-11-20. See the [dated decision](#owner-policy-decision---ccv-010-c-deadline-containment-2026-11-20)
+and [E-047](PROGRESS.md#e-047---ccv-010-c-revised-deadline-containment-policy-2026-11-20).
+This approves acceptance-policy direction only, not implementation, runtime
+compatibility, laboratory execution or full milestone acceptance.
 
 Current planning decision: **CCV-010-B PLANNING: OWNER ACCEPTED — 2026-11-19**;
 **ACCEPT WITH NON-BLOCKING OBSERVATIONS**, completed offline planning and
@@ -10,6 +27,179 @@ Gates A-D remain **NOT PASSED**.
 **NOT READY — EXECUTION NOT AUTHORIZED**.
 Historical present-tense milestone passages below are preserved, not edited;
 this dated decision supersedes their B pending labels only for planning scope.
+
+## Owner prototype acceptance - CCV-010-C offline supervised-operation prototype, 2026-11-21
+
+**Owner decision:** **CCV-010-C OFFLINE SUPERVISED-OPERATION PROTOTYPE -
+ACCEPT WITH EXPLICIT LIMITATIONS**.
+**Acceptance date:** 2026-11-21. **Owner:** project owner, by explicit approval
+in the project conversation. **Scope:** offline supervised-operation control
+model only.
+
+**Technical basis:** independent E-050 correction verification recommended
+**ACCEPT OFFLINE PROTOTYPE WITH EXPLICIT LIMITATIONS** and found no remaining
+confirmed defects within the reviewed scope. The owner accepts the
+network-incapable prototype with the limitations below. This is not acceptance
+of full CCV-010-C, production integration, actual Windows workers, network
+connectivity or laboratory testing.
+
+**Evidence:** [E-051 acceptance record](PROGRESS.md#e-051---ccv-010-c-owner-acceptance-of-offline-supervised-operation-prototype-2026-11-21),
+the independent E-050 verification report in the project conversation, and the
+preserved [E-047 policy](PROGRESS.md#e-047---ccv-010-c-revised-deadline-containment-policy-2026-11-20),
+[E-048 prototype](PROGRESS.md#e-048---ccv-010-c-network-incapable-supervised-operation-prototype-2026-11-20),
+[E-049 corrections](PROGRESS.md#e-049---ccv-010-c-reentrant-admission-and-supervisor-fencing-corrections-2026-11-20)
+and [E-050 correction](PROGRESS.md#e-050---ccv-010-c-callback-retargeting-correction-2026-11-20).
+Those historical records are preserved; this dated acceptance supersedes pending
+owner acceptance only for the prototype.
+
+### Accepted offline functionality
+
+These are simulated/offline guarantees only:
+
+- Strict versioned JSON IPC framing with four-byte big-endian message lengths
+  and finite IPC size and structural budgets.
+- Explicit coordinator state transitions, immutable operation deadlines and
+  authorization-generation fencing.
+- Supervisor and operation identity binding, reentrant-admission reservation
+  and callback-retargeting protection.
+- Candidate validation and immutable successful commitment.
+- Simulated worker lifecycle, with separate termination, exit, reaping and
+  resource-disposition evidence.
+- In-memory quarantine/recovery and fail-closed rejection of stale or late results.
+- Sanitized errors/reporting and no automatic authentication or
+  configuration-write replay.
+
+### Independently executed verification
+
+The independent E-050 review reran **491 tests** (486 retained and five new
+E-050 regression methods covering 21 scenarios), with **zero failures, errors
+or skips**, in 99.018 seconds. It executed **21 direct in-memory diagnostic
+scenarios** and **four additional E-049 confirmation probes**. Runtime:
+**CPython 3.13.14; Windows 11 AMD64, Windows-11-10.0.26300-SP0**.
+
+Supervised test guards observed **zero prohibited attempts across 1,650
+observations**; aggregate network guards observed **zero attempts across 7,380
+observations**; concrete HTTP dispatch guards observed **zero attempts across
+134 observations**. Syntax parsing passed and scoped Pylance diagnostics were
+empty. These are scoped Python-level observations, not OS-level isolation.
+**Application tests were not rerun during this documentation-only update.**
+
+### Corrected security findings
+
+Independent verification passed all three corrections:
+
+1. Reentrant admission bypass.
+2. Superseded-supervisor admission.
+3. Callback operation-retargeting during dispatch and commitment.
+
+No remaining confirmed defects were identified within the reviewed scope.
+Historical defects are corrected, not unresolved; E-048, E-049 and E-050 remain
+unchanged evidence.
+
+### Explicit acceptance limitations
+
+- No actual OS worker execution, Windows Job Object containment, real process
+  termination/reaping qualification or physical resource-release guarantees.
+- No durable quarantine across application restarts or demonstrated multithreaded
+  synchronization safety. Injected clocks and recovery evidence remain trusted.
+  The prototype is not a process sandbox.
+- No actual nonblocking TCP/TLS integration, DNS or whole-operation runtime
+  deadline qualification. No hard-real-time guarantee is accepted.
+- No live authentication or JSESSIONID qualification, Vision or Cyber Controller
+  runtime compatibility, or migration execution approval.
+
+### Mandatory restrictions and future work
+
+- **Full CCV-010-C milestone acceptance: WITHHELD.**
+- **CCV-010-B laboratory Gates A-D: NOT PASSED.**
+- **Laboratory readiness: NOT READY.**
+- **Laboratory execution: NOT AUTHORIZED.**
+- Production capabilities remain default-deny; concrete product dispatch remains
+  disabled. No import, update, delete or configuration migration operation is
+  authorized.
+
+The following require separate authorization and are not begun:
+
+1. Actual Windows process-supervisor implementation.
+2. Bounded IPC integration.
+3. Windows worker creation and termination qualification.
+4. Durable quarantine/recovery.
+5. Approved static-address nonblocking TLS transport.
+6. Independent runtime and security verification.
+7. Exact lab/build/operation authorization.
+
+This decision authorizes only acceptance documentation in
+[PROGRESS.md](PROGRESS.md) and this register. No application/test changes, test
+execution, Git operations, dependency installation, network/product/laboratory
+operations or subsequent milestone work occurred. Stop after recording this
+prototype-only acceptance.
+
+## Owner policy decision - CCV-010-C deadline containment, 2026-11-20
+
+**CCV-010-C — REVISED DEADLINE-CONTAINMENT POLICY APPROVED**
+
+**Decision date:** 2026-11-20. **Owner:** project owner, by explicit decision in
+the project conversation. Replace CCV-010-C's unconditional whole-operation
+hard-interruption acceptance requirement with a **qualified, deadline-accounted,
+fail-closed containment requirement**. This dated decision controls current
+C deadline acceptance; earlier evidence and dated requirements remain historical,
+not rewritten or retroactively satisfied.
+
+The approved policy requires:
+
+1. One immutable monotonic operation deadline, covering initial authorization,
+   worker creation, authentication, transport, response/contract/cookie validation,
+   commitment, cleanup and final reporting; no renewed deadline at stage boundaries.
+2. Authorization, dispatch, validation and commitment checks against that deadline
+   and the current authorization/operation/session generation.
+3. Expired or stale operations cannot become successful.
+4. No new operation dispatch after observed expiry or authorization revocation;
+   serialize permission decisions with observed revocation and recheck at dispatch.
+5. Late worker results cannot commit authentication, cookies, configuration or
+   successful results. Failure-only recovery evidence cannot revive a retired
+   generation or alter a replacement session.
+6. Termination escalation when a worker exceeds its deadline.
+7. Explicit worker-exit, reaping and resource-disposition evidence; a termination
+   request is not confirmed exit, and confirmed exit alone is not complete release.
+8. Quarantine when worker termination or resource disposition cannot be confirmed.
+9. No replacement operation while required quarantine restrictions remain unresolved,
+   including across parent restart/recovery.
+10. No automatic replay of authentication or configuration writes.
+11. Measured startup, termination, cleanup and reporting overruns on approved
+    runtime/platform builds, with exact build and observation scope recorded.
+12. Explicit documentation of remaining timing, scheduling and resource-lifecycle
+    uncertainty, including supervisor stalls, revocation races and remote sessions.
+
+These are required acceptance properties, not newly implemented guarantees.
+The policy does **not** claim unconditional hard-real-time termination, successful
+report delivery or complete resource release by deadline. Expiration detection,
+failure reporting, termination request, confirmed worker exit and confirmed
+resource disposition must be reported separately. A timely clock check is not
+proof that a descheduled parent delivered a result before expiry; delayed reporting
+cannot turn an expired operation into valid success.
+
+**Remaining prerequisites:** exact IPC wire-contract specification; worker/session
+ownership; Windows process creation and job containment; parent-crash and quarantine
+recovery; authorization revocation races; termination and reaping verification;
+runtime-specific deadline qualification; TLS and product compatibility qualification;
+independent implementation/security review. Numeric laboratory settings remain
+unapproved. No prototype or supervised-containment implementation is authorized.
+
+**Evidence:** [E-043 safeguards](PROGRESS.md#e-043---ccv-010-c-offline-http-safety-hardening-2026-11-19),
+[E-044 corrections and historical 425-test verification](PROGRESS.md#e-044---ccv-010-c-review-and-authorized-corrections-2026-11-19),
+[E-045 initial design](PROGRESS.md#e-045---ccv-010-c-architecture-a-offline-design-2026-11-19),
+[E-046 revised design](PROGRESS.md#e-046---ccv-010-c-design-revision-and-supervised-containment-2026-11-20),
+the independent E-046 technical/security review in the project conversation
+(ACCEPT REVISED DESIGN WITH EXPLICIT LIMITATIONS), and this separate owner policy
+decision. [E-047](PROGRESS.md#e-047---ccv-010-c-revised-deadline-containment-policy-2026-11-20)
+records the update; no application tests were rerun.
+
+**Mandatory boundaries:** production capabilities remain default-deny; concrete
+laboratory dispatch remains disabled. No product authentication, laboratory
+connections, configuration import/update/deletion or runtime compatibility is
+authorized or established. **CCV-010-B Gates A-D remain NOT PASSED. Full CCV-010-C
+milestone acceptance remains withheld.** Approval of this policy direction passes
+no readiness gate and authorizes no subsequent milestone.
 
 ## Approval rules
 
