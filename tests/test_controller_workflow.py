@@ -79,6 +79,93 @@ class ControllerWorkflowTests(OfflineTestCase):
         self.assertEqual(status, 0)
         self.assertIn("scheduler", report["operations"])
 
+    def test_master_lookup_preview_and_local_response_are_not_configuration_exports(self):
+        for operation, value, fixture in (
+            ("lookup-site-by-name", "Existing", "site-lookup.json"),
+            ("lookup-site-by-id", "src-existing", "site-lookup.json"),
+            ("lookup-device-by-ip", "192.0.2.10", "device-lookup.json"),
+        ):
+            args = (
+                "--operation", operation, "--source-profile", str(self.directory / "source-profile.json"),
+                "--lookup-value", value,
+            )
+            status, report, stderr = self.invoke_master(*args)
+            self.assertEqual((status, report["status"], stderr), (0, "request-preview", ""))
+            self.assertFalse(report["complete_configuration_export"])
+            self.assertFalse(report["live_dispatch_available"])
+            output = self.directory / (operation + ".json")
+            status, report, _ = self.invoke_master(
+                *args, "--input", str(self.directory / fixture),
+                "--exported-at", "2026-11-22T00:00:00Z", "--output", str(output),
+            )
+            self.assertEqual((status, report["status"]), (0, "lookup-response-inspected"))
+            self.assertFalse(report["query_response_binding_verified"])
+            artifact = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(artifact["objects"], [self.read(fixture)])
+            self.assertNotEqual(artifact["domain"], "controller-objects")
+            self.assertNotIn("futureField", json.dumps(report))
+
+    def test_master_lookup_rejects_unsupported_version_bad_response_and_secrets(self):
+        args = (
+            "--operation", "lookup-site-by-id", "--source-profile", str(self.directory / "source-profile.json"),
+            "--lookup-value", "src-existing",
+        )
+        self.write("lookup.json", {})
+        output = self.directory / "lookup-output.json"
+        for payload, code in (
+            ({}, "malformed_api_response"),
+            ({"ormID": "src-existing", "name": "Existing", "password": "never-print"}, "secret_value_not_allowed"),
+        ):
+            self.write("lookup.json", payload)
+            status, report, _ = self.invoke_master(
+                *args, "--input", str(self.directory / "lookup.json"),
+                "--exported-at", "2026-11-22T00:00:00Z", "--output", str(output),
+            )
+            self.assertEqual((status, report["errors"][0]["code"]), (4, code))
+            self.assertNotIn("never-print", json.dumps(report))
+            self.assertFalse(output.exists())
+        profile = self.read("source-profile.json")
+        profile["version"] = "10.10.7"
+        self.write("source-profile.json", profile)
+        status, report, _ = self.invoke_master(*args)
+        self.assertEqual((status, report["errors"][0]["code"]), (4, "unsupported_controller_version"))
+
+    def test_master_standalone_tree_and_flat_export_use_existing_adapters(self):
+        args = (
+            "--operation", "export", "--source-profile", str(self.directory / "source-profile.json"),
+            "--controller-id", "synthetic-source", "--tree", "Physical",
+            "--exported-at", "2026-11-22T00:00:00Z",
+        )
+        output = self.directory / "tree-export.json"
+        status, report, _ = self.invoke_master(
+            *args, "--input", str(self.directory / "source-tree.json"), "--output", str(output),
+        )
+        self.assertEqual((status, report["status"]), (0, "exported"))
+        self.assertEqual(report["completeness"], "unverified")
+        root = self.read("source-tree.json")
+        root["children"] = []
+        self.write("root.json", root)
+        self.write("flat.json", {
+            "sites": [{"id": "site-1", "name": "Site", "parentOrmID": "src-root"}],
+            "devices": [{
+                "id": "device-1", "name": "Device", "parentOrmID": "site-1",
+                "type": "synthetic-device", "managementIp": "192.0.2.20",
+            }],
+        })
+        output = self.directory / "flat-export.json"
+        status, report, _ = self.invoke_master(
+            *args, "--input", str(self.directory / "flat.json"),
+            "--format", "flat", "--root", str(self.directory / "root.json"), "--output", str(output),
+        )
+        self.assertEqual((status, report["status"]), (1, "exported-incomplete"))
+        self.assertFalse(report["planning_input_valid"])
+        self.assertIn("incomplete_device_access", report["issue_codes"])
+        artifact = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(artifact["validation"]["status"], "invalid")
+        self.assertEqual(artifact["objects"][2]["parent"]["object_id"], "site-1")
+        with self.assertRaises(importlib.import_module("cc_vision_import.contracts").ContractValidationError):
+            self.o.parse_controller_artifact(artifact)
+
     def test_master_export_preserves_source_and_refuses_overwrite(self):
         output = self.directory / "exported.json"
         status, report, stderr = self.invoke_master(

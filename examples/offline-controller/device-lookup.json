@@ -1,0 +1,11 @@
+{
+  "ormID": "src-identical",
+  "name": "Identical device",
+  "type": "synthetic-device",
+  "deviceSetup": {
+    "deviceAccess": {
+      "managementIp": "192.0.2.10",
+      "connectionTimeout": 7
+    }
+  }
+}

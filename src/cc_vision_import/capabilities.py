@@ -12,6 +12,12 @@ class ReadCapability(StrEnum):
     LDAP_PERMISSIONS = "ldap-permissions"
 
 
+class LookupCapability(StrEnum):
+    SITE_BY_NAME = "site-by-name"
+    SITE_BY_ID = "site-by-id"
+    DEVICE_BY_IP = "device-by-ip"
+
+
 class ClientErrorCategory(StrEnum):
     UNSUPPORTED_CAPABILITY = "unsupported_capability"
     MOCK_BACKEND_REQUIRED = "mock_backend_required"
@@ -29,7 +35,7 @@ class ProductClientError(Exception):
 class CapabilityDeclaration:
     product: ProductName
     version: str
-    operation: ReadCapability
+    operation: ReadCapability | LookupCapability
     segments: tuple[str, ...]
     source_record: str
     evidence: str = "source-observed"
@@ -63,9 +69,9 @@ def capabilities_for(
 
 
 def require_capability(
-    product: str, version: str, operation: ReadCapability, *, mock_only: bool = False,
+    product: str, version: str, operation: ReadCapability | LookupCapability, *, mock_only: bool = False,
 ) -> CapabilityDeclaration:
-    if isinstance(operation, ReadCapability):
+    if isinstance(operation, (ReadCapability, LookupCapability)):
         for item in capabilities_for(product, version, mock_only=mock_only):
             if item.operation == operation:
                 return item

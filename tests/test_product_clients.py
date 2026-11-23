@@ -63,6 +63,59 @@ class ProductClientTestSupport(OfflineTestCase):
 
 
 class ProductClientTests(ProductClientTestSupport):
+    def test_controller_lookups_reuse_session_get_and_preserve_partial_response(self) -> None:
+        payload = {
+            "ormID": "synthetic-object", "name": "Existing site",
+            "unknown": {"second": [None, True, 1], "first": False},
+        }
+        client, _, backend = self.open_client(
+            "cyber-controller", *(self.response(payload) for _ in range(3)),
+        )
+        for index, (method, value, suffix, record) in enumerate((
+            (client.get_site_by_name, "Existing site", "site/byname/Existing%20site", "API-04"),
+            (client.get_site_by_id, "synthetic-object", "site/byid/synthetic-object", "API-05"),
+            (client.get_device_by_ip, "192.0.2.10", "device/byip/192.0.2.10", "API-06"),
+        ), start=1):
+            result = method(value)
+            self.assertEqual(result.objects, (payload,))
+            self.assertEqual(result.capability.source_record, record)
+            self.assertFalse(result.capability.live_tested)
+            request = backend.requests[index]
+            self.assertEqual(request.url, "https://source.invalid/mgmt/system/config/tree/" + suffix)
+            self.assertEqual(request.method, self.t.HttpMethod.GET)
+            self.assertIsNone(request.body)
+            self.assertTrue(request.tls_context.check_hostname)
+            artifact = result.to_artifact(exported_at="2026-11-22T00:00:00Z")
+            self.assertNotEqual(artifact.domain, "controller-objects")
+            self.assertEqual(list(artifact.objects), [payload])
+        self.assertEqual(len(backend.requests), 4)
+
+    def test_controller_lookup_capabilities_remain_mock_only_and_parameters_are_guarded(self) -> None:
+        for operation in self.c.LookupCapability:
+            for product, version, mock_only in (
+                ("cyber-controller", "0.0-test", False),
+                ("cyber-controller", "10.10.7", False),
+                ("cyber-controller", "10.10.7", True),
+                ("vision", "0.0-test", True),
+            ):
+                with self.assertRaises(self.c.ProductClientError):
+                    self.c.require_capability(product, version, operation, mock_only=mock_only)
+        client, _, backend = self.open_client("cyber-controller")
+        for value in ("", "..", "name/other", "name%2Fother", "name\\other"):
+            with self.assertRaises(self.contracts.ContractValidationError):
+                client.get_site_by_name(value)
+        self.assertEqual(len(backend.requests), 1)
+
+    def test_controller_lookup_malformed_results_are_not_absence_or_empty_inventory(self) -> None:
+        for payload in (
+            None, [], "There is no site with name", {}, {"ormID": "", "name": "Site"},
+            {"name": "Site", "meIdentifier": {"managedElementID": "ambiguous-alias"}},
+        ):
+            client, _, _ = self.open_client("cyber-controller", self.response(payload))
+            with self.assertRaises(self.c.ProductClientError) as caught:
+                client.get_site_by_id("synthetic-object")
+            self.assertEqual(caught.exception.category, self.c.ClientErrorCategory.MALFORMED_RESPONSE)
+
     def test_default_lookup_does_not_grant_synthetic_capabilities(self) -> None:
         for product, operation in (
             ("vision", self.c.ReadCapability.LDAP_PERMISSIONS),

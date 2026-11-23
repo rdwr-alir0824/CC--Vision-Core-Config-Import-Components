@@ -23,13 +23,60 @@ python master.py --operation plan --request examples\offline-controller\request.
 python master.py --operation import-preview --request examples\offline-controller\request.json
 ```
 
+### Controller Objects: source-only reads
+
+No destination profile or migration manifest is needed for the following:
+
+```powershell
+python master.py --operation lookup-site-by-name --source-profile examples\offline-controller\source-profile.json --lookup-value Existing
+python master.py --operation lookup-site-by-id --source-profile examples\offline-controller\source-profile.json --lookup-value src-existing --input examples\offline-controller\site-lookup.json --exported-at 2026-11-22T00:00:00Z
+python master.py --operation lookup-device-by-ip --source-profile examples\offline-controller\source-profile.json --lookup-value 192.0.2.10 --input examples\offline-controller\device-lookup.json --exported-at 2026-11-22T00:00:00Z --output device-lookup-artifact.json
+python master.py --operation export --source-profile examples\offline-controller\source-profile.json --input examples\offline-controller\source-tree.json --tree Physical --controller-id synthetic-source --exported-at 2026-11-22T00:00:00Z --output tree-export.json
+```
+
+Without `--input`, lookup returns a **request preview**, not a controller result.
+With `--input`, it inspects a supplied synthetic single-object response, preserving
+unknown fields. Minimum local identity evidence is a nonempty string `ormID` and
+`name`; this is not a complete vendor schema. Responses without this evidence
+(including empty JSON, the legacy not-found string, and managed-element-ID-only
+aliases) are rejected, never treated as "not found."
+The query-to-response association, alias equivalence, absence semantics and
+live compatibility remain unverified. Inline credentials are rejected before
+an artifact is written.
+
+Optional lookup `--output` writes an artifact with a distinct lookup domain,
+**not** `controller-objects`. A site/device lookup is not a tree/configuration
+export and is not a migration input. Summaries omit object contents, controller
+addresses and parameter values; supplied records can be inspected in the local
+artifact. Output is never overwritten.
+
+Supported lookup path templates are source-observed:
+`GET /mgmt/system/config/tree/site/byname/{name}` (API-04),
+`GET /mgmt/system/config/tree/site/byid/{id}` (API-05), and
+`GET /mgmt/system/config/tree/device/byip/{ip}` (API-06).
+Existing URL construction validates/encodes the parameter; no request is sent.
+The shared CC client methods `get_site_by_name`, `get_site_by_id` and
+`get_device_by_ip` reuse the existing managed-session authentication and GET
+request path, but accept **explicit mock backends and `0.0-test` only**.
+The master CLI does not construct or authenticate such sessions.
+
+Standalone export defaults to `--format tree`; select `--tree Physical` or
+`Organization` explicitly. Legacy flat exports use `--format flat --root
+source-root.json`, where the root file is a supplied source root with empty
+children. Never infer a root or parent from a name. Both formats reuse existing
+adapters. Missing device access is preserved as an invalid artifact with
+`status: exported-incomplete`, issue codes and exit **1**; it cannot enter
+planning. Completeness remains unverified even when offline validation succeeds.
+Do not combine standalone input with `--request`.
+
 `export` adapts a **supplied local source inventory** into an artifact. It does
 not download controller data. Output must be a new file; existing files are never
 overwritten. Artifacts contain configuration and must be stored appropriately.
 Inline credentials are rejected; use existing `secret_ref` contracts or null
-credential values. Incomplete or invalid source inventories fail explicitly
-without producing an export. The underlying export adapters remain unchanged
-and still support retaining incomplete artifacts through their existing API.
+credential values. Manifest-based export still rejects incomplete/invalid
+inventories without producing an output. Standalone export retains safely
+representable incomplete data with the explicit invalid status described above.
+Malformed data, unresolved parents, and inline credentials fail without output.
 
 `compare`, `plan`, and `import-preview` all reuse the same existing offline
 comparison/planning pipeline. They report CREATE, SKIP, CONFLICT, BLOCKED, issue
@@ -70,7 +117,7 @@ inspection validates syntax only; it never resolves secrets or tests connectivit
 TLS certificate verification remains mandatory for any separately authorized
 future connection; this CLI has no TLS-disable option.
 
-For export and planning, reuse [request.json](examples/offline-controller/request.json).
+For manifest-based export and planning, reuse [request.json](examples/offline-controller/request.json).
 It binds source/destination profiles and inventories, controller IDs, explicit
 mappings, device detail/access associations, policy, completeness declarations,
 and acknowledgements. Manifest paths are relative to its directory; explicit
@@ -80,7 +127,7 @@ manifest profiles: they cannot silently redirect the workflow.
 
 Accepted supplied inventory formats are recursive `tree`, context-qualified
 legacy `flat` (with an explicit source root), and normalized `artifact`.
-Export reads the source side, including declared reconciliation, but requires
+Manifest-based export reads the source side, including declared reconciliation, but requires
 the existing manifest and both profiles. It does not evaluate the destination
 inventory or planning declarations. The current controller adapters/planner
 accept only synthetic Cyber Controller version `0.0-test`; never relabel a real
@@ -102,8 +149,12 @@ before future changes; no approval/execution system was added in this iteration.
 
 | Workflow | Current support |
 |---|---|
-| CC-to-CC controller objects | Synthetic local export, comparison and planning; live reads/writes unavailable |
+| CC site/device lookup | Request preview and supplied single-response inspection; mock client GET methods; no complete-export claim |
+| CC source-only tree/flat export | Local adapters, explicit root/context, preservation of incomplete data with invalid status |
+| CC-to-CC controller objects | Existing synthetic manifest export, comparison, planning and import preview preserved |
 | Vision-to-CC controller objects | Product/profile selection; migration unavailable because source export schemas and mappings are unestablished |
+| Live Controller Objects reads/authentication | Unavailable; production capabilities remain default-deny; real versions are not enabled |
+| Controller imports/updates/deletes | Unavailable; separate execution authorization and explicit action approval still required |
 | LDAP, either direction to CC | Same operation selector; unavailable because CC endpoints/contracts and reference mappings are unresolved |
 | Scheduler, either direction to CC | Same operation selector; unavailable because configured legacy paths and CC task contracts are unresolved |
 
@@ -149,19 +200,24 @@ Additional shared reuse:
 interface; [artifacts](src/cc_vision_import/artifacts.py) preserves exported JSON
 and validates credential handling; [workflow](src/cc_vision_import/controller_workflow.py)
 provides comparison, planning and redacted result/error reports. The master never
-constructs sessions, a backend, or production clients. It adds only local
-new-file export output and CLI dispatch; no credential or write retries.
+constructs sessions, a backend, or production clients. Shared
+`read_request_segments` and `adapt_read_response` in
+[product_clients](src/cc_vision_import/product_clients.py) consolidate request
+binding and JSON response processing for local inspection and mock clients.
+No parallel authentication implementation or credential/write retries were added.
 
 ## Implementation report
 
-Implemented: root entry point, unified offline selectors, shared profile
-validation, source artifact export, comparison/planning/import preview, redacted
-results, explicit unavailable states, and this inventory/usage guide.
+Implemented: unified offline selectors and shared profile validation, source-only
+tree/flat export, three CC lookup previews/local-response inspection operations,
+shared mock-only lookup GET methods, and preserved manifest
+export/comparison/planning/import preview. Existing root entry point is unchanged.
 
-Verification: 35 existing-runner guarded offline workflow tests passed, including
-five focused master CLI regressions; zero guarded network attempts. Syntax checks
-passed for the entry point, CLI and affected tests. No legacy execution, live
-tests, Git operations, new testing framework, or additional milestones.
+Verification: **76 targeted guarded tests passed** across the existing product
+client, controller workflow and mocked integration test modules, including six
+focused new regressions; zero guarded network attempts. Master/client syntax and
+Pylance checks passed. No legacy execution, live tests, Git operations, new
+testing framework, containment-document/PDF changes, or additional milestones.
 
 Remaining: real-controller reads/authentication, approved import execution,
 Vision controller adapters/mappings, CC LDAP and Scheduler contracts, and
