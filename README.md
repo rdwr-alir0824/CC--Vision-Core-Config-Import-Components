@@ -161,6 +161,200 @@ before future changes; no approval/execution system was added in this iteration.
 The existing [API matrix](docs/API_MATRIX.md) remains the evidence source.
 No endpoints, product equivalence, or compatibility claims were invented.
 
+## Docker deployment
+
+This replaces the legacy application image with the existing offline
+[master.py](master.py), without changing application behavior. The
+[Dockerfile](Dockerfile) uses the official `python:3.13-slim` image, `/app`,
+`PYTHONPATH=/app/src`, and non-root UID/GID `10001:10001`. The Python entrypoint
+receives CLI arguments directly, executes one operation, and exits.
+Only the standard library is required: no packages or dependency manifest are
+needed. No cron, installation/startup shell scripts, service manager, background
+worker, Windows containment/IPC, or new DNS-validation components are required.
+
+The [.dockerignore](.dockerignore) allows only the Docker build files,
+[master.py](master.py), Python source under [src](src), and the 15 explicitly
+listed synthetic JSON examples under [offline-controller](examples/offline-controller)
+into the build context. The examples retain their relative paths inside
+`/app/examples/offline-controller`; no other runtime files are needed.
+Git metadata, virtual environments, caches, credentials, local configuration,
+exported controller JSON, vendor API PDFs, image TAR archives, tests,
+documentation, and unrelated legacy artifacts are excluded.
+Never embed secrets in Python source. Keep credentials and configuration outside
+the image; the current master never resolves credentials or authenticates.
+Mount any required local JSON inputs read-only, separately from the output
+directory. Do not mount over `/app`, which would hide the packaged application.
+
+Git exclusions are separate: [.gitignore](.gitignore) excludes virtual
+environments, caches, secrets, operational directories, JSON (except synthetic
+examples/test fixtures), PDFs, and image archives. Never put real credentials or
+controller exports into the synthetic fixture directories. Docker exclusions
+do not protect Git commits, and Git exclusions do not untrack existing files.
+The two local vendor PDFs were retained at the owner's request; Git tracking
+and history were not inspected because Git operations were prohibited.
+Before publishing, the owner must verify that PDFs, credentials, live
+configuration, and image archives are not tracked or present in published
+history. Ignore rules alone cannot establish that a Git clone excludes them.
+
+### Clone and select the intended branch
+
+On an authorized Linux lab Docker host, substitute the actual repository URL
+and branch (neither is assumed here):
+
+```sh
+REPOSITORY_URL='REPLACE_WITH_AUTHORIZED_REPOSITORY_URL'
+BRANCH='REPLACE_WITH_INTENDED_BRANCH'
+git clone --branch "$BRANCH" --single-branch "$REPOSITORY_URL" cc-vision-master
+cd cc-vision-master
+```
+
+Select a branch containing the packaging changes on top of master checkpoint
+`056e5e0`; checking out that checkpoint alone does not include these changes.
+These commands are instructions only, not evidence of a clone or deployment.
+
+### A. Build the image
+
+Run from the clone's repository root on Linux, or from this repository in
+PowerShell with Docker configured for Linux containers:
+
+```powershell
+docker build --tag cc-vision-master:0.1 .
+```
+
+The build needs the official base image available locally or access to its
+registry. No controller connection is needed. Build for the lab host's CPU
+architecture; `docker save`/`docker load` do not convert architectures.
+
+### B. Run CLI help
+
+```powershell
+docker run --rm --network none --name cc-vision-master cc-vision-master:0.1 --help
+```
+
+### C. List offline operations
+
+```powershell
+docker run --rm --network none --name cc-vision-master cc-vision-master:0.1 --operation operations
+```
+
+All runtime examples disable networking. No authentication, controller reads,
+configuration imports/writes, or production capability activation is enabled.
+
+### D. Mount a local directory for exported JSON
+
+```powershell
+New-Item -ItemType Directory -Force -Path .\exports | Out-Null
+$exportDirectory = (Resolve-Path .\exports).Path
+docker run --rm --network none --name cc-vision-master --mount "type=bind,source=$exportDirectory,target=/exports" cc-vision-master:0.1 --operation operations
+```
+
+This safely demonstrates the output mount; `operations` only prints JSON to
+stdout and creates no file. For a separately selected offline local-data export,
+use `--output /exports/<new-file>.json` and supply the required inputs through a
+separate read-only bind mount. Exports are configuration artifacts, not secrets
+storage; existing output files are never overwritten.
+On Linux, the output directory must be writable by UID/GID `10001:10001`
+(or an explicitly selected non-root `--user UID:GID` matching its ownership).
+Do not use root or world-writable permissions as a workaround. Docker Desktop
+bind-mount permissions depend on host file-sharing settings.
+
+For an authorized Linux host, create a dedicated external data directory
+(only directory provisioning requires elevated permissions):
+
+```sh
+sudo install -d -m 0750 -o 10001 -g 10001 /srv/cc-vision-master-data
+docker run --rm --network none --name cc-vision-master --mount "type=bind,source=/srv/cc-vision-master-data,target=/data" cc-vision-master:0.1 --operation operations
+```
+
+Use `--output /data/<new-file>.json` for a separately selected offline export.
+Operator access to the directory must follow the host's approved permissions.
+The default smoke operation writes nothing.
+
+### E. Export the image to a TAR archive
+
+```powershell
+docker save --output cc-vision-master-0.1.tar cc-vision-master:0.1
+```
+
+Transfer the TAR to an authorized lab Docker host. It contains the image, not
+bind-mounted inputs or exported configuration. No actual appliance deployment
+is part of this task.
+
+### F. Load the image on the lab Docker host
+
+After placing the archive in the host's current directory:
+
+```sh
+docker load --input cc-vision-master-0.1.tar
+```
+
+### G. Run on demand
+
+```sh
+docker run --network none --name cc-vision-master cc-vision-master:0.1 --operation operations
+docker inspect --format '{{.State.ExitCode}}' cc-vision-master
+```
+
+This runs in the foreground and leaves an exited container for inspection.
+No restart policy, persistent service, port publishing, or host networking is
+needed. Retain the existing CLI exit-code meanings described above.
+
+### H. Remove the exited container
+
+```sh
+docker rm cc-vision-master
+```
+
+Remove it before reusing the same container name. The `--rm` examples instead
+remove the container automatically after execution; bind-mounted files persist.
+Removing a container does not remove the image or its TAR archive.
+
+### Update the clone and rebuild
+
+From the clean clone on the intended branch:
+
+```sh
+git pull --ff-only
+docker build --tag cc-vision-master:0.1 .
+docker run --rm --network none --name cc-vision-master cc-vision-master:0.1 --help
+docker run --rm --network none --name cc-vision-master cc-vision-master:0.1 --operation operations
+```
+
+If the update fails or local changes exist, stop and resolve them explicitly;
+do not force-reset the clone. Remove any previously retained exited container
+as in H before reusing its name. For TAR-only targets, save and transfer the
+rebuilt image, then load it again as in E/F; recreating the container uses the
+updated tag. No cron, persistent service, or automatic background update is used.
+
+### Minimal offline verification
+
+Where Docker is available, build as in A, then run B and C. Verify the image's
+Python version separately (this overrides the entrypoint only for the check):
+
+```powershell
+docker run --rm --network none --name cc-vision-master --entrypoint python cc-vision-master:0.1 --version
+```
+
+Expected: Python **3.13.x**, help exits **0**, and `operations` exits **0** with
+`offline_only: true` and `execution_authorized: false`.
+Local packaging verification passed on Python **3.13.14** under `python -S -B`
+(no third-party site packages). An isolated temporary runtime contained only
+[master.py](master.py), all 33 Python source files, and the 15 allowlisted JSON
+examples. All source imports were standard-library or internal modules, and all
+example JSON parsed successfully.
+Eight guarded CLI checks passed: help, operations, and profiles exited **0**;
+synthetic comparison retained its intentional exit **1**; authentication and
+import were explicitly refused with exit **4** and `live_execution_disabled`;
+both supplied lookup fixtures exited **0** without writing artifacts.
+Existing offline-test guards recorded zero attempts across all 15 guarded
+socket/DNS/HTTP targets for each command. Temporary files were cleaned up.
+No controller connection, authentication, import, or configuration write was
+performed. No Git commands were run; tracked-file and history exclusions remain
+an owner verification requirement before publishing.
+Docker was unavailable in the development environment: the image build,
+in-container Python/CLI behavior, bind-mount permissions, and TAR save/load
+remain **unverified**, not successful deployment claims.
+
 ## Simple architecture and reuse inventory
 
 ```text

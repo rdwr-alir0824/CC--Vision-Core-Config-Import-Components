@@ -8,6 +8,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+env/
+.virtualenv/
 .pytest_cache/
 
 # Credentials and secrets
@@ -19,12 +21,26 @@ venv/
 *.p12
 *.pfx
 secrets/
+credentials/
 
 # Operational configuration exports
+*.json
+# Only synthetic examples and test fixtures belong in version control.
+!/examples/offline-controller/*.json
+!/tests/fixtures/**/*.json
 cyber_controller_*.json
 exports/
 backups/
 runtime/
+data/
+config/
+
+# Vendor references and Docker image archives stay outside Git.
+*.pdf
+*.PDF
+*.tar
+*.tar.gz
+*.tgz
 
 # Logs
 *.log
