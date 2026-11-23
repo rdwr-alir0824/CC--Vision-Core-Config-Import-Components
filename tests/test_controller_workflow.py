@@ -1,7 +1,11 @@
 import copy
 import hashlib
 import importlib
+import io
 import json
+import runpy
+import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -49,6 +53,103 @@ class ControllerWorkflowTests(OfflineTestCase):
         path = self.directory / "retained.json"
         path.write_text(result.record_json(), encoding="utf-8")
         return path
+
+    def invoke_master(self, *args):
+        stdout, stderr = io.StringIO(), io.StringIO()
+        entry = self.examples.parent.parent / "master.py"
+        with (
+            redirect_stdout(stdout), redirect_stderr(stderr),
+            patch.object(sys, "argv", ["master.py", *args]),
+            patch.object(sys, "path", list(sys.path)),
+        ):
+            with self.assertRaises(SystemExit) as caught:
+                runpy.run_path(str(entry), run_name="__main__")
+        return caught.exception.code, json.loads(stdout.getvalue()), stderr.getvalue()
+
+    def test_master_profiles_and_selection_do_not_authenticate(self):
+        status, report, stderr = self.invoke_master(
+            "--operation", "profiles",
+            "--source-profile", str(self.directory / "source-profile.json"),
+            "--destination-profile", str(self.directory / "destination-profile.json"),
+        )
+        self.assertEqual((status, stderr), (0, ""))
+        self.assertFalse(report["authenticated"])
+        self.assertNotIn("source.invalid", json.dumps(report))
+        status, report, _ = self.invoke_master("--operation", "operations")
+        self.assertEqual(status, 0)
+        self.assertIn("scheduler", report["operations"])
+
+    def test_master_export_preserves_source_and_refuses_overwrite(self):
+        output = self.directory / "exported.json"
+        status, report, stderr = self.invoke_master(
+            "--operation", "export", "--request", str(self.request), "--output", str(output),
+        )
+        self.assertEqual((status, stderr, report["status"]), (0, "", "exported"))
+        expected = self.run_plan().record["artifacts"]["source"]
+        exported = output.read_text(encoding="utf-8")
+        self.assertEqual(json.loads(exported), expected)
+        self.assertEqual(
+            list(json.loads(exported)["objects"][0]["configuration"]["unknownRoot"]), ["second", "first"],
+        )
+        status, report, _ = self.invoke_master(
+            "--operation", "export", "--request", str(self.request), "--output", str(output),
+        )
+        self.assertEqual(status, 3)
+        self.assertEqual(report["errors"], [{"code": "output_exists"}])
+        self.assertEqual(output.read_text(encoding="utf-8"), exported)
+
+    def test_master_comparison_plan_and_import_preview_reuse_existing_results(self):
+        for operation in ("compare", "plan", "import-preview"):
+            status, report, stderr = self.invoke_master(
+                "--operation", operation, "--request", str(self.request),
+            )
+            self.assertEqual((status, stderr), (1, ""))
+            self.assertEqual(report["counts"], {"CREATE": 3, "SKIP": 3, "CONFLICT": 1, "BLOCKED": 1})
+            self.assertFalse(report["execution_authorized"])
+            self.assertTrue(report["approval_required_before_changes"])
+        self.root_only()
+        status, report, _ = self.invoke_master("--operation", "plan", "--request", str(self.request))
+        self.assertEqual(status, 0)
+        self.assertFalse(report["import_execution_available"])
+        status, report, _ = self.invoke_master("--operation", "import", "--request", str(self.request))
+        self.assertEqual((status, report["status"]), (4, "unavailable"))
+
+    def test_master_unresolved_domains_and_vision_are_explicitly_unavailable(self):
+        for domain in ("ldap-permissions", "scheduler"):
+            status, report, _ = self.invoke_master(
+                "--operation", "plan", "--module", domain, "--request", str(self.request),
+            )
+            self.assertEqual((status, report["errors"][0]["code"]), (4, "unresolved_contract"))
+        profile = self.read("source-profile.json")
+        profile["product"] = "vision"
+        self.write("source-profile.json", profile)
+        status, report, _ = self.invoke_master(
+            "--operation", "plan", "--source-product", "vision", "--request", str(self.request),
+        )
+        self.assertEqual((status, report["errors"][0]["code"]), (4, "vision_controller_contract_unavailable"))
+        status, report, _ = self.invoke_master("--operation", "authenticate")
+        self.assertEqual((status, report["errors"][0]["code"]), (4, "live_execution_disabled"))
+
+    def test_master_rejects_profile_retargeting_and_secret_export_without_output(self):
+        alternate = self.read("source-profile.json")
+        alternate["base_url"] = "https://other.invalid"
+        self.write("alternate.json", alternate)
+        output = self.directory / "exported.json"
+        status, report, _ = self.invoke_master(
+            "--operation", "export", "--request", str(self.request), "--output", str(output),
+            "--source-profile", str(self.directory / "alternate.json"),
+        )
+        self.assertEqual((status, report["errors"][0]["code"]), (4, "profile_mismatch"))
+        self.assertFalse(output.exists())
+        tree = self.read("source-tree.json")
+        tree["password"] = "must-never-be-reported"
+        self.write("source-tree.json", tree)
+        status, report, _ = self.invoke_master(
+            "--operation", "export", "--request", str(self.request), "--output", str(output),
+        )
+        self.assertEqual((status, report["errors"][0]["code"]), (4, "secret_value_not_allowed"))
+        self.assertNotIn("must-never-be-reported", json.dumps(report))
+        self.assertFalse(output.exists())
 
     def test_synthetic_demonstration_all_classifications_and_nested_dependencies(self):
         with patch("cc_vision_import.plans.create_plan", side_effect=AssertionError("Generic planner forbidden.")) as generic:
