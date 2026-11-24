@@ -309,18 +309,21 @@ def _read_response_body(response: _Response, size: int) -> bytes:
 
 
 class StdlibHttpBackend:
-    """Offline-qualified adapter; built-in dispatch is blocked pending hard deadlines.
+    """Exact-scope HTTPS adapter; built-in dispatch requires explicit live opt-in.
 
-    Injected factories are trusted, network-incapable test doubles only, not a
-    supported live alternative. Each instance owns one origin/private cookie jar.
-    Not thread-safe and never a nominal mock backend.
+    Injected factories remain trusted offline doubles. Live DNS resolution is not
+    hard-deadline bounded; socket timeouts and checked deadlines are not process
+    containment guarantees. Each instance owns one origin/private cookie jar.
     """
 
     def __init__(
         self, *, connection_factory: ConnectionFactory | None = None,
         authorization: DestinationAuthorization | None = None,
         max_response_bytes: int | None = None,
+        allow_live: bool = False,
     ) -> None:
+        if type(allow_live) is not bool or allow_live and connection_factory is not None:
+            raise ValueError("Live dispatch must use the built-in HTTPS connection.")
         if authorization is not None:
             if not isinstance(authorization, DestinationAuthorization):
                 raise ValueError("Invalid destination authorization.")
@@ -330,6 +333,7 @@ class StdlibHttpBackend:
         ):
             raise ValueError("A positive finite byte budget is required.")
         self._factory = connection_factory
+        self._allow_live = allow_live
         self._authorization = authorization
         self._max_response_bytes = max_response_bytes
         self._cookies = _StrictCookieJar()
@@ -401,16 +405,17 @@ class StdlibHttpBackend:
                 request.method, f"{parts.scheme}://{parts.netloc}", target,
             ):
                 raise BackendFailure(ErrorCategory.SAFETY_POLICY)
-            # Blocking getaddrinfo and stdlib multi-read operations lack reliable
-            # cancellation. Do not enter the real connection path at all.
-            if self._factory is None or self._factory is http.client.HTTPSConnection:
-                raise BackendFailure(ErrorCategory.SAFETY_POLICY)
+            factory = self._factory
+            if factory is None or factory is http.client.HTTPSConnection:
+                if not self._allow_live:
+                    raise BackendFailure(ErrorCategory.SAFETY_POLICY)
+                factory = http.client.HTTPSConnection
             self._origin = origin
             cookie_request = Request(request.url, headers=outgoing, method=request.method.value)
             self._cookies.add_cookie_header(cookie_request)
             outgoing = _headers(dict(cookie_request.header_items()))
             outgoing["Connection"] = "close"
-            connection = self._factory(
+            connection = factory(
                 host, port, timeout=min(request.connect_timeout, deadline.remaining()),
                 context=request.tls_context,
             )

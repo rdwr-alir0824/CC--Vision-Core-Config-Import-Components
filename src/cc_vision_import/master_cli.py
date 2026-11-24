@@ -1,17 +1,16 @@
-"""Small offline master interface over the existing configuration components."""
+"""Master interface for offline consolidation and explicitly selected Vision reads."""
 
 import argparse
 import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from ._contract_validation import ContractReader
 from .capabilities import LookupCapability, ProductClientError, require_capability
 from .contracts import ContractValidationError, ExitStatus
 from .controller_exports import adapt_flat_export, adapt_tree_response
 from .controller_objects import TreeName
 from .controller_workflow import plan_offline_request
-from .offline_inputs import OfflineInputs, local_path
+from .offline_inputs import OfflineInputs, write_local_export as _write_export
 from .product_clients import adapt_read_response, read_request_segments
 from .profiles import DestinationProfile, SourceProfile
 from .transport import build_url
@@ -24,7 +23,7 @@ _LOOKUPS = {
 }
 _OPERATIONS = (
     "operations", "profiles", "export", "compare", "plan", "import-preview",
-    "authenticate", "import", *_LOOKUPS,
+    "authenticate", "import", "backup-vision", *_LOOKUPS,
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -35,7 +34,7 @@ _DOMAIN_LIMITATIONS = {
 
 def _report(operation: str, status: str, **fields: object) -> dict[str, object]:
     return {
-        "operation": operation, "status": status, "offline_only": True,
+        "operation": operation, "status": status, "offline_only": operation != "backup-vision",
         "execution_authorized": False, "tls_verification_required": True, **fields,
     }
 
@@ -74,25 +73,6 @@ def _profiles(
     destination = _profile(inputs, manifest, "destination", destination_path, "cyber-controller")
     assert isinstance(source, SourceProfile) and isinstance(destination, DestinationProfile)
     return source, destination
-
-
-def _write_export(path_value: str, serialized: str) -> None:
-    path = local_path(path_value, Path.cwd())
-    reader = ContractReader("master-export")
-    created = False
-    try:
-        with path.open("x", encoding="utf-8") as output:
-            created = True
-            output.write(serialized)
-    except FileExistsError:
-        reader.fail("output_exists", "$", "Export output already exists; choose a new file.")
-    except (OSError, ValueError, UnicodeError):
-        if created:
-            try:
-                path.unlink()
-            except OSError:
-                reader.fail("output_cleanup_failed", "$", "Export failed and its partial output could not be removed.")
-        reader.fail("output_unwritable", "$", "Cannot write the local export output.")
 
 
 def _lookup(
@@ -147,7 +127,7 @@ def _export_input(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python master.py",
-        description="Offline configuration consolidation. Never authenticates or writes to controllers.",
+        description="Offline consolidation, or explicitly selected read-only Vision backup. Never writes controller configuration.",
     )
     parser.add_argument("--operation", choices=_OPERATIONS, required=True)
     parser.add_argument("--module", choices=("controller-objects", "ldap-permissions", "scheduler"), default="controller-objects")
@@ -164,7 +144,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--controller-id", help="Explicit source identity for standalone export.")
     parser.add_argument("--root", help="Explicit local root response required for flat export.")
     parser.add_argument("--exported-at", help="ISO-8601 timestamp for supplied export/lookup data.")
+    parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
+    parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
     args = parser.parse_args(argv)
+    live_backup = args.operation == "backup-vision"
+    if live_backup:
+        if args.backup_profile is None or args.credentials_file is None:
+            parser.error("backup-vision requires --backup-profile and --credentials-file.")
+        if args.module != "controller-objects" or any(
+            value is not None for value in (
+                args.source_profile, args.destination_profile, args.request, args.output,
+                args.input, args.lookup_value, args.format, args.tree, args.controller_id,
+                args.root, args.exported_at,
+            )
+        ):
+            parser.error("backup-vision uses only its backup profile and credentials file, not offline input options.")
+    elif args.backup_profile is not None or args.credentials_file is not None:
+        parser.error("backup profile/credentials options require explicit --operation backup-vision.")
     lookup = args.operation in _LOOKUPS
     standalone_export = args.operation == "export" and args.input is not None
     if args.output is not None and args.operation != "export" and not lookup:
@@ -205,6 +201,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.operation == "operations":
             report = _report("operations", "available", operations={
                 "profiles": "offline validation for Vision/CC source and CC destination",
+                "backup-vision": "explicit live read-only Vision 5.4.9 collection of profile-listed sites/devices; not complete inventory",
                 "export": "CC 0.0-test supplied source inventory to local artifact",
                 **{operation: "CC 0.0-test request preview / supplied single-response inspection; not a complete export" for operation in _LOOKUPS},
                 "compare": "CC-to-CC offline comparison and candidate actions",
@@ -215,6 +212,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "vision-to-cc": _VISION_LIMITATION,
                 **_DOMAIN_LIMITATIONS,
             })
+        elif live_backup:
+            from .vision_backup import run_vision_backup
+
+            report, status = run_vision_backup(args.backup_profile, args.credentials_file)
         elif args.operation in ("authenticate", "import"):
             report, status = _unavailable(
                 args.operation, "live_execution_disabled",

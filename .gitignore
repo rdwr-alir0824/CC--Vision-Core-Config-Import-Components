@@ -27,6 +27,7 @@ credentials/
 *.json
 # Only synthetic examples and test fixtures belong in version control.
 !/examples/offline-controller/*.json
+!/examples/vision-backup/profile.json
 !/tests/fixtures/**/*.json
 cyber_controller_*.json
 exports/

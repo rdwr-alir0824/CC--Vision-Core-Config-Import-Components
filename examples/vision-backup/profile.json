@@ -1,0 +1,20 @@
+{
+  "source": {
+    "role": "source",
+    "name": "lab-vision",
+    "product": "vision",
+    "version": "5.4.9",
+    "base_url": "https://vision.example.invalid"
+  },
+  "tls": {
+    "verify": true,
+    "trusted_ca": "/run/config/vision-ca.pem"
+  },
+  "domains": ["controller-objects"],
+  "controller_objects": {
+    "site_names": ["Default"],
+    "site_ids": [],
+    "device_ips": ["192.0.2.10"]
+  },
+  "output_directory": "/data"
+}

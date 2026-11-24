@@ -3,6 +3,7 @@
 import base64
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import ClassVar, Protocol
@@ -49,6 +50,7 @@ class AuthenticationFailureCategory(StrEnum):
 
 
 class LoginEvidence(StrEnum):
+    DOCUMENTED_SESSION = "documented_vision_session"
     APPLICATION_STATUS_OK = "legacy_application_status_ok"
     HTTP_200_ONLY = "legacy_http_200_only"
 
@@ -213,6 +215,37 @@ class VisionAuthenticationStrategy:
                 AuthenticationFailureCategory.APPLICATION_REJECTION, status=response.status,
             ))
         return AuthenticationOutcome(True, LoginEvidence.APPLICATION_STATUS_OK)
+
+
+class DocumentedVisionAuthenticationStrategy(VisionAuthenticationStrategy):
+    """Vision 5.4.9 PDF pages 156-158: require the returned JSESSIONID."""
+
+    def __init__(self) -> None:
+        self._session_id: str | None = None
+
+    def interpret(self, response: HttpResponse) -> AuthenticationOutcome:
+        self.clear()
+        outcome = super().interpret(response)
+        if outcome.failure is not None:
+            return outcome
+        data = load_json(response.body.decode("utf-8"))
+        session_id = data.get("jsessionid") if isinstance(data, dict) else None
+        if response.status != 200 or not isinstance(session_id, str) or not re.fullmatch(
+            r"[A-Za-z0-9._-]{1,512}", session_id,
+        ):
+            return AuthenticationOutcome(False, failure=AuthenticationFailure(
+                AuthenticationFailureCategory.MALFORMED_RESPONSE, status=response.status,
+            ))
+        self._session_id = session_id
+        return AuthenticationOutcome(True, LoginEvidence.DOCUMENTED_SESSION)
+
+    def request_headers(self, credentials: ResolvedCredentials | None) -> dict[str, str]:
+        if self._session_id is None:
+            raise AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.INVALID_STATE))
+        return {**super().request_headers(credentials), "Cookie": f"JSESSIONID={self._session_id}"}
+
+    def clear(self) -> None:
+        self._session_id = None
 
 
 class CyberControllerAuthenticationStrategy:

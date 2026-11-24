@@ -11,7 +11,9 @@ from .capabilities import (
     CapabilityDeclaration, ClientErrorCategory, LookupCapability, ProductClientError,
     ReadCapability, capabilities_for, require_capability,
 )
-from .contracts import ProductName
+from .contracts import JsonValue, ProductName
+from .controller_objects import is_controller_credential_field
+from .schema_qualification import OperationEvidence, SchemaSubset, operation_evidence, qualify_schema
 from .sessions import SessionManager
 from .transport import HttpMethod
 
@@ -153,3 +155,100 @@ class CyberControllerClient(_ReadClient):
 
     def get_device_by_ip(self, device_ip: str) -> ReadResult:
         return self._read(LookupCapability.DEVICE_BY_IP, lookup_value=device_ip)
+
+
+@dataclass(frozen=True)
+class VisionBackupRead:
+    evidence: OperationEvidence
+    objects: tuple[dict[str, JsonValue], ...] = field(repr=False)
+    redacted_fields: int
+    issue_codes: tuple[str, ...]
+
+
+def _redact_credentials(value: object, depth: int = 0) -> tuple[object, int]:
+    if depth > 64:
+        raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+    count = 0
+    if isinstance(value, dict):
+        result: dict[str, object] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+            if is_controller_credential_field(key):
+                result[key] = None
+                count += int(item is not None)
+            else:
+                result[key], removed = _redact_credentials(item, depth + 1)
+                count += removed
+        return result, count
+    if isinstance(value, list):
+        rows: list[object] = []
+        for item in value:
+            row, removed = _redact_credentials(item, depth + 1)
+            rows.append(row)
+            count += removed
+        return rows, count
+    return value, 0
+
+
+_VISION_BACKUP_RECORDS = {
+    LookupCapability.SITE_BY_NAME: "API-04",
+    LookupCapability.SITE_BY_ID: "API-05",
+    LookupCapability.DEVICE_BY_IP: "API-06",
+}
+
+
+def vision_backup_segments(operation: LookupCapability, value: str) -> tuple[str, ...]:
+    evidence = operation_evidence("vision", "5.4.9", "DOC-V549", _VISION_BACKUP_RECORDS[operation])
+    assert evidence.path is not None and evidence.classification == "documented"
+    return (*evidence.path.strip("/").split("/")[:-1], value)
+
+
+class VisionBackupClient:
+    """Document-bound targeted reads, separate from migration capability activation."""
+
+    def __init__(self, manager: SessionManager) -> None:
+        snapshot = manager.snapshot(SessionRole.SOURCE)
+        if snapshot.product != "vision" or snapshot.version != "5.4.9":
+            raise ProductClientError(ClientErrorCategory.SESSION_MISMATCH)
+        self._manager = manager
+
+    def read(self, operation: LookupCapability, value: str, *, collected_at: str) -> VisionBackupRead:
+        segments = vision_backup_segments(operation, value)
+        record = _VISION_BACKUP_RECORDS[operation]
+        evidence = operation_evidence("vision", "5.4.9", "DOC-V549", record)
+        response = self._manager.request(
+            SessionRole.SOURCE, HttpMethod.GET, segments, expect_json=True,
+        )
+        if response.status != 200:
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        try:
+            payload = load_json(response.body.decode("utf-8"))
+        except (ValueError, UnicodeError, RecursionError):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE) from None
+        row = _object(payload)
+        if row.get("status") == "error" or any(
+            not isinstance(item, str) or not item.strip()
+            for item in (row.get("ormID"), row.get("name"))
+        ):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        if (
+            operation == LookupCapability.SITE_BY_NAME and row["name"] != value
+            or operation == LookupCapability.SITE_BY_ID and row["ormID"] != value
+        ):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        redacted, count = _redact_credentials(row)
+        subset = SchemaSubset.DEVICE if operation == LookupCapability.DEVICE_BY_IP else SchemaSubset.SITE
+        qualified = qualify_schema({
+            "schema_version": 1, "domain": "api-schema-evidence",
+            "source": {"product": "vision", "version": "5.4.9"},
+            "metadata": {"exported_at": collected_at, "exporter": "vision-read-only-backup"},
+            "objects": [redacted],
+            "validation": {"scope": "offline-contract", "status": "valid", "issue_codes": []},
+        }, subset, evidence_reference="DOC-V549")
+        codes = {issue.code for issue in qualified.unqualified}
+        if count:
+            codes.add("credential_fields_redacted")
+        if operation == LookupCapability.DEVICE_BY_IP:
+            codes.add("device_query_binding_unverified")
+        return VisionBackupRead(evidence, qualified.artifact.objects, count, tuple(sorted(codes)))

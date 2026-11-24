@@ -1,9 +1,11 @@
 # CC-Vision Config Import: simplified MVP
 
-This iteration consolidates the existing code behind [master.py](master.py).
-It is **offline only**: no controller authentication, API requests, imports,
-updates, credential resolution, or automatic migration. No legacy script is
-imported or executed. CCV-010-C and the existing package CLI are unchanged.
+This application consolidates the existing code behind [master.py](master.py).
+Existing commands remain **offline**. The explicitly selected `backup-vision`
+operation adds targeted, read-only Vision 5.4.9 collection; it is not a full
+configuration backup or migration capability. Configuration imports, updates,
+and deletes remain unavailable. No legacy script is imported or executed.
+CCV-010-C and the existing package CLI are unchanged.
 
 ## Usage
 
@@ -58,7 +60,7 @@ Existing URL construction validates/encodes the parameter; no request is sent.
 The shared CC client methods `get_site_by_name`, `get_site_by_id` and
 `get_device_by_ip` reuse the existing managed-session authentication and GET
 request path, but accept **explicit mock backends and `0.0-test` only**.
-The master CLI does not construct or authenticate such sessions.
+The offline lookup commands do not construct or authenticate such sessions.
 
 Standalone export defaults to `--format tree`; select `--tree Physical` or
 `Organization` explicitly. Legacy flat exports use `--format flat --root
@@ -114,8 +116,8 @@ Profiles use the existing JSON contract:
 Destination profiles use `role: destination` and `product: cyber-controller`.
 Do not put usernames, passwords, cookies, or tokens in profiles. Profile
 inspection validates syntax only; it never resolves secrets or tests connectivity.
-TLS certificate verification remains mandatory for any separately authorized
-future connection; this CLI has no TLS-disable option.
+TLS certificate verification remains mandatory, including for the explicit
+live backup operation; this CLI has no TLS-disable option.
 
 For manifest-based export and planning, reuse [request.json](examples/offline-controller/request.json).
 It binds source/destination profiles and inventories, controller IDs, explicit
@@ -145,7 +147,9 @@ python master.py --operation plan --module scheduler --request examples\offline-
 All return explicit unavailable results. There is no `--execute`, approval flag,
 or route from preview to a configuration write. Explicit per-action approval and
 separate, narrowly scoped controller-execution authorization are still required
-before future changes; no approval/execution system was added in this iteration.
+before future configuration changes. The separate `backup-vision` operation
+permits only its documented login and targeted GETs, not standalone authentication
+or configuration writes.
 
 | Workflow | Current support |
 |---|---|
@@ -153,13 +157,197 @@ before future changes; no approval/execution system was added in this iteration.
 | CC source-only tree/flat export | Local adapters, explicit root/context, preservation of incomplete data with invalid status |
 | CC-to-CC controller objects | Existing synthetic manifest export, comparison, planning and import preview preserved |
 | Vision-to-CC controller objects | Product/profile selection; migration unavailable because source export schemas and mappings are unestablished |
-| Live Controller Objects reads/authentication | Unavailable; production capabilities remain default-deny; real versions are not enabled |
+| General live Controller Objects/migration clients | Unavailable; migration capabilities remain default-deny; only the separate targeted Vision backup path below permits live reads |
+| Explicit `backup-vision` | Vision 5.4.9 documented login and profile-listed site/device GETs; mocked offline verification only; no discovery or complete-inventory claim |
 | Controller imports/updates/deletes | Unavailable; separate execution authorization and explicit action approval still required |
 | LDAP, either direction to CC | Same operation selector; unavailable because CC endpoints/contracts and reference mappings are unresolved |
 | Scheduler, either direction to CC | Same operation selector; unavailable because configured legacy paths and CC task contracts are unresolved |
 
 The existing [API matrix](docs/API_MATRIX.md) remains the evidence source.
 No endpoints, product equivalence, or compatibility claims were invented.
+
+## Read-only Vision 5.4.9 backup
+
+**Implemented and mock tested; not live tested. Do not run against a controller
+until the owner explicitly authorizes the lab target and read-only test.**
+
+`--operation backup-vision` authenticates once, collects only explicitly listed
+sites/devices, writes new JSON files to an external output directory, and exits.
+It does not discover all objects, walk Physical/Organization trees, collect
+device configurations from managed appliances, or enable imports.
+
+Evidence: the locally supplied *APSolute Vision 5.4.9 REST API* documents
+`POST /mgmt/system/user/login` (PDF pages 156-158), site-by-name GET (141),
+site-by-ID GET (146), and device-by-IP GET (143-144). The existing Vision LDAP
+and Scheduler scripts supply reusable login/session intent; the object script
+supplies read intent but targets CC. Neither establishes full Vision enumeration.
+No undocumented tree, LDAP, or Scheduler paths are used.
+The old mock-only clients and `VERIFIED_CAPABILITIES` catalogue remain unchanged.
+
+### External profile and selection
+
+Start with [profile.json](examples/vision-backup/profile.json). It contains:
+
+- `source`: role/name, product `vision`, exact version `5.4.9`, HTTPS origin.
+- `tls`: `verify: true`; `trusted_ca` is a local PEM CA bundle path, or `null`
+  to use system trust. Certificate and hostname verification are mandatory.
+- `domains`: requested domains; only `controller-objects` is implemented.
+  Other domain identifiers are explicitly reported as unsupported.
+- `controller_objects`: explicit arrays `site_names`, `site_ids`, `device_ips`.
+  Empty arrays omit that lookup category. No enumeration is inferred.
+- `output_directory`: an existing writable external directory.
+
+Replace synthetic device addresses with approved **managed-device IPs**.
+Those are not the source Vision management address. Use the approved Vision
+address in `source.base_url`. If using an IP, its certificate must have a matching
+IP SAN; otherwise use the certified hostname. Never disable verification.
+Site IDs must be native source `ormID` values; do not invent or reuse destination
+IDs. `Default` is a documented root-name example, not guaranteed on every system.
+Relative CA/output paths are relative to the profile file.
+At most 100 unique operation/target pairs are accepted.
+
+The example profile is available in the Git clone but intentionally excluded
+from the image; the live run uses an external profile. Do not add passwords,
+usernames, tokens, or `secret_ref` to it. This workflow accepts credentials only
+through the separate `--credentials-file` option.
+
+### Secure credential provisioning
+
+On the approved Linux Docker host, prepare private external directories and copy
+the profile and your approved CA bundle (edit the profile outside the Git clone):
+
+```sh
+sudo install -d -m 0750 -o 10001 -g 10001 /srv/cc-vision-master-config /srv/cc-vision-master-data
+sudo install -m 0640 -o 10001 -g 10001 examples/vision-backup/profile.json /srv/cc-vision-master-config/profile.json
+sudo install -m 0644 ./vision-ca.pem /srv/cc-vision-master-config/vision-ca.pem
+```
+
+Create credentials interactively using host Python 3; neither secret appears in
+shell history, command arguments, environment variables, or the profile:
+
+```sh
+sudo python3 -c 'import getpass,json,os; username=input("Vision username: "); password=getpass.getpass("Vision password: "); fd=os.open("/srv/cc-vision-master-config/credentials.json",os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600); f=os.fdopen(fd,"w"); json.dump({"username":username,"password":password},f); f.close()'
+sudo chown 10001:10001 /srv/cc-vision-master-config/credentials.json
+sudo chmod 0600 /srv/cc-vision-master-config/credentials.json
+```
+
+The file is plaintext secret storage protected by host permissions: keep it out
+of Git, images, output directories, ordinary backups, and logs. Use an approved
+least-privilege read account. Existing credential files are not overwritten.
+For rotation, replace the specific file using your approved secret-handling
+procedure. On POSIX, the application rejects group/world-readable credential
+files. On Windows, filesystem ACLs must be secured by the operator.
+Do not supply credentials as CLI values or Docker environment variables.
+
+### Docker command (only after lab authorization)
+
+Rebuild the updated application image first. The existing Dockerfile already
+copies the new source; no dependency installation or service is needed.
+
+```sh
+docker build --tag cc-vision-master:0.1 .
+
+docker run --rm --network bridge --name cc-vision-master \
+  --mount type=bind,source=/srv/cc-vision-master-config/profile.json,target=/run/config/profile.json,readonly \
+  --mount type=bind,source=/srv/cc-vision-master-config/vision-ca.pem,target=/run/config/vision-ca.pem,readonly \
+  --mount type=bind,source=/srv/cc-vision-master-config/credentials.json,target=/run/secrets/vision-credentials.json,readonly \
+  --mount type=bind,source=/srv/cc-vision-master-data,target=/data \
+  cc-vision-master:0.1 --operation backup-vision \
+  --backup-profile /run/config/profile.json \
+  --credentials-file /run/secrets/vision-credentials.json
+echo "Exit code: $?"
+```
+
+Unlike offline smoke tests, this explicit operation needs network connectivity
+from the Docker bridge to the approved Vision HTTPS origin. No host networking,
+published ports, proxy, cron, persistent process, or configuration-write operation
+is needed. UID/GID `10001:10001` must be able to read the three input mounts and
+write the output mount. If `trusted_ca` is `null`, omit the CA mount.
+
+### Results and output
+
+Each run creates a new private `vision-backup-<UTC timestamp>-<random suffix>`
+directory containing `summary.json` and one file per successfully collected
+lookup, such as `site-by-name-001.json`. No existing output is overwritten.
+Example **synthetic** lookup file:
+
+```json
+{
+  "schema_version": 1,
+  "domain": "vision-controller-object-lookup",
+  "source": {"product": "vision", "version": "5.4.9", "name": "lab-vision"},
+  "collected_at": "2026-11-24T12:00:00+00:00",
+  "scope": {
+    "requested_targets_only": true,
+    "complete_inventory": false,
+    "complete_configuration_backup": false,
+    "migration_input": false
+  },
+  "request": {
+    "method": "GET",
+    "path_template": "/mgmt/system/config/tree/site/byname/{name}",
+    "target": "Default"
+  },
+  "evidence": {
+    "document": "DOC-V549",
+    "pdf_pages": [141],
+    "live_compatibility_verified": false
+  },
+  "objects": [{"ormID": "site-1", "name": "Default", "type": "Site"}],
+  "redacted_fields": 0,
+  "issue_codes": []
+}
+```
+
+Unknown response fields are preserved; recognized credential/token/community
+fields are explicitly replaced with `null` and counted as redactions.
+The documented model subset is checked without inventing full wire-schema
+semantics. Device responses must supply nonempty `ormID`/`name` as local identity
+evidence; device query-to-response binding remains explicitly unverified.
+These files are **not migration inputs** or restorable complete configurations.
+Store them as sensitive configuration, even after credential redaction.
+
+Stdout and `summary.json` report collected/failed/uncollected target counts,
+per-target indices and filenames, unsupported domains, and stable failure codes.
+They omit controller addresses, target values, object contents, credentials,
+tokens, and raw server error messages. `execution_authorized: false` means
+configuration execution/import remains unauthorized; `live_read_selected: true`
+identifies the explicitly selected read workflow.
+
+Exit **0** means all requested target reads were collected, not a complete
+backup. Exit **1** means collection/login/cleanup failed or a requested domain
+was unsupported; successful partial files are retained and explicitly incomplete.
+Existing usage/input/contract exits remain **2/3/4**. Invalid profile, CA, or
+output directory fails before controller access. Credential resolution fails
+before login dispatch. No successful output is fabricated for a failed read.
+
+### Bounds, verification, and remaining capabilities
+
+Only documented login POST and exact selected GET targets are authorized.
+No automatic login renewal, redirects, GET retries, or configuration-write retry
+is performed. Authentication cookies are held in memory and cleared locally.
+Remote logout is not implemented; the server session may remain until expiry.
+Fixed limits: connect timeout 10s, read timeout 30s, checked per-request deadline
+60s, response body 16 MiB. The owner's explicit live-transport opt-in accepts that
+synchronous DNS and whole-run execution are **not hard-deadline bounded**.
+No containment guarantee is claimed; default backend construction remains blocked.
+
+Offline verification: **170 targeted guarded tests passed** across the new
+eight-test backup module and existing workflow, product-client, authentication,
+and HTTP-backend modules. Mocked responses demonstrated documented cookie
+handling, target GETs, parsing, credential redaction, partial/error reporting,
+unsupported-domain reporting, TLS/default-deny behavior, no authentication
+renewal, and separate non-overwriting run directories. All network guards
+reported zero attempts. Windows cannot execute the POSIX credential-mode branch;
+that branch and external Linux mount permissions remain unverified.
+
+Still unavailable: automatic full site/device discovery, full configuration
+backup, LDAP/Scheduler collection, managed-appliance configuration downloads,
+credential backup/portability, Vision-to-CC migration, CC live backup, all
+configuration writes/imports/deletes, and live compatibility qualification.
+No live controller access, deployment, Git operations, or new-image Docker build
+was performed. The previously operator-tested container does not validate this
+updated live-read implementation.
 
 ## Docker deployment
 
@@ -181,7 +369,8 @@ Git metadata, virtual environments, caches, credentials, local configuration,
 exported controller JSON, vendor API PDFs, image TAR archives, tests,
 documentation, and unrelated legacy artifacts are excluded.
 Never embed secrets in Python source. Keep credentials and configuration outside
-the image; the current master never resolves credentials or authenticates.
+the image. Only explicit `backup-vision` resolves the external credentials file
+and authenticates; offline commands never do.
 Mount any required local JSON inputs read-only, separately from the output
 directory. Do not mount over `/app`, which would hide the packaged application.
 
@@ -237,8 +426,10 @@ docker run --rm --network none --name cc-vision-master cc-vision-master:0.1 --he
 docker run --rm --network none --name cc-vision-master cc-vision-master:0.1 --operation operations
 ```
 
-All runtime examples disable networking. No authentication, controller reads,
-configuration imports/writes, or production capability activation is enabled.
+All offline examples in this section disable networking. No authentication,
+controller reads, configuration imports/writes, or production capability
+activation occurs during those smoke checks. The explicit live command above
+is the sole separate read-only selection.
 
 ### D. Mount a local directory for exported JSON
 
@@ -393,14 +584,14 @@ Additional shared reuse:
 [transport](src/cc_vision_import/transport.py) provides the existing HTTP request
 interface; [artifacts](src/cc_vision_import/artifacts.py) preserves exported JSON
 and validates credential handling; [workflow](src/cc_vision_import/controller_workflow.py)
-provides comparison, planning and redacted result/error reports. The master never
-constructs sessions, a backend, or production clients. Shared
+provides comparison, planning and redacted result/error reports. Offline master
+commands never construct sessions, a backend, or production clients. Shared
 `read_request_segments` and `adapt_read_response` in
 [product_clients](src/cc_vision_import/product_clients.py) consolidate request
 binding and JSON response processing for local inspection and mock clients.
 No parallel authentication implementation or credential/write retries were added.
 
-## Implementation report
+## Offline MVP implementation report (historical)
 
 Implemented: unified offline selectors and shared profile validation, source-only
 tree/flat export, three CC lookup previews/local-response inspection operations,

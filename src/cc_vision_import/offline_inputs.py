@@ -27,6 +27,25 @@ def local_path(value: str | Path, base: Path) -> Path:
     return path if path.is_absolute() else base / path
 
 
+def write_local_export(path_value: str, serialized: str) -> None:
+    path = local_path(path_value, Path.cwd())
+    reader = ContractReader("master-export")
+    created = False
+    try:
+        with path.open("x", encoding="utf-8") as output:
+            created = True
+            output.write(serialized)
+    except FileExistsError:
+        reader.fail("output_exists", "$", "Export output already exists; choose a new file.")
+    except (OSError, ValueError, UnicodeError):
+        if created:
+            try:
+                path.unlink()
+            except OSError:
+                reader.fail("output_cleanup_failed", "$", "Export failed and its partial output could not be removed.")
+        reader.fail("output_unwritable", "$", "Cannot write the local export output.")
+
+
 def _array(value: object, reader: ContractReader) -> list[object]:
     if not isinstance(value, list):
         reader.fail("invalid_type", "$", "Expected an explicit array.")

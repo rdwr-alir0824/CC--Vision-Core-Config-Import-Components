@@ -99,11 +99,16 @@ class SessionManager:
     def __exit__(self, *_exc: object) -> None:
         self.close_all()
 
-    def initialize(self, request: AuthenticationRequest, config: TransportConfig) -> SessionSnapshot:
+    def initialize(
+        self, request: AuthenticationRequest, config: TransportConfig, *,
+        strategy: AuthenticationStrategy | None = None,
+    ) -> SessionSnapshot:
         if not isinstance(request, AuthenticationRequest) or not isinstance(config, TransportConfig):
             raise AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.INITIALIZATION))
         request.__post_init__()
         config.__post_init__()
+        if strategy is not None and strategy.product != request.product:
+            raise AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.INITIALIZATION))
         previous = self._sessions.get(request.role)
         if previous is not None and previous.state != SessionState.CLOSED:
             raise AuthenticationError(AuthenticationFailure(AuthenticationFailureCategory.OWNERSHIP))
@@ -123,11 +128,11 @@ class SessionManager:
                 if isinstance(cleanup, AuthenticationFailure):
                     error.add_note("Local cleanup of rejected backend failed.")
             raise error
-        strategy: AuthenticationStrategy = (
+        selected_strategy: AuthenticationStrategy = strategy if strategy is not None else (
             VisionAuthenticationStrategy() if request.product == "vision"
             else CyberControllerAuthenticationStrategy()
         )
-        self._sessions[request.role] = _OwnedSession(request, strategy, backend, None)
+        self._sessions[request.role] = _OwnedSession(request, selected_strategy, backend, None)
         transport = _call(
             lambda: HttpTransport(config, backend),
             AuthenticationFailureCategory.INITIALIZATION,

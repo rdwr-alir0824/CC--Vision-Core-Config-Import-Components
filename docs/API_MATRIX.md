@@ -6,6 +6,39 @@ coverage for authentication and three reads; owner-provided vendor PDF evidence
 for selected exact method/path pairs; E-036 synthetic offline subset regressions.
 Runtime compatibility remains unverified.
 
+## Targeted Vision read-only backup - 2026-11-24
+
+Current implementation overlay; historical evidence/acceptance below is unchanged.
+The owner authorized `backup-vision` and explicitly selected profile-listed
+sites/devices instead of unsupported automatic full-tree discovery. No live
+controller access or deployment is authorized by this implementation record.
+
+| Operation | Existing evidence | Current implementation | Verification |
+| --- | --- | --- | --- |
+| POST `/mgmt/system/user/login` | API-01-V; Vision PDF 156-158; legacy LDAP login | Existing login JSON/session strategy plus required `status: ok` and validated `jsessionid` sent as `Cookie: JSESSIONID=...` | Mock tested; not live tested |
+| GET `/mgmt/system/config/tree/site/byname/{name}` | API-04; Vision PDF 141; SitePojo 255 | Explicit profile site names only; matching response name; documented model subset, unknown fields retained | Mock tested; not live tested |
+| GET `/mgmt/system/config/tree/site/byid/{id}` | API-05; Vision PDF 146; SitePojo 255 | Explicit native source IDs only; matching response `ormID` | Mock tested; not live tested |
+| GET `/mgmt/system/config/tree/device/byip/{ip}` | API-06; Vision PDF 143-144; Device 219-220, DeviceSetup 224 | Explicit managed-device IPs only; minimum local identity and documented model-subset checks; credential fields redacted | Mock tested; query binding and live compatibility unverified |
+
+Implementation: [backup orchestration](../src/cc_vision_import/vision_backup.py),
+[document-bound client](../src/cc_vision_import/product_clients.py), existing
+authentication/session/HTTP components, and [master selector](../src/cc_vision_import/master_cli.py).
+No `VERIFIED_CAPABILITIES` entries were added; default clients remain mock-only.
+Only the selected workflow creates a live-opt-in backend with an exact origin,
+login POST and finite selected GET allowlist. Owner-approved transport limitation:
+existing socket timeouts/checked per-request deadlines do not hard-bound DNS or
+whole-run execution. Default backend dispatch remains blocked.
+
+Output is explicitly targeted, credential-redacted, incomplete inventory and
+not a complete configuration backup or migration input. No full tree
+enumeration, LDAP/Scheduler API binding, configuration write, import, delete,
+async follow-up, retry, authentication renewal or remote logout was added.
+Login session state is cleared locally; server expiry is not verified.
+Evidence: 170 targeted offline guarded tests passed (eight focused backup tests
+plus existing client/session/backend/workflow tests); zero guarded network
+attempts. Linux permissions, live RBAC/cookie behavior, installed-build
+compatibility, and the updated Docker image remain unverified.
+
 ## CCV-009-B - implemented offline subsets - E-036
 
 The independent E-035 technical review recommended **Evidence accepted; proceed
