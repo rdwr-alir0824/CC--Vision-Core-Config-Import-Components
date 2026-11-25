@@ -1,4 +1,4 @@
-"""Small host-side Docker launcher; Python 3.9+, no controller network code."""
+"""Small host-side Docker launcher; Python 3.8+, no controller network code."""
 
 from __future__ import annotations
 
@@ -154,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if sys.platform != "linux":
-            raise SetupError("Run this host launcher on Linux with Bash, Python 3.9+ and Docker.")
+            raise SetupError("Run this host launcher on Linux with Bash, Python 3.8+ and Docker.")
         if os.geteuid() not in (0, 10001):
             raise SetupError("Run the launcher with sudo to provision UID 10001 inputs/output, or run as UID 10001.")
         if args.non_interactive and (not args.config or not args.credentials_file):

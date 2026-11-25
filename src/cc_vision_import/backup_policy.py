@@ -1,4 +1,6 @@
-"""Shared operator-facing backup selection; compatible with host Python 3.9."""
+"""Shared operator-facing backup selection; compatible with host Python 3.8."""
+
+from __future__ import annotations
 
 import re
 

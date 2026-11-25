@@ -189,10 +189,18 @@ The old mock-only clients and `VERIFIED_CAPABILITIES` catalogue remain unchanged
 
 ### Install and launch one application
 
-Host requirements: authorized **Linux**, Bash, Git, Python **3.9+** for the
+Host requirements: authorized **Linux**, Bash, Git, Python **3.8+** for the
 standard-library launcher, and working Docker access. The image runs Python
 **3.13**; running the master directly instead requires Python **3.12+**.
 Docker access is privileged; follow the host's approved access policy.
+The host launcher imports only its setup, backup-policy and strict JSON helpers;
+it does not import the Python 3.13 backup engine. Keep the appliance's system
+Python unchanged: no host packages or Python replacement are required.
+`./run-vision-backup.sh --help` exits before Docker, credentials or controller
+access; menu Exit and declining Start also perform no controller access.
+The host import chain uses deferred annotations for Python 3.8 compatibility.
+This fix passed Python 3.8 grammar checks and Python 3.13.14 execution tests;
+Python 3.8 runtime execution was unavailable on the development workstation.
 
 ```sh
 git clone --branch feature/ccv-010c-http-safety --single-branch \

@@ -31,6 +31,28 @@ class BackupSetupTests(OfflineTestCase):
         self.credentials = {"username": "private-user-marker", "password": "private-password-marker"}
         self.stack.enter_context(patch.object(self.setup, "_read_credentials", return_value=self.credentials))
 
+    def test_host_import_annotations_are_deferred_for_python38(self):
+        json_module = importlib.import_module("cc_vision_import._json")
+        policy = importlib.import_module("cc_vision_import.backup_policy")
+        self.assertIsInstance(json_module._json_object.__annotations__["pairs"], str)
+        self.assertIsInstance(policy.backup_domains.__annotations__["data"], str)
+        self.assertEqual(json_module.load_json('{"valid": [true, null]}'), {"valid": [True, None]})
+        with self.assertRaises(ValueError):
+            json_module.load_json('{"duplicate": 1, "duplicate": 2}')
+        with self.assertRaises(ValueError):
+            json_module.load_json('{"invalid": NaN}')
+
+    def test_help_exits_before_platform_docker_or_credentials_checks(self):
+        stdout = io.StringIO()
+        with patch.object(sys, "platform", "win32"), redirect_stdout(stdout):
+            with patch.object(self.setup.subprocess, "run") as docker:
+                with self.assertRaises(SystemExit) as result:
+                    self.setup.main(["--help"])
+        self.assertEqual(result.exception.code, 0)
+        self.assertIn("--non-interactive", stdout.getvalue())
+        docker.assert_not_called()
+        self.setup._read_credentials.assert_not_called()
+
     def invoke(self, arguments, inputs=(), run_failure=False):
         self.config.write_text(json.dumps(self.payload), encoding="utf-8")
         stdout, stderr = io.StringIO(), io.StringIO()
