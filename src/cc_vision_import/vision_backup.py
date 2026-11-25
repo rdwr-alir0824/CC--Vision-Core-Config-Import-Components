@@ -28,6 +28,7 @@ from .product_clients import (
 from .profiles import SourceProfile
 from .sessions import SessionManager
 from .transport import HttpMethod, TransportConfig, TransportError, _unverified_tls_context, build_url
+from .tls_policy import TLSPolicyError, execution_tls, require_execution_exception
 
 
 _reader = ContractReader("vision-backup")
@@ -219,6 +220,10 @@ def run_vision_backup(
     profile_path: str, credentials_path: str,
 ) -> tuple[dict[str, object], ExitStatus]:
     profile = VisionBackupProfile.read(profile_path)
+    try:
+        require_execution_exception(profile.transport.base_url, profile.transport.verify_tls, credentials_path)
+    except TLSPolicyError as error:
+        _reader.fail("unsafe_tls", "$.tls", str(error))
     if not profile.transport.verify_tls:
         print(TLS_WARNING, file=sys.stderr)
     resolver = _FileCredentials(credentials_path)
@@ -513,7 +518,7 @@ def run_vision_backup(
         "offline_only": False, "read_only": True, "live_read_selected": True,
         "execution_authorized": False, "configuration_writes_authorized": False,
         "tls_verification_required": profile.transport.verify_tls, "authenticated": authenticated,
-        "tls": {"verify": profile.transport.verify_tls},
+        "tls": execution_tls(profile.transport.verify_tls),
         "session_closed_locally": "local_cleanup_failure" not in failures,
         "scope": scope, "run_directory": run_id, "inventory": inventory,
         "overall_status": "supported_collection_succeeded" if successful else (

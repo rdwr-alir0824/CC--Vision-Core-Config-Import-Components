@@ -41,11 +41,16 @@ an exact evidenced method/path, response schema and target applicability.
 `destination-discovery` uses only the two established login/Organization paths.
 Basic+JSON login also requires a successful JSON status and validated session
 identifier, using the existing session validator; HTTP 200 alone is rejected.
-TLS/hostname verification defaults TRUE. An explicit private administrator lab
-policy may disable verification only for its authorized HTTPS origin; encryption
-remains enabled, warnings and sanitized TLS status are recorded, and no automatic
-downgrade occurs. Generic transport remains verification-only.
-HTTPS port 443 only, no retries/redirects,
+TLS/hostname verification starts TRUE on every launcher execution. The single
+deployment control CCV_ALLOW_INSECURE_TLS_EXCEPTION defaults false (production).
+Only an approved lab can offer one default-NO choice after a verified pre-auth
+certificate failure. Explicit approval permits one new attempt for the same
+selected origin/execution, using a private temporary exception rather than
+persistent per-controller policy. HTTPS, warnings, sanitized TLS status/scope and
+generic transport's verification-only gate remain intact. No credentials are
+transmitted before the TLS handshake completes; unverified transmission requires
+approval. Post-authentication/partial operations are never restarted.
+HTTPS port 443 only, no automatic HTTP retries/redirects,
 bounded responses and exact application origin/method/path authorization.
 The optional Compose discovery bridge requires administrator-managed egress
 restrictions; it is not itself a firewall. Offline destination remains network-none.

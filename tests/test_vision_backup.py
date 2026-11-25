@@ -8,7 +8,7 @@ import runpy
 import ssl
 import sys
 import time
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -61,7 +61,7 @@ class VisionBackupTests(OfflineTestCase):
     def login(self, **overrides):
         return self.connection({"status": "ok", "jsessionid": "session-secret-marker", **overrides})
 
-    def invoke(self, *connections, arguments=None, warning_expected=False):
+    def invoke(self, *connections, arguments=None, warning_expected=False, lab_exception=False):
         self.profile_path.write_text(json.dumps(self.profile), encoding="utf-8")
         factory = Mock(side_effect=connections)
         stdout, stderr = io.StringIO(), io.StringIO()
@@ -71,10 +71,20 @@ class VisionBackupTests(OfflineTestCase):
                 "--credentials-file", str(self.credentials),
             ]
         with (
+            ExitStack() as approval,
             patch.object(self.http.http.client, "HTTPSConnection", factory),
             redirect_stdout(stdout), redirect_stderr(stderr),
             patch.object(sys, "argv", ["master.py", *arguments]),
         ):
+            if lab_exception:
+                (self.directory / "tls-exception.json").write_text(json.dumps({
+                    "verify": False, "lab_authorized": True,
+                    "authorized_origin": self.profile["source"]["base_url"],
+                }))
+                approval.enter_context(patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": "true"}))
+                # master.py imports through src; direct library tests use the package name.
+                for namespace in ("cc_vision_import", "src.cc_vision_import"):
+                    approval.enter_context(patch(namespace + ".tls_policy._private_file"))
             with self.assertRaises(SystemExit) as caught:
                 runpy.run_path(str(Path(__file__).parent.parent / "master.py"), run_name="__main__")
             status = caught.exception.code
@@ -318,10 +328,14 @@ class VisionBackupTests(OfflineTestCase):
                     "--credentials-file", str(self.credentials),
                 ]
                 status, report, factory = self.invoke(
-                    *connections, arguments=arguments, warning_expected=not verify,
+                    *connections, arguments=arguments, warning_expected=not verify, lab_exception=not verify,
                 )
                 self.assertEqual(status, 0)
-                self.assertEqual(report["tls"], {"verify": verify})
+                expected = {"verify": True} if verify else {
+                    "verify": False, "exception_scope": "selected_origin_current_execution",
+                }
+                self.assertEqual(report["tls"], expected)
+                self.assertEqual(json.loads((self.output / report["run_directory"] / "summary.json").read_text())["tls"], expected)
                 for call in factory.call_args_list:
                     context = call.kwargs["context"]
                     self.assertEqual(context.check_hostname, verify)
@@ -336,6 +350,26 @@ class VisionBackupTests(OfflineTestCase):
             self.transport.TransportConfig(
                 base_url="https://vision.invalid", connect_timeout=10, read_timeout=30, verify_tls=False,
             )
+
+    def test_certificate_failure_never_transmits_credentials_or_retries(self):
+        connection = MemoryConnection(failure=("connect", ssl.SSLCertVerificationError("private-cert-marker")))
+        status, report, factory = self.invoke(connection)
+        self.assertEqual(status, 1)
+        self.assertFalse(report["authenticated"])
+        self.assertIn("tls_certificate_failure", report["failure_codes"])
+        self.assertEqual(report["tls"], {"verify": True})
+        self.assertEqual(report["completed_modules"], [])
+        self.assertEqual(factory.call_count, 1)
+        self.assertEqual(connection.requests, [])
+        self.assertEqual(factory.call_args.kwargs["context"].verify_mode, ssl.CERT_REQUIRED)
+        self.assertNotIn("private-cert-marker", json.dumps(report))
+
+    def test_production_rejects_unverified_profile_before_authentication(self):
+        self.profile["tls"] = {"verify": False}
+        with patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false"}):
+            status, report, factory = self.invoke()
+        self.assertEqual(status, 4)
+        factory.assert_not_called()
 
     def test_automatic_inventory_preserves_native_ids_and_deduplicates_device_reads(self):
         self.profile["controller_objects"] = {"discovery": True}
@@ -511,7 +545,7 @@ class VisionBackupTests(OfflineTestCase):
         for verify in (True, False):
             self.profile["tls"]["verify"] = verify
             connections = [self.login(), self.connection(records)]
-            status, report, factory = self.invoke(*connections, warning_expected=not verify)
+            status, report, factory = self.invoke(*connections, warning_expected=not verify, lab_exception=not verify)
             self.assertEqual(status, 0)
             self.assertEqual(factory.call_count, 2)
             self.assertEqual(report["completed_modules"], ["ldap-permissions"])
@@ -609,7 +643,7 @@ class VisionBackupTests(OfflineTestCase):
         for verify in (True, False):
             self.profile["tls"] = {"verify": verify}
             connections = [self.login(), self.connection(physical), self.connection(organization)]
-            status, report, factory = self.invoke(*connections, warning_expected=not verify)
+            status, report, factory = self.invoke(*connections, warning_expected=not verify, lab_exception=not verify)
             self.assertEqual(status, 0)
             self.assertEqual(factory.call_count, 3)
             self.assertEqual(report["requested_targets"], 0)
@@ -739,7 +773,7 @@ class VisionBackupTests(OfflineTestCase):
         for verify in (True, False):
             self.profile["tls"] = {"verify": verify}
             connections = [self.login(), self.connection(tasks)]
-            status, report, factory = self.invoke(*connections, warning_expected=not verify)
+            status, report, factory = self.invoke(*connections, warning_expected=not verify, lab_exception=not verify)
             self.assertEqual(status, 0)
             self.assertEqual(factory.call_count, 2)
             self.assertEqual(report["requested_targets"], 0)

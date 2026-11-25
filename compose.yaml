@@ -16,7 +16,8 @@
       "environment": {
         "CCV_VISION_URL": "${CCV_VISION_URL:-}",
         "CCV_SOURCE_NAME": "${CCV_SOURCE_NAME:-vision-source}",
-        "CCV_TLS_VERIFY": "${CCV_TLS_VERIFY:-}",
+        "CCV_TLS_VERIFY": "${CCV_TLS_VERIFY:-true}",
+        "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "${CCV_ALLOW_INSECURE_TLS_EXCEPTION:-false}",
         "CCV_TRUSTED_CA": "${CCV_TRUSTED_CA:-}"
       },
       "volumes": [
@@ -97,7 +98,8 @@
         "CCV_DESTINATION_URL": "${CCV_DESTINATION_URL:-}",
         "CCV_DESTINATION_NAME": "${CCV_DESTINATION_NAME:-cyber-controller-destination}",
         "CCV_DESTINATION_TRUSTED_CA": "${CCV_DESTINATION_TRUSTED_CA:-}",
-        "CCV_DESTINATION_TLS_VERIFY": "${CCV_DESTINATION_TLS_VERIFY:-}"
+        "CCV_DESTINATION_TLS_VERIFY": "${CCV_DESTINATION_TLS_VERIFY:-true}",
+        "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "${CCV_ALLOW_INSECURE_TLS_EXCEPTION:-false}"
       },
       "volumes": [
         {

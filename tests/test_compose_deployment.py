@@ -125,7 +125,7 @@ class ComposeDeploymentTests(OfflineTestCase):
 
         policy_type = importlib.import_module("cc_vision_import.tls_policy").TLSPolicy
         with patch.dict(os.environ, {**self.environment, "CCV_TLS_VERIFY": "false"}, clear=True), patch.object(
-            self.module, "read_policy", return_value=policy_type(False, True, self.environment["CCV_VISION_URL"]),
+            self.module, "read_exception", return_value=policy_type(False, True, self.environment["CCV_VISION_URL"]),
         ):
             with patch.object(self.module, "master_main", side_effect=capture):
                 self.assertEqual(self.module.main(["source", "backup"]), 0)

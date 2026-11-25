@@ -9,7 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .master_cli import main as master_main
-from .tls_policy import TLSPolicyError, read_policy
+from .tls_policy import TLSPolicyError, read_exception
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -37,11 +37,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     def tls(role: str, origin: str) -> dict[str, object]:
         source = role == "source"
-        folder = Path("/run/config" if source else "/run/secrets")
         variable = "CCV_TLS_VERIFY" if source else "CCV_DESTINATION_TLS_VERIFY"
         requested = os.environ.get(variable, "").lower()
         try:
-            policy = read_policy(folder / "tls-policy.json", origin, requested)
+            policy = read_exception(
+                Path("/run/secrets/tls-exception.json"), origin, requested,
+                os.environ.get("CCV_ALLOW_INSECURE_TLS_EXCEPTION", "false"),
+            )
         except TLSPolicyError as error:
             parser.error(str(error))
         ca = os.environ.get("CCV_TRUSTED_CA" if source else "CCV_DESTINATION_TRUSTED_CA", "")

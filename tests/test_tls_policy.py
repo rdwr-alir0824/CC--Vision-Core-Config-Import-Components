@@ -18,18 +18,36 @@ class TLSPolicyTests(OfflineTestCase):
         self.origin = "https://controller.example.invalid"
 
     def write(self, folder, data):
-        filename = folder / "tls-policy.json"
+        filename = folder / "tls-exception.json"
         filename.write_text(json.dumps(data))
         return filename
 
-    def test_default_true_and_separate_role_policies(self):
+    def test_verified_default_ignores_old_persistent_policy_and_lab_control_defaults_deny(self):
+        (self.source / "tls-policy.json").write_text(json.dumps({
+            "verify": False, "lab_authorized": True, "authorized_origin": self.origin,
+        }))
+        self.assertFalse(self.module.exceptions_allowed())
+        filename = self.source / "tls-exception.json"
+        self.assertTrue(self.module.read_exception(filename, self.origin).verify)
+        self.assertTrue(self.module.read_exception(filename, self.origin, allow="true").verify)
+        for value in ("", "TRUE", "private-marker", "0"):
+            with self.assertRaises(self.module.TLSPolicyError):
+                self.module.exceptions_allowed(value)
+
+    def test_exception_requires_lab_designation_temporary_approval_and_same_origin(self):
+        fields = {"verify": False, "lab_authorized": True, "authorized_origin": self.origin}
+        filename = self.write(self.destination, fields)
         with patch.object(self.module, "_private_file"):
-            self.assertTrue(self.module.read_policy(self.source / "tls-policy.json", self.origin).verify)
-            filename = self.write(self.destination, {
-                "verify": False, "lab_authorized": True, "authorized_origin": self.origin,
-            })
-            self.assertFalse(self.module.read_policy(filename, self.origin).verify)
-            self.assertTrue(self.module.read_policy(self.source / "tls-policy.json", self.origin).verify)
+            self.assertFalse(self.module.read_exception(filename, self.origin, "false", "true").verify)
+            for path, origin, allowed in (
+                (filename, self.origin, "false"),
+                (filename, "https://another.invalid", "true"),
+                (self.source / "tls-exception.json", self.origin, "true"),
+            ):
+                with self.assertRaises(self.module.TLSPolicyError):
+                    self.module.read_exception(path, origin, "false", allowed)
+        filename.unlink()
+        self.assertTrue(self.module.read_exception(filename, self.origin).verify)
 
     def test_false_requires_explicit_authorization_and_matching_https_origin(self):
         error = self.module.TLSPolicyError
@@ -54,15 +72,15 @@ class TLSPolicyTests(OfflineTestCase):
             with self.assertRaises(error) as caught:
                 self.module.TLSPolicy.from_dict(fields, self.origin)
             self.assertNotIn("private-marker", str(caught.exception))
-        filename = self.source / "tls-policy.json"
+        filename = self.source / "tls-exception.json"
         for setting in ("false", "private-marker", " true ", "0"):
             with self.assertRaises(error):
-                self.module.read_policy(filename, self.origin, setting)
-        self.assertTrue(self.module.read_policy(filename, self.origin, "true").verify)
+                self.module.read_exception(filename, self.origin, setting)
+        self.assertTrue(self.module.read_exception(filename, self.origin, "true").verify)
 
     def test_private_policy_ownership_permissions_and_unreadable_or_oversized_policy(self):
         info = Mock(st_mode=stat.S_IFREG | 0o600, st_uid=10001, st_gid=10001)
-        filename = self.write(self.source, {"verify": True})
+        filename = self.write(self.source, {"verify": False, "lab_authorized": True, "authorized_origin": self.origin})
         with patch.object(Path, "lstat", return_value=info):
             self.module._private_file(filename)
             for field, value in (("st_mode", stat.S_IFREG | 0o644), ("st_mode", stat.S_IFLNK | 0o600), ("st_uid", 0), ("st_gid", 0)):
@@ -73,15 +91,15 @@ class TLSPolicyTests(OfflineTestCase):
                 setattr(info, field, old)
         with patch.object(Path, "lstat", side_effect=PermissionError("private-marker")):
             with self.assertRaises(self.module.TLSPolicyError) as caught:
-                self.module.read_policy(filename, self.origin)
+                self.module.read_exception(filename, self.origin, "false", "true")
             self.assertNotIn("private-marker", str(caught.exception))
         filename.write_text(" " * 4097)
         with patch.object(self.module, "_private_file"), self.assertRaises(self.module.TLSPolicyError):
-            self.module.read_policy(filename, self.origin)
+            self.module.read_exception(filename, self.origin, "false", "true")
 
-    def test_compose_requires_private_lab_policy_not_a_boolean_environment_alone(self):
+    def test_compose_requires_temporary_approval_not_a_boolean_environment_alone(self):
         compose = importlib.import_module("cc_vision_import.compose_entrypoint")
-        with patch.object(compose, "read_policy", wraps=self.module.read_policy) as reader:
+        with patch.object(compose, "read_exception", wraps=self.module.read_exception):
             from contextlib import redirect_stderr
             import io
             import os
@@ -90,7 +108,9 @@ class TLSPolicyTests(OfflineTestCase):
                 ("source", "CCV_TLS_VERIFY", "backup", "CCV_VISION_URL"),
                 ("discovery", "CCV_DESTINATION_TLS_VERIFY", "discover-sites", "CCV_DESTINATION_URL"),
             ):
-                with patch.dict(os.environ, {setting: "false", url: self.origin}, clear=True), redirect_stderr(io.StringIO()):
+                with patch.dict(os.environ, {
+                    setting: "false", url: self.origin, "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "true",
+                }, clear=True), redirect_stderr(io.StringIO()):
                     with patch.object(compose, "master_main") as dispatch, self.assertRaises(SystemExit):
                         compose.main([role, command])
                     dispatch.assert_not_called()

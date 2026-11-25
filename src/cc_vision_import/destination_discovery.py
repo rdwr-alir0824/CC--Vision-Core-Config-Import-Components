@@ -26,7 +26,7 @@ from .http_backend import DestinationAuthorization, StdlibHttpBackend
 from .offline_inputs import OfflineInputs, local_path, write_local_export
 from .product_clients import _redact_credentials
 from .sessions import SessionManager
-from .tls_policy import TLSPolicy, TLSPolicyError, warning
+from .tls_policy import TLSPolicy, TLSPolicyError, execution_tls, require_execution_exception, warning
 from .transport import HttpMethod, HttpResponse, TransportConfig, TransportError, _unverified_tls_context
 
 
@@ -309,6 +309,10 @@ def project_site_tree(payload: object) -> dict[str, object]:
 
 def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple[dict[str, object], ExitStatus]:
     profile = DiscoveryProfile.read(profile_path)
+    try:
+        require_execution_exception(profile.transport.base_url, profile.transport.verify_tls, credentials_path)
+    except TLSPolicyError as error:
+        _reader.fail("unsafe_tls", "$.tls", str(error))
     tls_warning = warning(profile.transport.verify_tls)
     if tls_warning is not None:
         print(tls_warning, file=sys.stderr)
@@ -318,6 +322,7 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
     strategy = _DiscoveryAuthentication()
     projection = None
     failure = None
+    authenticated = False
     try:
         with SessionManager(lambda: _backend(profile), credentials) as manager:
             manager.initialize(
@@ -327,6 +332,7 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
                 ), profile.transport, strategy=strategy,
             )
             manager.authenticate(SessionRole.DESTINATION)
+            authenticated = True
             response = manager.request(SessionRole.DESTINATION, HttpMethod.GET, _TREE, expect_json=True)
             if response.status != 200:
                 _reader.fail("unexpected_discovery_status", "$", "Organization discovery requires HTTP 200 JSON.")
@@ -348,7 +354,8 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
         "product_version": "unknown", "version_discovered": False,
         "version_verification": "unverified", "compatibility_verified": False,
         "migration_ready": False,
-        "tls": {"verify": profile.transport.verify_tls},
+        "tls": execution_tls(profile.transport.verify_tls),
+        "authenticated": authenticated,
     }
     if failure is not None:
         return {**report, "status": "error", "issue_codes": [failure]}, ExitStatus.VALIDATION_FAILED
@@ -361,7 +368,7 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
         _reader.fail("output_unwritable", "$", "Provision a private writable destination reports directory.")
     snapshot = {
         "schema_version": 1, "domain": "cc-destination-organization-sites",
-        "tls": {"verify": profile.transport.verify_tls},
+        "tls": execution_tls(profile.transport.verify_tls),
         "destination": {"product": "cyber-controller", "name": profile.name, "version": "unknown", "version_verification": "unverified"},
         "collected_at": datetime.now(timezone.utc).isoformat(),
         "request": {"method": "GET", "path": "/" + "/".join(_TREE)},

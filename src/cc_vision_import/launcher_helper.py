@@ -13,7 +13,7 @@ from pathlib import Path
 from ._json import load_json
 from .backup_policy import SUPPORTED_DOMAINS
 from .backup_setup import SetupError, _credentials, _operator_summary
-from .tls_policy import TLSPolicyError, read_policy, warning
+from .tls_policy import TLSPolicy, TLSPolicyError, exceptions_allowed, warning
 
 
 def origin(value: str) -> str:
@@ -101,25 +101,18 @@ def settings(payload: object, selection: str) -> list[str]:
         if not isinstance(ca, str) or not ca.startswith(prefix) or not re.fullmatch(r"[A-Za-z0-9_-]+\.pem", ca[len(prefix):]):
             raise SetupError("Custom CA must be a PEM basename in the existing CA mount.")
         ca = ca[len(prefix):]
-    requested_tls = "-" if selection == "3" else service.get("environment", {}).get(
-        "CCV_TLS_VERIFY" if selection == "1" else "CCV_DESTINATION_TLS_VERIFY",
-    ) or "-"
-    if not isinstance(requested_tls, str) or requested_tls.lower() not in ("-", "true", "false"):
-        raise TLSPolicyError("TLS verification setting must be true or false.")
-    return [image, output, config, ca, requested_tls.lower()]
+    allowed = "false" if selection == "3" else service.get("environment", {}).get(
+        "CCV_ALLOW_INSECURE_TLS_EXCEPTION", "false",
+    )
+    exceptions_allowed(allowed)
+    return [image, output, config, ca, allowed]
 
 
 def prepare(
     value: str, selection: str, directory: Path, admin: Path,
-    requested: str = "-", requested_tls: str = "-",
-) -> tuple[str, bool]:
+    requested: str = "-",
+) -> str:
     result = origin(value)
-    policy = read_policy(admin / "tls-policy.json", result, requested_tls)
-    policy_path = directory / "tls-policy.json"
-    _private_file(policy_path)
-    policy_path.write_text(json.dumps(policy.to_dict()), encoding="utf-8")
-    if not policy.verify:
-        return result, False
     if requested != "-" and not re.fullmatch(r"[A-Za-z0-9_-]+\.pem", requested):
         raise SetupError("Custom CA must be a PEM basename.")
     destination = directory / "ca.pem"
@@ -140,7 +133,39 @@ def prepare(
     if not certificates:
         raise SetupError("No trusted CA certificates available.")
     destination.write_text("".join(ssl.DER_cert_to_PEM_cert(cert) for cert in certificates), encoding="ascii")
-    return result, True
+    return result
+
+
+def approve_exception(value: str, directory: Path, allowed: str) -> None:
+    if not exceptions_allowed(allowed):
+        raise TLSPolicyError("This deployment prohibits insecure TLS exceptions.")
+    policy = TLSPolicy.from_dict({
+        "verify": False, "lab_authorized": True, "authorized_origin": value,
+    }, value)
+    path = directory / "tls-exception.json"
+    _private_file(path)
+    path.write_text(json.dumps(policy.to_dict()), encoding="utf-8")
+
+
+def certificate_exception_available(report: dict, selection: str, status: int) -> bool:
+    tls = report.get("tls")
+    codes = report.get("failure_codes" if selection == "1" else "issue_codes")
+    if not (
+        selection in ("1", "2") and status == 1
+        and isinstance(tls, dict) and tls.get("verify") is True
+        and report.get("authenticated") is False
+        and report.get("read_only") is True
+        and report.get("configuration_writes_authorized") is False
+        and isinstance(codes, list) and "tls_certificate_failure" in codes
+    ):
+        return False
+    return (
+        report.get("overall_status") == "failed_collection"
+        and report.get("completed_modules") == []
+        and not any(row.get("status") == "collected" for row in report.get("results", []))
+    ) if selection == "1" else (
+        report.get("status") == "error" and "snapshot_directory" not in report
+    )
 
 
 def check_backup(folder: Path) -> None:
@@ -191,7 +216,7 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
                 print(message)
         codes = report.get("failure_codes", []) if selection == "1" else report.get("issue_codes", [])
         if isinstance(codes, list) and "tls_certificate_failure" in codes:
-            print("TLS certificate verification failed: untrusted chain or hostname mismatch. No automatic downgrade; ask the administrator to correct trust/certificate or explicitly authorize lab policy.")
+            print("TLS certificate verification failed: untrusted chain or hostname mismatch. No automatic downgrade.")
     if selection == "1":
         if status == 0 and report.get("overall_status") != "supported_collection_succeeded":
             raise SetupError("Incomplete source collection cannot have a successful launcher status.")
@@ -250,12 +275,12 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
     print(f"Application exit status: {status}; no configuration imported.")
     if status == 0 and report.get("status") in ("partial", "error"):
         raise SetupError("Failure report cannot be successful.")
-    return 0
+    return 11 if certificate_exception_available(report, selection, status) else 0
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("settings", "prepare", "credentials", "backups", "check-backup", "summary"))
+    parser.add_argument("action", choices=("settings", "prepare", "approve-exception", "credentials", "backups", "check-backup", "summary"))
     parser.add_argument("values", nargs="*")
     args = parser.parse_args(argv)
     try:
@@ -263,10 +288,9 @@ def main(argv=None) -> int:
         if args.action == "settings":
             print("\n".join(settings(load_json(_read()), args.values[0])))
         elif args.action == "prepare":
-            result, verify = prepare(
-                _read(), args.values[0], directory, Path("/run/admin"), args.values[1], args.values[2],
-            )
-            print(result + "\n" + str(verify).lower())
+            print(prepare(_read(), args.values[0], directory, Path("/run/admin"), args.values[1]))
+        elif args.action == "approve-exception":
+            approve_exception(_read(), directory, args.values[0])
         elif args.action == "credentials":
             parts = _read().split("\0")
             if len(parts) != 3 or parts[-1] != "":

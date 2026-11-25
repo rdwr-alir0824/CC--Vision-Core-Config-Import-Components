@@ -243,9 +243,9 @@ discovery permits only POST login and GET Organization tree at the chosen origin
 Host validation checks syntax only; it does not resolve DNS or prove controller
 identity. Actual TLS verification occurs in the existing selected operation.
 
-TLS certificate-chain and hostname verification defaults to **TRUE** independently
-for source and destination. No certificate error triggers a retry with verification
-disabled. System CA trust from the application image is used unless an
+TLS certificate-chain and hostname verification starts **TRUE** for every source
+backup and destination discovery execution. There is no automatic downgrade.
+System CA trust from the application image is used unless an
 administrator PEM bundle is present. Provision an approved private CA before
 execution (omit the unneeded product's command):
 
@@ -266,54 +266,59 @@ SAN. Existing administrator
 `CCV_*_DIR` and PEM-basename trust overrides are resolved through Compose;
 normal engineers do not configure them. Rebuild after updating image system trust.
 
-#### Administrator-only lab policy
+#### One deployment-level lab control
 
-Persistent policies stay **outside Git** in the existing private runtime directories:
+Production **prohibits insecure exceptions by default**. Only an administrator
+may designate an approved lab by setting this single, non-secret entry in the
+existing ignored Compose `.env`:
 
-- Source: `../ccv-runtime/source-config/tls-policy.json`
-- Destination: `../ccv-runtime/destination-secrets/tls-policy.json`
-
-A missing policy means TRUE. To provision production verification explicitly:
-
-```sh
-sudo -v
-sudo install -m 0600 -o 10001 -g 10001 /dev/stdin \
-  ../ccv-runtime/destination-secrets/tls-policy.json <<'JSON'
-{"verify":true}
-JSON
+```dotenv
+CCV_ALLOW_INSECURE_TLS_EXCEPTION=true
 ```
 
-Only an administrator-authorized lab may use FALSE. Replace the placeholder with
-the exact approved HTTPS controller origin; no username, password or path:
+Use `false` (or omit it) for production. Administrators can use `sudoedit .env`
+when approved privileges are needed; never assume passwordless sudo. Keep the
+configuration administrator-controlled, readable but not writable by engineers,
+and do not put credentials in it. Docker access/configuration also requires
+administrator control; this application is not a boundary against a Docker
+administrator overriding the deployment.
 
-```sh
-sudo -v
-sudo install -m 0600 -o 10001 -g 10001 /dev/stdin \
-  ../ccv-runtime/destination-secrets/tls-policy.json <<'JSON'
-{"verify":false,"lab_authorized":true,"authorized_origin":"https://approved-lab.example.invalid"}
-JSON
-```
+This setting **only permits a choice**, never disables verification by default.
+There are no per-controller policy files to provision. Old `tls-policy.json`
+files are no longer read. Remove obsolete persistent `CCV_TLS_VERIFY=false` /
+`CCV_DESTINATION_TLS_VERIFY=false` overrides; these runtime flags alone cannot
+authorize an exception.
 
-Use the source policy path instead for a separately approved Vision lab. Files
-must be regular, mode **0600**, UID/GID **10001:10001**. Invalid/unreadable policies,
-missing lab authorization and a different controller origin fail before credential
-collection; settings are never guessed or copied automatically between roles.
-To restore production verification, provision `{"verify":true}` again.
+#### Normal operator workflow
 
-FALSE retains HTTPS encryption but **does not verify controller identity**.
-The launcher warns explicitly; sanitized source/discovery reports record
-`tls.verify`. CA bundles are used only with TRUE. Existing egress restrictions
-remain mandatory even in lab mode.
+Run `./ccv.sh`, select **1** or **2**, and enter controller, username and hidden
+password as before. A trusted certificate needs **no additional prompt**.
+The TLS handshake verifies identity before any HTTP credentials are transmitted.
 
-The existing source setting `CCV_TLS_VERIFY` is retained; destination uses
-`CCV_DESTINATION_TLS_VERIFY`. No competing `CCV_SOURCE_TLS_VERIFY` alias is added.
-Leave these unset for the file/default policy; optional explicit `true`/`false`
-values must agree with the private policy and cannot independently authorize FALSE.
-Normal operators still enter only controller, username and hidden password.
-The same image performs offline policy preparation; no host Python is required.
+If certificate verification fails **before authentication**:
 
-After an approved update, rebuild and validate configuration, then perform
-**separately authorized** lab validation (these commands do not provision policy):
+- Production stops with a sanitized certificate warning; there is no exception
+  prompt.
+- An approved lab offers **one** “Continue without certificate identity
+  verification for this execution? [y/N]” choice. Enter `y`/`yes` to approve.
+  Blank input, EOF or any other answer stops safely.
+- The warning explains controller impersonation and credential interception.
+  HTTPS encryption without identity verification does not prevent those risks.
+- Approval retries the same selected operation/origin once, without repeating
+  credential prompts. It never retries partial collections or post-authentication
+  failures and never silently downgrades.
+
+The exception exists only in this execution's private temporary directory, with
+mode **0600**, UID/GID **10001:10001**, and follows existing success/failure/INT/TERM
+cleanup. It is not saved as a preference or reused for another controller/run.
+Sanitized reports/snapshots record `tls.verify=false` and
+`tls.exception_scope=selected_origin_current_execution`, without raw origin values.
+Network restrictions, HTTPS and read-only API scope are unchanged. Source retries
+retain a separate failed first-attempt report; transfer only the successful backup
+folder identified by the final summary. No host Python or new Docker image is used.
+
+After an approved update, rebuild and run offline configuration checks, then
+perform **separately authorized** runtime validation:
 
 ```sh
 docker compose --profile source build ccv-source
@@ -322,9 +327,11 @@ docker compose --profile source --profile destination --profile destination-disc
 ```
 
 Select **2** for read-only destination discovery or **1** for source backup.
-Confirm the configured TLS mode/warning and saved report status. With TRUE,
-an invalid certificate must fail clearly without a downgrade; with an explicitly
-approved FALSE policy, discovery/backup remains read-only. No import is enabled.
+Confirm trusted certificates proceed without prompting. For an untrusted lab
+certificate, first decline and verify no retry, then start a new execution and
+explicitly approve; inspect its saved TLS scope/status. With the control false,
+verify that certificate failure stops without offering an exception. Do not share
+raw backup/snapshot data. No import is enabled.
 
 ### 5. Verification and troubleshooting
 
@@ -348,7 +355,7 @@ on both hosts against the same approved revision. Do not print credentials.
 | Sudo denied | Obtain approved ownership-provisioning permission; no controller credentials are collected |
 | Missing backup or wrong mount | Check the selected folder and `.env`/shell path overrides; `/incoming` is intentionally read-only |
 | Permission/SELinux failure | Check `sudo ls -ld` on the selected host paths, UID 10001 ownership/private modes, and administrator-approved labels; never use privileged/world-write workarounds |
-| TLS failure on source/destination | Check CA trust and certificate SAN; production stays TRUE. Lab FALSE requires a separate administrator-approved origin-bound policy; no silent downgrade |
+| TLS failure on source/destination | Correct CA trust/certificate SAN. Production stops; only an administrator-designated lab offers one default-NO session exception |
 | Invalid preflight metadata | Supply HTTPS origins and actual installed CC version; this is not a network probe |
 | Partial backup/checksum mismatch | Stop; review source summary or repeat the approved transfer |
 | Readiness exit 1 / report exists | Readiness remains blocked; choose a new report name, never overwrite artifacts |

@@ -2,7 +2,59 @@
 
 Last updated: 2026-11-25
 
-## Current task: CONFIGURABLE-TLS-POLICY
+## Current task: TLS-SESSION-EXCEPTION-UX
+
+- Objective/priority: high; remove normal per-controller policy provisioning,
+  retain verified HTTPS by default and one explicit lab-only session exception.
+- Dependencies: existing Bash/Docker launcher, shared image, Compose security
+  profiles, bounded TLS-before-HTTP transport and sanitized authentication results.
+- Approval: owner authorized the new default-NO interaction and administrator
+  production prohibition, mocked tests only; no live requests, deployment or Git.
+- Implementation status: implemented; verified complete for mocked/offline
+  acceptance. Actual Docker/controller runtime remains unverified.
+- Configuration: single CCV_ALLOW_INSECURE_TLS_EXCEPTION default false; true
+  designates an administrator-approved lab, not a persistent verification bypass.
+  Old per-controller tls-policy.json files are ignored. Both roles start TRUE.
+- Exception: offered once only for verified certificate failure before successful
+  authentication, never for partial collections or post-auth failures. Decline/
+  blank/EOF stops. Explicit approval creates an origin-bound private temporary
+  tls-exception.json; source and destination runtime entry points also enforce
+  production prohibition and approval before credentials can be transmitted.
+  Same origin/operation, at most one retry, no repeated credential prompts.
+- Reports: tls.verify=false plus static selected_origin_current_execution scope,
+  without raw origins. Source failed first-attempt report remains separate from
+  the successful backup. Destination records authenticated state to disqualify
+  post-authentication restart. Collectors/object formats and migration logic
+  unchanged; HTTPS, UID10001, CA handling, egress and cleanup remain preserved.
+- Files affected: ccv.sh, compose.yaml, README.md, docs/API_MATRIX.md,
+  docs/PROGRESS.md; src/cc_vision_import/{tls_policy,launcher_helper,
+  compose_entrypoint,vision_backup,destination_discovery}.py;
+  tests/{test_tls_policy,test_unified_launcher,test_compose_deployment,
+  test_vision_backup,test_destination_discovery}.py.
+- Initial evidence: 74 focused mocked tests ran in 208.325s. Launcher/policy/
+  Compose/discovery cases passed; four source tests still used old false-profile
+  fixtures and failed the temporary approval guard. Synthetic direct execution
+  succeeded with approval. Root cause: master.py imports through src while direct
+  tests import the package name; Windows ownership patches covered only one
+  namespace. Updated explicit lab fixtures to cover both; no runtime shortcut.
+- Final evidence: 59 targeted cases ran in 52.143s, 58 passed and one Docker skip;
+  final combined command with src/tests on PYTHONPATH: `python -S -B -m unittest
+  test_tls_policy test_destination_discovery test_compose_deployment
+  test_unified_launcher test_transport test_authentication test_http_backend
+  test_vision_backup test_backup_setup test_vision_tree_preview`: 243 tests in
+  266.494s, 242 passed and one Docker-availability skip. Zero real network/
+  dispatch attempts. Production rejection, trusted no-prompt execution,
+  lab NO/blank/EOF and YES, origin/run isolation, no pre-approval unverified
+  transmission, post-auth no-restart, retry failure/interruption and cleanup
+  passed. Five runtime AST/diagnostic checks, Compose JSON, 20 Bash blocks
+  including the runbook and launcher, and prepare caller compatibility passed.
+- Known blockers: Docker unavailable locally; actual image build, Linux ownership
+  and certificate handshakes remain unverified. No controller calls performed.
+- Next action: administrator retains production false or designates the approved
+  lab in the existing ignored Compose .env, rebuilds the same image and separately
+  authorizes README runtime validation. No per-controller policy provisioning.
+
+## Previous task: CONFIGURABLE-TLS-POLICY
 
 - Objective/priority: high; independent administrator-provisioned source and
   destination TLS verification without changing the three operator prompts.

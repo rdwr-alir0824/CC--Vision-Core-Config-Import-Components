@@ -2,6 +2,7 @@ import copy
 import importlib
 import io
 import json
+import os
 import ssl
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import Mock, patch
@@ -152,18 +153,32 @@ class DestinationDiscoveryTests(OfflineTestCase):
             "verify": False, "lab_authorized": True,
             "authorized_origin": self.profile["destination"]["base_url"],
         }
-        status, report, factory = self.invoke(
-            self.connection({"status": "ok", "jsessionid": "private-session"}),
-            self.connection(self.tree),
-        )
+        (self.directory / "tls-exception.json").write_text(json.dumps(self.profile["tls"]))
+        with patch("cc_vision_import.tls_policy._private_file"), patch.dict(os.environ, {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "true",
+        }):
+            status, report, factory = self.invoke(
+                self.connection({"status": "ok", "jsessionid": "private-session"}),
+                self.connection(self.tree),
+            )
         self.assertEqual(status, 0)
-        self.assertEqual(report["tls"], {"verify": False})
+        self.assertEqual(report["tls"], {"verify": False, "exception_scope": "selected_origin_current_execution"})
         for call in factory.call_args_list:
             self.assertEqual(call.kwargs["context"].verify_mode, ssl.CERT_NONE)
             self.assertFalse(call.kwargs["context"].check_hostname)
         snapshot = json.loads((self.output / report["snapshot_directory"] / report["snapshot_file"]).read_text())
-        self.assertEqual(snapshot["tls"], {"verify": False})
+        self.assertEqual(snapshot["tls"], report["tls"])
         self.assertFalse(snapshot["scope"]["configuration_writes_authorized"])
+
+    def test_production_rejects_even_an_explicit_unverified_profile_before_authentication(self):
+        self.profile["tls"] = {
+            "verify": False, "lab_authorized": True,
+            "authorized_origin": self.profile["destination"]["base_url"],
+        }
+        with patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false"}):
+            status, report, factory = self.invoke()
+        self.assertEqual(status, 4)
+        factory.assert_not_called()
 
     def test_certificate_failure_is_sanitized_and_never_retried_or_downgraded(self):
         connection = MemoryConnection(failure=("connect", ssl.SSLCertVerificationError("private-certificate-marker")))
@@ -171,6 +186,7 @@ class DestinationDiscoveryTests(OfflineTestCase):
         self.assertEqual(status, 1)
         self.assertEqual(report["issue_codes"], ["tls_certificate_failure"])
         self.assertEqual(report["tls"], {"verify": True})
+        self.assertFalse(report["authenticated"])
         self.assertEqual(factory.call_count, 1)
         self.assertEqual(connection.requests, [])
         self.assertEqual(factory.call_args.kwargs["context"].verify_mode, ssl.CERT_REQUIRED)

@@ -43,7 +43,7 @@ cleanup() {
     fi
     if [[ -n "$temporary" ]]; then
         # Only known files in our uniquely created directory, never administrator secrets.
-        if ! rm -f -- "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json" \
+        if ! rm -f -- "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-exception.json" \
             "$temporary/stdout" "$temporary/stderr"; then
             printf 'Warning: temporary-file cleanup failed; administrator action required: %s\n' "$temporary" >&2
             cleanup_failed=1
@@ -114,29 +114,51 @@ mapfile -t paths <<< "$settings"
 output="${paths[1]}"
 config_directory="${paths[2]}"
 requested_ca="${paths[3]}"
-requested_tls="${paths[4]}"
+allow_exceptions="${paths[4]}"
+[[ "$allow_exceptions" =~ ^(true|false)$ ]] || fail "Invalid administrator lab control; rebuild the shared image."
 [[ -d "$output" ]] || fail "Required runtime directory is missing; administrator must provision: $output"
 
 run_operation() {
-    local status=0
-    "${compose[@]}" --profile "$profile" run --rm --no-deps -T \
-        --name "$operation_name" --label "ccv.launcher.run=$token" "$service" "$@" \
-        >"$temporary/stdout" 2>"$temporary/stderr" &
-    operation_pid=$!
-    wait "$operation_pid" || status=$?
-    operation_pid=""
-    local summary_status=0
-    helper_mounts=()
-    offline summary "$selection" "$status" "$output" "$report_name" \
-        <"$temporary/stdout" 2>"$temporary/stderr" || summary_status=$?
-    if [[ "$status" == "1" && "$summary_status" == "10" ]]; then
-        exit 1
-    fi
-    if [[ "$summary_status" != "0" ]]; then
-        [[ "$status" != "0" ]] || status=3
-        fail "Application/Docker output was not a valid result (exit $status). Check administrator TLS, permissions and image configuration; raw output is not displayed." "$status"
-    fi
-    exit "$status"
+    local status summary_status exception_used=0 answer
+    while true; do
+        status=0
+        "${compose[@]}" --profile "$profile" run --rm --no-deps -T \
+            --name "$operation_name" --label "ccv.launcher.run=$token" "$service" "$@" \
+            >"$temporary/stdout" 2>"$temporary/stderr" &
+        operation_pid=$!
+        wait "$operation_pid" || status=$?
+        operation_pid=""
+        summary_status=0
+        helper_mounts=()
+        offline summary "$selection" "$status" "$output" "$report_name" \
+            <"$temporary/stdout" 2>"$temporary/stderr" || summary_status=$?
+        if [[ "$status" == "1" && "$summary_status" == "11" && "$exception_used" == "0" ]]; then
+            [[ "$allow_exceptions" == "true" ]] ||
+                fail "Certificate verification failed. This deployment prohibits insecure exceptions; ask the administrator to correct CA trust/certificate SAN." 1
+            printf 'WARNING: Without certificate identity verification, an attacker can impersonate the controller and intercept credentials. HTTPS encryption alone does not establish identity. Continue only in an authorized lab.\n' >&2
+            answer=""
+            printf 'Continue without certificate identity verification for this execution? [y/N]: ' >&2
+            IFS= read -r answer || answer=""
+            [[ "$answer" == "y" || "$answer" == "Y" || "$answer" == "yes" || "$answer" == "YES" ]] ||
+                fail "TLS exception declined; stopped without unverified authentication." 1
+            printf '%s' "$origin" | offline approve-exception "$allow_exceptions" 2>"$temporary/stderr" ||
+                fail "Could not prepare a private TLS exception; no unverified authentication attempted."
+            exception_used=1
+            if [[ "$selection" == "1" ]]; then
+                export CCV_TLS_VERIFY=false CCV_TRUSTED_CA=""
+            else
+                export CCV_DESTINATION_TLS_VERIFY=false CCV_DESTINATION_TRUSTED_CA=""
+            fi
+            printf 'WARNING: Controller identity is NOT VERIFIED; exception applies only to the selected origin and current execution.\n' >&2
+            continue
+        fi
+        if [[ "$status" == "1" && "$summary_status" == "10" ]]; then exit 1; fi
+        if [[ "$summary_status" != "0" ]]; then
+            [[ "$status" != "0" ]] || status=3
+            fail "Application/Docker output was not a valid result (exit $status). Check administrator TLS, permissions and image configuration; raw output is not displayed." "$status"
+        fi
+        exit "$status"
+    done
 }
 report_name=""
 if [[ "$selection" == "3" ]]; then
@@ -161,40 +183,34 @@ if [[ "$selection" == "3" ]]; then
 fi
 
 [[ -d "$config_directory" ]] || fail "Administrator CA directory is missing: $config_directory"
-touch "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json"
-chmod 0600 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json"
+touch "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-exception.json"
+chmod 0600 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-exception.json"
 if [[ "$(id -u)" == "10001" && "$(id -g)" == "10001" ]]; then
     chmod 0700 "$temporary"
 else
     if [[ "$(id -u)" == "0" ]]; then
         chgrp 10001 "$temporary"
-        chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json"
+        chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-exception.json"
     else
         command -v sudo >/dev/null 2>&1 || fail "Approved sudo is required to provision UID/GID 10001 temporary files."
         sudo -v || fail "Sudo authorization was not granted; no credentials collected."
         sudo -n chgrp 10001 "$temporary" || fail "Cannot provision temporary directory group."
-        sudo -n chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json" ||
+        sudo -n chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-exception.json" ||
             fail "Cannot provision temporary credential ownership."
     fi
     # Container group may traverse, not list/write; the operator can always unlink files.
     chmod 0710 "$temporary"
 fi
-printf 'Use only an authorized controller/account. Administrator TLS policy applies; HTTPS remains enabled.\n'
+printf 'Use only an authorized controller/account. HTTPS certificate verification is enabled initially.\n'
 if [[ "$selection" == "2" ]]; then
     printf 'Administrator-restricted CC HTTPS egress is required; this launcher does not change firewall rules.\n'
 fi
 IFS= read -r -p 'Controller IP or hostname (not URL): ' controller || fail "Controller address is required."
 helper_mounts=(--mount "type=bind,source=$config_directory,target=/run/admin,readonly")
-prepared="$(printf '%s' "$controller" | offline prepare "$selection" "$requested_ca" "$requested_tls" 2>"$temporary/stderr")" ||
-    fail "Invalid address, private TLS policy (including lab-origin authorization), temporary permissions, or CA trust configuration; no credentials collected."
-mapfile -t connection <<< "$prepared"
-[[ ${#connection[@]} -eq 2 && "${connection[1]}" =~ ^(true|false)$ ]] ||
-    fail "Invalid TLS preparation result; rebuild the shared image."
-origin="${connection[0]}"
-verify="${connection[1]}"
-if [[ "$verify" == "false" ]]; then
-    printf 'WARNING: HTTPS encryption remains enabled, but the controller identity is NOT VERIFIED. Explicit origin-bound lab policy selected.\n' >&2
-fi
+origin="$(printf '%s' "$controller" | offline prepare "$selection" "$requested_ca" 2>"$temporary/stderr")" ||
+    fail "Invalid address, temporary permissions, or CA trust configuration; no credentials collected."
+[[ "$origin" == https://* && "$origin" != *$'\n'* && "$origin" != *$'\r'* ]] ||
+    fail "Invalid HTTPS preparation result; rebuild the shared image."
 unset controller
 unset ccv_username ccv_password
 IFS= read -r -p 'Username: ' ccv_username || fail "Username is required."
@@ -206,14 +222,14 @@ unset ccv_username ccv_password
 if [[ "$selection" == "1" ]]; then
     profile=source
     service=ccv-source
-    export CCV_VISION_URL="$origin" CCV_TLS_VERIFY="$verify" CCV_SOURCE_SECRETS_DIR="$temporary"
-    if [[ "$verify" == "true" ]]; then export CCV_TRUSTED_CA=/run/secrets/ca.pem; else export CCV_TRUSTED_CA=""; fi
+    export CCV_VISION_URL="$origin" CCV_TLS_VERIFY=true CCV_SOURCE_SECRETS_DIR="$temporary"
+    export CCV_ALLOW_INSECURE_TLS_EXCEPTION="$allow_exceptions" CCV_TRUSTED_CA=/run/secrets/ca.pem
     run_operation backup
 else
     profile=destination-discovery
     service=ccv-destination-discovery
     export CCV_DESTINATION_URL="$origin" CCV_DESTINATION_SECRETS_DIR="$temporary"
-    export CCV_DESTINATION_TLS_VERIFY="$verify"
-    if [[ "$verify" == "true" ]]; then export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem; else export CCV_DESTINATION_TRUSTED_CA=""; fi
+    export CCV_DESTINATION_TLS_VERIFY=true CCV_ALLOW_INSECURE_TLS_EXCEPTION="$allow_exceptions"
+    export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem
     run_operation discover-sites
 fi

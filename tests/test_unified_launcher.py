@@ -23,6 +23,7 @@ MOCK_DOCKER = r'''
 import json, os, pathlib, subprocess, sys
 from unittest.mock import patch
 from cc_vision_import import launcher_helper as helper
+from cc_vision_import import tls_policy
 
 root = pathlib.Path(os.environ["MOCK_ROOT"])
 sys.stdout.reconfigure(newline="\n")
@@ -71,13 +72,11 @@ if args[0] == "run":
         if mode == "tls-invalid":
             sys.exit(3)
         current = helper.origin(raw)
-        admin = pathlib.Path(next(m.split("source=", 1)[1].split(",target=", 1)[0] for m in mounts if "target=/run/admin" in m))
-        with patch("cc_vision_import.tls_policy._private_file"):
-            policy = helper.read_policy(admin / "tls-policy.json", current, values[2])
-        (setup / "tls-policy.json").write_text(json.dumps(policy.to_dict()))
-        print(current + "\n" + str(policy.verify).lower())
-        if policy.verify:
-            (setup / "ca.pem").write_text("PUBLIC-CA")
+        print(current)
+        (setup / "ca.pem").write_text("PUBLIC-CA")
+    elif action == "approve-exception":
+        with patch.object(helper, "_private_file"):
+            helper.approve_exception(raw, setup, values[0])
     elif action == "credentials":
         parts = raw.split("\0")
         data = helper._credentials({"username": parts[0], "password": parts[1]})
@@ -91,7 +90,9 @@ if args[0] == "run":
         sys.exit(helper.summary(json.loads(raw), values[0], int(values[1]), values[2], values[3]))
     sys.exit(0)
 if args[0] == "compose" and "run" in args:
-    if mode in ("interrupt", "interrupt-int"):
+    if mode in ("interrupt", "interrupt-int") or (
+        mode == "certificate-interrupt" and os.environ.get("CCV_DESTINATION_TLS_VERIFY") == "false"
+    ):
         label = args[args.index("--label") + 1].split("=", 1)[1]
         (root / "active.json").write_text(json.dumps({"label": label}))
         signal_name = "-INT" if mode == "interrupt-int" else "-TERM"
@@ -106,9 +107,42 @@ if args[0] == "compose" and "run" in args:
         sys.exit(1)
     service = next(name for name in ("ccv-source", "ccv-destination", "ccv-destination-discovery") if name in args)
     report = json.loads((root / ("source.json" if service == "ccv-source" else "discovery.json" if service.endswith("discovery") else "readiness.json")).read_text())
+    exit_status = 1 if service == "ccv-destination" else 0
     if service != "ccv-destination":
         variable = "CCV_TLS_VERIFY" if service == "ccv-source" else "CCV_DESTINATION_TLS_VERIFY"
-        report["tls"] = {"verify": os.environ[variable] == "true"}
+        verify = os.environ[variable] == "true"
+        report["tls"] = tls_policy.execution_tls(verify)
+        report["authenticated"] = True
+        if not verify:
+            key = "CCV_SOURCE_SECRETS_DIR" if service == "ccv-source" else "CCV_DESTINATION_SECRETS_DIR"
+            value = os.environ[key]
+            if os.name == "nt" and value.startswith("/"):
+                value = subprocess.run([os.environ["MOCK_BASH"], "-c", 'cygpath -w "$1"', "_", value], capture_output=True, check=True).stdout.decode().strip()
+            address = os.environ["CCV_VISION_URL" if service == "ccv-source" else "CCV_DESTINATION_URL"]
+            with patch.object(tls_policy, "_private_file"):
+                tls_policy.read_exception(pathlib.Path(value) / "tls-exception.json", address, "false", os.environ["CCV_ALLOW_INSECURE_TLS_EXCEPTION"])
+        if mode in ("certificate-failure", "certificate-after-auth", "certificate-retry-failure", "certificate-interrupt") and verify:
+            report.update(authenticated=mode == "certificate-after-auth", read_only=True, configuration_writes_authorized=False)
+            exit_status = 1
+            if service == "ccv-source":
+                report.update(
+                    overall_status="failed_collection", completed_modules=[], results=[],
+                    failed_modules=report["requested_modules"], failure_codes=["tls_certificate_failure"],
+                    device_details_collected=0, device_access_objects=0,
+                    run_directory="vision-backup-certificate-failed",
+                )
+                report["inventory"]["status"] = "not_collected"
+                for row in [report["ldap_permissions"], report["scheduler"], *report["trees"].values()]:
+                    row.update(status="skipped", record_count=0, redacted_fields=0)
+            else:
+                report.update(status="error", issue_codes=["tls_certificate_failure"])
+                report.pop("snapshot_directory", None)
+                report.pop("snapshot_file", None)
+        elif mode == "certificate-retry-failure" and not verify:
+            report.update(status="error", authenticated=False, issue_codes=["login_rejected"])
+            report.pop("snapshot_directory", None)
+            report.pop("snapshot_file", None)
+            exit_status = 1
     if service == "ccv-destination":
         output = args[args.index("--output") + 1]
         (root / "reports" / pathlib.Path(output).name).write_text(json.dumps({k: v for k, v in report.items() if k != "opaque"}))
@@ -116,12 +150,12 @@ if args[0] == "compose" and "run" in args:
         folder = root / "backups" / report["run_directory"]
         folder.mkdir(exist_ok=True)
         (folder / "summary.json").write_text(json.dumps(report))
-    else:
+    elif "snapshot_directory" in report:
         folder = root / "reports" / report["snapshot_directory"]
         folder.mkdir(exist_ok=True)
         (folder / "organization-sites.json").write_text(json.dumps({"domain": "cc-destination-organization-sites", "migration_ready": False, "tls": report["tls"]}))
     print(json.dumps(report))
-    sys.exit(1 if service == "ccv-destination" else 0)
+    sys.exit(exit_status)
 sys.exit(2)
 '''
 
@@ -145,7 +179,10 @@ class UnifiedLauncherTests(OfflineTestCase):
         compose = json.loads((ROOT / "compose.yaml").read_text())
         for service in compose["services"].values():
             service["image"] = "cc-vision-master:test"
-            service["environment"] = {name: "" for name in service.get("environment", {})}
+            service["environment"] = {
+                name: "false" if name == "CCV_ALLOW_INSECURE_TLS_EXCEPTION" else ""
+                for name in service.get("environment", {})
+            }
             for mount in service["volumes"]:
                 mount["source"] = str({
                     "/backups": self.backups, "/incoming": self.incoming, "/reports": self.reports,
@@ -163,6 +200,7 @@ class UnifiedLauncherTests(OfflineTestCase):
                       for domain in ("physical-tree", "organization-tree")},
             "scheduler": {"status": "collected", "record_count": 23, "redacted_fields": 46},
             "tls": {"verify": True},
+            "authenticated": True, "read_only": True, "configuration_writes_authorized": False,
         }
         (self.directory / "source.json").write_text(json.dumps(self.source))
         (self.directory / "discovery.json").write_text(json.dumps({
@@ -336,7 +374,7 @@ class UnifiedLauncherTests(OfflineTestCase):
         folders = list(self.runtime.iterdir())
         self.assertEqual(len(folders), 1)
         self.assertNotIn(str(self.admin), result.stderr)
-        for name in ("credentials.json", "ca.pem", "tls-policy.json", "stdout", "stderr"):
+        for name in ("credentials.json", "ca.pem", "tls-exception.json", "stdout", "stderr"):
             (folders[0] / name).unlink()
         folders[0].rmdir()
 
@@ -350,7 +388,6 @@ class UnifiedLauncherTests(OfflineTestCase):
     def test_private_file_checks_exact_permissions_and_identity_and_required_ca_fails_closed(self):
         filename = self.directory / "ca.pem"
         filename.write_text("not a certificate")
-        (self.directory / "tls-policy.json").write_text('{"verify":true}')
         info = Mock(st_mode=stat.S_IFREG | 0o600, st_uid=10001, st_gid=10001)
         with patch.object(Path, "lstat", return_value=info):
             self.helper._private_file(filename)
@@ -373,23 +410,94 @@ class UnifiedLauncherTests(OfflineTestCase):
             self.assertIn("BEGIN CERTIFICATE", filename.read_text())
             self.assertNotIn("INVALID-CA", filename.read_text())
 
-    def test_lab_tls_policy_is_independent_warned_and_bound_before_credentials(self):
-            (self.admin / "tls-policy.json").write_text(json.dumps({
-                "verify": False, "lab_authorized": True, "authorized_origin": "https://controller.invalid",
-            }))
-            result, calls = self.launch()
+    def lab(self, allowed=True):
+        path = self.directory / "compose.json"
+        config = json.loads(path.read_text())
+        for name in ("ccv-source", "ccv-destination-discovery"):
+            config["services"][name]["environment"]["CCV_ALLOW_INSECURE_TLS_EXCEPTION"] = str(allowed).lower()
+        path.write_text(json.dumps(config))
+
+    def operation_calls(self, calls):
+        return [call for call in calls if call["args"][0] == "compose" and "run" in call["args"]]
+
+    def test_trusted_certificate_in_lab_does_not_prompt_or_create_exception(self):
+        self.lab()
+        (self.admin / "tls-policy.json").write_text('{"verify":false}')
+        result, calls = self.launch()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("[y/N]", result.stderr)
+        self.assertNotIn("approve-exception", json.dumps(calls))
+        self.assertEqual(len(self.operation_calls(calls)), 1)
+        self.assertEqual((self.admin / "tls-policy.json").read_text(), '{"verify":false}')
+
+    def test_production_certificate_failure_prohibits_prompt_and_retry(self):
+        for selection in ("1", "2"):
+            result, calls = self.launch(selection, mode="certificate-failure")
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("prohibits insecure exceptions", result.stderr)
+            self.assertNotIn("[y/N]", result.stderr)
+            self.assertEqual(len(self.operation_calls(calls)), 1)
+            self.assertFalse(any("approve-exception" in row["args"] for row in calls))
+            (self.directory / "calls.jsonl").unlink()
+
+    def test_lab_decline_default_no_and_eof_stop_without_unverified_authentication(self):
+        self.lab()
+        for answer in ("n\n", "\n", ""):
+            result, calls = self.launch(mode="certificate-failure", inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\n{answer}")
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("TLS exception declined", result.stderr)
+            self.assertIn("impersonate", result.stderr)
+            self.assertIn("intercept credentials", result.stderr)
+            self.assertEqual(len(self.operation_calls(calls)), 1)
+            self.assertFalse(any("approve-exception" in row["args"] for row in calls))
+            (self.directory / "calls.jsonl").unlink()
+
+    def test_lab_approval_retries_once_same_origin_after_approval_without_persistence(self):
+        self.lab()
+        for selection, variable, address in (
+            ("1", "CCV_TLS_VERIFY", "CCV_VISION_URL"),
+            ("2", "CCV_DESTINATION_TLS_VERIFY", "CCV_DESTINATION_URL"),
+        ):
+            result, calls = self.launch(selection, mode="certificate-failure", inputs=f"{selection}\ncontroller.invalid\n{USERNAME}\n{SECRET}\ny\n")
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("NOT VERIFIED", result.stderr)
-            self.assertIn("verification: FALSE", result.stdout)
-            snapshot = self.reports / "cc-destination-synthetic" / "organization-sites.json"
-            self.assertFalse(json.loads(snapshot.read_text())["tls"]["verify"])
-            result, calls = self.launch(selection="1")
+            self.assertEqual(result.stderr.count("[y/N]"), 1)
+            operations = self.operation_calls(calls)
+            self.assertEqual(len(operations), 2)
+            self.assertEqual([row["env"][variable] for row in operations], ["true", "false"])
+            self.assertEqual([row["env"][address] for row in operations], ["https://controller.invalid"] * 2)
+            approved = next(i for i, row in enumerate(calls) if "approve-exception" in row["args"])
+            retried = next(i for i, row in enumerate(calls) if row is operations[1])
+            self.assertLess(approved, retried)
+            self.assertEqual(sum("credentials" in row["args"] for row in calls), 1)
+            artifact = self.backups / "vision-backup-synthetic" / "summary.json" if selection == "1" else self.reports / "cc-destination-synthetic" / "organization-sites.json"
+            self.assertEqual(json.loads(artifact.read_text())["tls"], {
+                "verify": False, "exception_scope": "selected_origin_current_execution",
+            })
+            self.assertFalse((self.source_admin / "tls-exception.json").exists())
+            self.assertFalse((self.admin / "tls-exception.json").exists())
+            (self.directory / "calls.jsonl").unlink()
+            result, calls = self.launch(selection, inputs=f"{selection}\nanother.invalid\n{USERNAME}\n{SECRET}\n")
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("verification: TRUE", result.stdout)
-            result, calls = self.launch(inputs=f"2\nanother.invalid\n{USERNAME}\n{SECRET}\n")
-            self.assertEqual(result.returncode, 2)
-            self.assertIn("lab-origin authorization", result.stderr)
-            self.assertNotIn("Password", result.stderr)
+            self.assertEqual(self.operation_calls(calls)[0]["env"][variable], "true")
+            self.assertFalse(any("approve-exception" in row["args"] for row in calls))
+            (self.directory / "calls.jsonl").unlink()
+
+    def test_certificate_failure_after_authentication_never_restarts_operation(self):
+        self.lab()
+        result, calls = self.launch(mode="certificate-after-auth")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertNotIn("[y/N]", result.stderr)
+        self.assertEqual(len(self.operation_calls(calls)), 1)
+
+    def test_approved_retry_failure_and_interruption_cleanup_without_second_prompt(self):
+        self.lab()
+        for mode, expected in (("certificate-retry-failure", 1), ("certificate-interrupt", 143)):
+            result, calls = self.launch(mode=mode, inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\ny\n")
+            self.assertEqual(result.returncode, expected, result.stderr)
+            self.assertEqual(result.stderr.count("[y/N]"), 1)
+            self.assertEqual(len(self.operation_calls(calls)), 2)
+            self.assertFalse(Path((self.directory / "credential-path.txt").read_text()).exists())
+            (self.directory / "calls.jsonl").unlink()
 
     def test_unsafe_compose_and_success_shaped_readiness_are_rejected(self):
             compose = json.loads((self.directory / "compose.json").read_text())
