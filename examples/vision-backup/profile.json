@@ -1,7 +1,7 @@
 {
   "source": {
     "role": "source",
-    "name": "lab-vision",
+    "name": "vision-source",
     "product": "vision",
     "version": "5.4.9",
     "base_url": "https://vision.example.invalid"

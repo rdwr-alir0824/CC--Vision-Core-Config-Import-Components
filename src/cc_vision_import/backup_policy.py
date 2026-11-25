@@ -5,10 +5,7 @@ from __future__ import annotations
 import re
 
 
-LAB_TLS_WARNING = (
-    "WARNING: LAB-ONLY HTTPS certificate verification is disabled. "
-    "Server impersonation and credential interception are possible."
-)
+TLS_WARNING = "WARNING: HTTPS certificate verification is disabled."
 SUPPORTED_DOMAINS = ("controller-objects", "device-access")
 UNSUPPORTED_DOMAINS = {
     "physical-tree": "Vision Physical tree GET/enumeration contract is not documented.",
@@ -41,7 +38,7 @@ def backup_domains(data: dict[str, object]) -> tuple[str, ...]:
         if not isinstance(value, str):
             raise BackupPolicyError("invalid_type", "Backup domains must be strings.")
         if re.sub(r"[^a-z0-9]", "", value.casefold()).startswith("amsalert"):
-            raise BackupPolicyError("excluded_backup_domain", "AMS-alerts and its variants are explicitly excluded, not a backlog feature.")
+            raise BackupPolicyError("unsupported_backup_domain", "Unsupported backup component.")
         if value not in SUPPORTED_DOMAINS:
             reason = UNSUPPORTED_DOMAINS.get(value, "No implemented backup module exists for this selection.")
             raise BackupPolicyError("unsupported_backup_domain", reason)

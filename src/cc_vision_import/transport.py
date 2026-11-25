@@ -178,7 +178,7 @@ class TransportConfig:
         return _tls_context(self.trusted_ca)
 
     @property
-    def lab_insecure_tls(self) -> bool:
+    def unverified_vision_backup(self) -> bool:
         return False
 
 
@@ -242,7 +242,7 @@ class BackendRequest:
     tls_context: ssl.SSLContext = field(repr=False)
     follow_redirects: bool = False
     deadline: OperationDeadline | None = None
-    lab_insecure_tls: bool = False
+    unverified_vision_backup: bool = False
 
 
 @dataclass(frozen=True)
@@ -310,7 +310,7 @@ class HttpTransport:
             self._config.connect_timeout, self._config.read_timeout,
             self._config.tls_context(),
             deadline=deadline,
-            lab_insecure_tls=self._config.lab_insecure_tls,
+            unverified_vision_backup=self._config.unverified_vision_backup,
         )
         limit = 1 + (self._config.read_retries if method == HttpMethod.GET else 0)
         for attempt in range(1, limit + 1):

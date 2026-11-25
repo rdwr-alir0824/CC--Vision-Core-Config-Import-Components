@@ -76,7 +76,7 @@ class VisionBackupTests(OfflineTestCase):
             with self.assertRaises(SystemExit) as caught:
                 runpy.run_path(str(Path(__file__).parent.parent / "master.py"), run_name="__main__")
             status = caught.exception.code
-        self.assertEqual(stderr.getvalue(), self.backup.LAB_TLS_WARNING + "\n" if warning_expected else "")
+        self.assertEqual(stderr.getvalue(), self.backup.TLS_WARNING + "\n" if warning_expected else "")
         return status, json.loads(stdout.getvalue()), factory
 
     def assert_secret_free(self, value):
@@ -166,7 +166,7 @@ class VisionBackupTests(OfflineTestCase):
     def test_invalid_profile_or_missing_output_fails_before_connection(self):
         for field, value in (
             ("version", "5.4.8"), ("product", "cyber-controller"),
-            ("verify", False), ("trusted_ca", str(self.directory / "missing.pem")),
+            ("trusted_ca", str(self.directory / "missing.pem")),
             ("output_directory", str(self.directory / "absent")),
             ("device_ips", ["not-an-ip"]), ("site_names", []),
         ):
@@ -253,8 +253,8 @@ class VisionBackupTests(OfflineTestCase):
         self.assertNotEqual(reports[0]["run_directory"], reports[1]["run_directory"])
         self.assertTrue(all((self.output / report["run_directory"] / "summary.json").is_file() for report in reports))
 
-    def test_default_system_trust_and_explicit_warned_lab_tls_reach_every_request(self):
-        for tls, lab_only in (({}, False), ({"verify": True}, False), ({"verify": False}, True)):
+    def test_default_system_trust_and_explicit_tls_false_reach_every_request(self):
+        for tls, verify in (({}, True), ({"verify": True}, True), ({"verify": False}, False)):
             with self.subTest(tls=tls):
                 self.profile["tls"] = tls
                 connections = [self.login(), self.connection(self.site), self.connection(self.site), self.connection(self.device)]
@@ -262,17 +262,15 @@ class VisionBackupTests(OfflineTestCase):
                     "--operation", "backup-vision", "--backup-profile", str(self.profile_path),
                     "--credentials-file", str(self.credentials),
                 ]
-                if lab_only:
-                    arguments.append("--lab-only")
                 status, report, factory = self.invoke(
-                    *connections, arguments=arguments, warning_expected=lab_only,
+                    *connections, arguments=arguments, warning_expected=not verify,
                 )
                 self.assertEqual(status, 0)
-                self.assertEqual(report["tls"]["verify"], not lab_only)
+                self.assertEqual(report["tls"], {"verify": verify})
                 for call in factory.call_args_list:
                     context = call.kwargs["context"]
-                    self.assertEqual(context.check_hostname, not lab_only)
-                    self.assertEqual(context.verify_mode, ssl.CERT_NONE if lab_only else ssl.CERT_REQUIRED)
+                    self.assertEqual(context.check_hostname, verify)
+                    self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED if verify else ssl.CERT_NONE)
                 self.assertFalse(report["configuration_writes_authorized"])
         for invalid in ("false", 0, None):
             self.profile["tls"] = {"verify": invalid}
@@ -283,9 +281,6 @@ class VisionBackupTests(OfflineTestCase):
             self.transport.TransportConfig(
                 base_url="https://vision.invalid", connect_timeout=10, read_timeout=30, verify_tls=False,
             )
-        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
-            self.cli.main(["--operation", "operations", "--lab-only"])
-        self.assertEqual(caught.exception.code, 2)
 
     def test_automatic_inventory_preserves_native_ids_and_deduplicates_device_reads(self):
         self.profile["controller_objects"] = {"discovery": True}
@@ -332,6 +327,8 @@ class VisionBackupTests(OfflineTestCase):
         saved = json.loads((self.output / report["run_directory"] / "device-access" / "device-by-ip-001.json").read_text())
         self.assertIsNone(saved["objects"][0]["deviceAccess"]["cliPassword"])
         self.assertEqual(report["device_access_objects"], 1)
+        self.assertNotIn("excluded_modules", report)
+        self.assertNotIn("ams", json.dumps(report).casefold())
         self.assert_secret_free(saved)
         self.profile["backup_mode"] = "selected"
         for domain in ("AMS-alerts", "AMS_alerts", "AMS Alerts", "AMSAlert", "AMSAlerts", "scheduler", "physical-tree"):
@@ -339,7 +336,8 @@ class VisionBackupTests(OfflineTestCase):
             status, report, factory = self.invoke()
             self.assertEqual(status, 4)
             factory.assert_not_called()
-            self.assertIn(report["errors"][0]["code"], ("excluded_backup_domain", "unsupported_backup_domain"))
+            self.assertEqual(report["errors"][0]["code"], "unsupported_backup_domain")
+            self.assertNotIn("ams", json.dumps(report).casefold())
 
     def test_access_only_and_missing_access_report_independent_module_results(self):
         self.profile["domains"] = ["device-access"]

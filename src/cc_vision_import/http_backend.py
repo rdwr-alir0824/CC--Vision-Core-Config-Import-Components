@@ -321,12 +321,12 @@ class StdlibHttpBackend:
         authorization: DestinationAuthorization | None = None,
         max_response_bytes: int | None = None,
         allow_live: bool = False,
-        allow_insecure_lab: bool = False,
+        allow_unverified_vision_backup: bool = False,
     ) -> None:
         if type(allow_live) is not bool or allow_live and connection_factory is not None:
             raise ValueError("Live dispatch must use the built-in HTTPS connection.")
-        if type(allow_insecure_lab) is not bool:
-            raise ValueError("Lab TLS selection must be explicit.")
+        if type(allow_unverified_vision_backup) is not bool:
+            raise ValueError("Backup TLS selection must be explicit.")
         if authorization is not None:
             if not isinstance(authorization, DestinationAuthorization):
                 raise ValueError("Invalid destination authorization.")
@@ -337,7 +337,7 @@ class StdlibHttpBackend:
             raise ValueError("A positive finite byte budget is required.")
         self._factory = connection_factory
         self._allow_live = allow_live
-        self._allow_insecure_lab = allow_insecure_lab
+        self._allow_unverified_vision_backup = allow_unverified_vision_backup
         self._authorization = authorization
         self._max_response_bytes = max_response_bytes
         self._cookies = _StrictCookieJar()
@@ -380,19 +380,19 @@ class StdlibHttpBackend:
                 )
                 or not isinstance(request.tls_context, ssl.SSLContext)
                 or request.tls_context.keylog_filename is not None
-                or type(request.lab_insecure_tls) is not bool
+                or type(request.unverified_vision_backup) is not bool
             ):
                 raise ValueError("Unsafe backend request.")
             verified = (
                 request.tls_context.verify_mode == ssl.CERT_REQUIRED
                 and request.tls_context.check_hostname is True
             )
-            lab_tls = (
-                self._allow_insecure_lab and request.lab_insecure_tls
+            backup_tls = (
+                self._allow_unverified_vision_backup and request.unverified_vision_backup
                 and request.tls_context.verify_mode == ssl.CERT_NONE
                 and request.tls_context.check_hostname is False
             )
-            if not verified and not lab_tls:
+            if not verified and not backup_tls:
                 raise ValueError("Unverified TLS is not authorized.")
             _timeouts(request.connect_timeout, request.read_timeout)
             if (
@@ -410,7 +410,7 @@ class StdlibHttpBackend:
             target = parts.path or "/"
             if "?" in request.url:
                 target += "?" + parts.query
-            if lab_tls and not (
+            if backup_tls and not (
                 request.method == HttpMethod.GET
                 or request.method == HttpMethod.POST and target == "/mgmt/system/user/login"
             ):

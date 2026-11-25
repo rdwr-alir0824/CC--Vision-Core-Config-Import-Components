@@ -18,7 +18,7 @@ from .authentication import (
     DocumentedVisionAuthenticationStrategy, ResolvedCredentials, SessionRole,
 )
 from .capabilities import LookupCapability, ProductClientError
-from .backup_policy import LAB_TLS_WARNING, BackupPolicyError, UNSUPPORTED_DOMAINS, backup_domains
+from .backup_policy import TLS_WARNING, BackupPolicyError, UNSUPPORTED_DOMAINS, backup_domains
 from .contracts import ContractValidationError, ExitStatus
 from .http_backend import DestinationAuthorization, StdlibHttpBackend
 from .offline_inputs import OfflineInputs, local_path, write_local_export
@@ -36,12 +36,10 @@ _SCOPE = {
 
 
 @dataclass(frozen=True, kw_only=True)
-class _LabVisionTransportConfig(TransportConfig):
-    lab_only: bool = False
-
+class _UnverifiedVisionBackupTransportConfig(TransportConfig):
     def _validate_tls(self) -> None:
-        if self.lab_only is not True or self.verify_tls is not False:
-            _reader.fail("unsafe_tls", "$.tls", "Unverified TLS requires explicit lab-only Vision backup mode.")
+        if self.verify_tls is not False:
+            _reader.fail("unsafe_tls", "$.tls", "Unverified backup TLS requires explicit verify=false.")
         if self.trusted_ca is not None:
             _reader.fail("invalid_ca", "$.tls", "Custom CA trust cannot be combined with verify=false.")
 
@@ -52,7 +50,7 @@ class _LabVisionTransportConfig(TransportConfig):
         return context
 
     @property
-    def lab_insecure_tls(self) -> bool:
+    def unverified_vision_backup(self) -> bool:
         return True
 
 
@@ -66,9 +64,7 @@ class VisionBackupProfile:
     discovery: bool = False
 
     @classmethod
-    def read(cls, path_value: str, *, lab_only: bool = False) -> "VisionBackupProfile":
-        if type(lab_only) is not bool:
-            _reader.fail("unsafe_tls", "$", "Lab-only selection must be explicit.")
+    def read(cls, path_value: str) -> "VisionBackupProfile":
         path = local_path(path_value, Path.cwd()).absolute()
         data = _reader.mapping(
             OfflineInputs(path).read(str(path), None), "$",
@@ -83,8 +79,6 @@ class VisionBackupProfile:
         verify = tls.get("verify", True)
         if type(verify) is not bool:
             _reader.fail("invalid_type", "$.tls.verify", "Use true or false, not text or numbers.")
-        if verify is False and not lab_only:
-            _reader.fail("unsafe_tls", "$.tls.verify", "verify=false requires explicit --lab-only.")
         ca = tls.get("trusted_ca")
         trusted_ca = None if ca is None else str(local_path(_reader.text(ca, "$.tls.trusted_ca"), path.parent))
         options = dict(
@@ -93,7 +87,7 @@ class VisionBackupProfile:
         )
         transport = (
             TransportConfig(**options) if verify
-            else _LabVisionTransportConfig(**options, verify_tls=False, lab_only=lab_only)
+            else _UnverifiedVisionBackupTransportConfig(**options, verify_tls=False)
         )
         try:
             domains = backup_domains(data)
@@ -204,16 +198,16 @@ def _backend(profile: VisionBackupProfile) -> StdlibHttpBackend:
         _reader.fail("invalid_target_authorization", "$", "A target is outside the exact supported read scope.")
     return StdlibHttpBackend(
         allow_live=True, authorization=authorization, max_response_bytes=16 * 1024 * 1024,
-        allow_insecure_lab=profile.transport.lab_insecure_tls,
+        allow_unverified_vision_backup=profile.transport.unverified_vision_backup,
     )
 
 
 def run_vision_backup(
-    profile_path: str, credentials_path: str, *, lab_only: bool = False,
+    profile_path: str, credentials_path: str,
 ) -> tuple[dict[str, object], ExitStatus]:
-    profile = VisionBackupProfile.read(profile_path, lab_only=lab_only)
+    profile = VisionBackupProfile.read(profile_path)
     if not profile.transport.verify_tls:
-        print(LAB_TLS_WARNING, file=sys.stderr)
+        print(TLS_WARNING, file=sys.stderr)
     resolver = _FileCredentials(credentials_path)
     if not profile.output_directory.is_dir():
         _reader.fail("output_unwritable", "$", "Output directory must already exist on the external mount.")
@@ -350,7 +344,7 @@ def run_vision_backup(
         "offline_only": False, "read_only": True, "live_read_selected": True,
         "execution_authorized": False, "configuration_writes_authorized": False,
         "tls_verification_required": profile.transport.verify_tls, "authenticated": authenticated,
-        "tls": {"verify": profile.transport.verify_tls, "lab_only": lab_only},
+        "tls": {"verify": profile.transport.verify_tls},
         "session_closed_locally": "local_cleanup_failure" not in failures,
         "scope": scope, "run_directory": run_id, "inventory": inventory,
         "overall_status": "supported_collection_succeeded" if successful else (
@@ -367,7 +361,6 @@ def run_vision_backup(
         "completed_modules": [domain for domain in profile.domains if domain not in module_failures and not failures],
         "failed_modules": sorted(module_failures),
         "unsupported_modules": UNSUPPORTED_DOMAINS,
-        "excluded_modules": {"ams-alerts": "Explicitly excluded - out of scope"},
         "failed_targets": failed, "uncollected_targets": len(targets) - collected,
         "skipped_domains": skipped, "results": results, "failure_codes": failures,
         "limitations": [

@@ -15,10 +15,10 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from ._json import load_json
-from .backup_policy import LAB_TLS_WARNING as LAB_WARNING, BackupPolicyError, SUPPORTED_DOMAINS, UNSUPPORTED_DOMAINS, backup_domains
+from .backup_policy import TLS_WARNING, BackupPolicyError, SUPPORTED_DOMAINS, backup_domains
 
 
-IMAGE = "cc-vision-master:0.2"
+DEFAULT_IMAGE = "cc-vision-master:0.3"
 REPOSITORY = Path(__file__).resolve().parents[2]
 
 
@@ -64,7 +64,7 @@ def _read_credentials(path: Path) -> dict[str, str]:
     return _credentials(load_json(raw.decode("utf-8")))
 
 
-def _settings(payload: object, base: Path, lab_only: bool) -> tuple[dict[str, object], Path, Path | None]:
+def _settings(payload: object, base: Path) -> tuple[dict[str, object], Path, Path | None]:
     if not isinstance(payload, dict) or set(payload) - {
         "source", "tls", "domains", "backup_mode", "controller_objects", "output_directory",
     }:
@@ -92,8 +92,6 @@ def _settings(payload: object, base: Path, lab_only: bool) -> tuple[dict[str, ob
     verify = tls.get("verify", True)
     if type(verify) is not bool:
         raise SetupError("tls.verify must be true or false, not a string or number.")
-    if not verify and not lab_only:
-        raise SetupError("tls.verify=false requires explicitly selecting --lab-only.")
     ca = tls.get("trusted_ca")
     if ca is not None and (not isinstance(ca, str) or not ca or not verify):
         raise SetupError("Optional trusted_ca must be a local filename and requires verify=true.")
@@ -150,7 +148,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", help="Reusable non-secret JSON configuration.")
     parser.add_argument("--non-interactive", action="store_true", help="No prompts; requires config and credentials file.")
     parser.add_argument("--credentials-file", help="Owner-private external JSON credentials file; never saved to the profile.")
-    parser.add_argument("--lab-only", action="store_true", help="Explicit lab-only mode required for verify=false.")
     args = parser.parse_args(argv)
     try:
         if sys.platform != "linux":
@@ -169,7 +166,12 @@ def main(argv: list[str] | None = None) -> int:
             payload = load_json(config_path.read_text(encoding="utf-8"))
             base = config_path.parent
         else:
-            print("1. Full Supported Backup\n2. Select Backup Components\n3. Backup from JSON Configuration\n4. Exit")
+            print(
+                "=================================\n"
+                "       CC-VISION MASTER\n"
+                "=================================\n\n"
+                "1. Full Supported Backup\n2. Select Backup Components\n3. Backup from JSON Configuration\n4. Exit"
+            )
             menu = input("Select option: ").strip()
             if menu == "4":
                 print("Exited; no controller connection attempted.")
@@ -182,42 +184,45 @@ def main(argv: list[str] | None = None) -> int:
             elif menu in ("1", "2"):
                 mode: dict[str, object] = {"backup_mode": "full-supported"}
                 if menu == "2":
-                    print("Supported: 1. controller-objects  2. device-access")
-                    for domain, reason in UNSUPPORTED_DOMAINS.items():
-                        print(f"Unavailable: {domain}: {reason}")
-                    print("AMS-alerts: explicitly excluded - out of scope.")
-                    selected = input("Select component numbers, comma-separated: ").strip().split(",")
+                    print("Available backup components:\n\n1. Controller Objects\n2. Device Access")
+                    selected = (input("Select components [1,2]: ").strip() or "1,2").split(",")
                     if any(item.strip() not in ("1", "2") for item in selected):
                         raise SetupError("Select only supported component numbers 1 and 2.")
                     mode = {"backup_mode": "selected", "domains": [SUPPORTED_DOMAINS[int(item.strip()) - 1] for item in selected]}
-                print("Supported source product: 1. APSolute Vision 5.4.9")
-                if input("Source product [1]: ").strip() not in ("", "1"):
-                    raise SetupError("Only APSolute Vision 5.4.9 is supported by the live backup engine.")
+                print("Source: APSolute Vision 5.4.9")
                 payload, credentials = _interactive_profile(mode)
                 base = Path.cwd()
             else:
                 raise SetupError("Select menu option 1, 2, 3 or 4.")
-        profile, output, ca = _settings(payload, base, args.lab_only)
-        if not profile["tls"]["verify"]:
-            print(LAB_WARNING, file=sys.stderr)
+        profile, output, ca = _settings(payload, base)
+        if not profile["tls"]["verify"] and args.config:
+            print(TLS_WARNING, file=sys.stderr)
         if args.credentials_file:
             credentials = _read_credentials(Path(args.credentials_file).resolve())
         elif credentials is None:
             credentials = _credentials({"username": input("Username: "), "password": getpass.getpass("Password: ")})
-        if not args.config and _answer("Save reusable non-secret settings? [y/N] ", False):
+        if not args.config and _answer("Save reusable settings? [y/N]: ", False):
             filename = input("Settings filename [backup.json]: ").strip() or "backup.json"
             with Path(filename).open("x", encoding="utf-8") as stream:
                 json.dump(profile, stream, indent=2)
             print("Non-secret settings saved; credentials were not saved.")
         print("Discovery uses the documented managed-device list; full configuration completeness is unverified.")
-        if not args.non_interactive and not _answer("Start read-only Vision backup? [y/N] ", False):
+        if not args.non_interactive and not _answer("Start read-only Vision backup? [y/N]: ", False):
             print("Cancelled; no controller connection attempted.")
             return 0
+        image_reference = os.environ.get("CC_VISION_IMAGE", DEFAULT_IMAGE)
+        if not image_reference or "://" in image_reference or image_reference.startswith("-") or any(
+            not c.isprintable() or c.isspace() for c in image_reference
+        ):
+            raise SetupError("CC_VISION_IMAGE must be a nonempty Docker image reference without whitespace or options.")
         image = subprocess.run(
-            ["docker", "image", "inspect", IMAGE], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+            ["docker", "image", "inspect", image_reference],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, check=False,
         )
         if image.returncode != 0:
-            raise SetupError("Local image is unavailable or Docker access failed; run docker build --tag cc-vision-master:0.2 . first.")
+            raise SetupError(
+                f"Docker cannot access image {image_reference}; build/load that image or set CC_VISION_IMAGE explicitly."
+            )
         uid = gid = 10001
         _output_permissions(output, uid, gid)
         with tempfile.TemporaryDirectory(prefix="cc-vision-settings-") as temporary:
@@ -248,11 +253,14 @@ def main(argv: list[str] | None = None) -> int:
                 if os.geteuid() == 0:
                     os.chown(runtime_ca, uid, gid)
                 command.extend(["--mount", _docker_mount(runtime_ca, "/run/config/vision-ca.pem", readonly=True)])
-            command.extend([IMAGE, "--operation", "backup-vision", "--backup-profile", "/run/config/profile.json",
+            command.extend([image_reference, "--operation", "backup-vision", "--backup-profile", "/run/config/profile.json",
                             "--credentials-file", "/run/secrets/credentials.json"])
-            if args.lab_only:
-                command.append("--lab-only")
-            result = subprocess.run(command, check=False)
+            result = subprocess.run(command, check=False, stderr=subprocess.PIPE, text=True)
+            for line in result.stderr.splitlines(keepends=True):
+                # This exact warning was already displayed before confirmation.
+                if not profile["tls"]["verify"] and line.rstrip("\r\n") == TLS_WARNING:
+                    continue
+                sys.stderr.write(line)
             print(f"Backup output directory: {output}; exit status: {result.returncode}")
             return result.returncode
     except BackupPolicyError as error:
@@ -270,11 +278,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _interactive_profile(mode: dict[str, object]) -> tuple[dict[str, object], dict[str, str]]:
-    address = input("Vision HTTPS IP address or URL: ").strip()
+    address = input("Vision IP/URL: ").strip()
     username = input("Username: ")
     password = getpass.getpass("Password: ")
     credentials = _credentials({"username": username, "password": password})
-    verify = _answer("Verify HTTPS certificate? [Y/n] ", True)
+    verify = _answer("Verify HTTPS certificate? [Y/n]: ", True)
+    if not verify:
+        print(TLS_WARNING, file=sys.stderr)
     default = str(REPOSITORY.parent / "cc-vision-backups")
     output = input(f"Backup output directory [{default}]: ").strip() or default
     payload = {

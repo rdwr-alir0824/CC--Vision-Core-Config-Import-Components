@@ -27,8 +27,9 @@ authentication/session/HTTP components, and [master selector](../src/cc_vision_i
 No `VERIFIED_CAPABILITIES` entries were added; default clients remain mock-only.
 Only the selected workflow creates a live-opt-in backend with an exact origin,
 login POST and finite selected/discovered GET allowlist. System trust verification
-defaults true; optional custom CA. Unverified TLS requires an isolated Vision
-lab transport plus explicit backend/request permission and warning; unrelated
+defaults true; optional custom CA. Explicit `tls.verify=false` selects the scoped
+Vision backup transport and corresponding backend/request permission, with a
+concise warning; no extra operator flag is required. Unrelated
 operations remain strictly verified. Owner-approved transport limitation:
 existing socket timeouts/checked per-request deadlines do not hard-bound DNS or
 whole-run execution. Default backend dispatch remains blocked.
@@ -39,11 +40,72 @@ enumeration, LDAP/Scheduler API binding, configuration write, import, delete,
 async follow-up, retry, authentication renewal or remote logout was added.
 Login session state is cleared locally; server expiry is not verified.
 AMS-alerts naming variants are explicitly excluded, never backlog modules.
-Unsupported module selections fail before access. Evidence: 238 targeted offline
+Unsupported module selections fail before access. Initial implementation evidence: 238 targeted offline
 guarded tests passed across launcher, backup and directly related existing
 client/session/backend/transport/workflow/schema modules; zero guarded network
 attempts. Linux permissions, live RBAC/cookie behavior, installed-build
-compatibility, and the updated Docker image remain unverified.
+compatibility, and the updated Docker image remain unverified. The current
+operator/TLS correction passed 157 focused guarded regression cases and 23
+final launcher/backup follow-up cases on Python 3.13.14; these counts overlap.
+No guarded network attempts occurred. Actual Python 3.8/Docker/live execution
+of the update remains pending owner validation.
+
+### Internal capability scope and exclusions
+
+The operator interface presents only implemented selectable components.
+Unsupported/excluded JSON selections are rejected before controller access.
+Internal exclusions are not emitted in normal menus, summaries or manifests.
+Normal discovery remains the existing documented managed-device GET; no new
+tree/LDAP/Scheduler endpoints, pagination paths or write operations were added.
+
+| Capability | Status | Evidence/limits |
+| --- | --- | --- |
+| Controller Objects | Implemented; partial coverage; not live-verified | Managed-device thin graph plus supported detail GETs, not every site/tree configuration |
+| Managed Devices | Implemented within Controller Objects; not a separate selectable module | Native discovery graph preserved; duplicate management IP detail requests deduplicated |
+| Device Access | Implemented; redacted and completeness-unverified; not live-verified | Existing device detail response's documented nested access subset; missing access reports module failure |
+| Physical Tree / Organization Tree | Unsupported: missing exact Vision enumeration contract | Legacy CC tree intent does not establish Vision compatibility |
+| Credential Configuration | Unsupported as a restorable credential backup | Sensitive fields are redacted; portability/restore contracts unresolved |
+| LDAP Permissions | Unsupported: missing exact-version response qualification | Legacy Vision GET is source-observed; CC contract also absent |
+| Scheduler | Unsupported: missing API INI binding and response contract | No literal scheduler path invented |
+| Cyber Controller live backup | Unsupported | Existing offline synthetic workflows do not qualify live CC versions |
+| AMS-alerts restoration | Intentionally out of scope | Document-store restoration/deployment utility, not a controller backup module; never integrated |
+
+AMS-alerts, AMS_alerts, AMS Alerts, AMSAlert, AMSAlerts and equivalent normalized
+component identifiers remain internally rejected through standard
+`unsupported_backup_domain` validation. The exclusion is component-scoped:
+unrelated controller objects with "alert" in their names are not filtered.
+No AMS-specific APIs, files or folders are produced. This is an exclusion,
+not planned backup functionality.
+
+### Complete legacy-to-master inventory (internal)
+
+Preserved read-only inventory: **25 scripts (17 Python, 8 shell)**. Twenty-four
+were reviewed for applicable functionality; the AMS restoration script is
+excluded from integration review. Twelve duplicate pairs were hash-confirmed.
+Versions are not established by legacy intent alone. Original scripts,
+deployment config and archives are not new application dependencies.
+
+| References (identical copies grouped) | Original function / dependencies | Unified mapping |
+| --- | --- | --- |
+| [CC download](../legacy/app/download_cybercontroller_objects.py), [copy](../legacy/cc-objects/app/download_cybercontroller_objects.py) | CC Basic+JSON login; recursive Physical/Organization and site/device GETs; nested access extraction; missing operation INI; requests/urllib3; no pagination | Shared read/auth intent and offline adapters retained; Vision inventory/device access use separately documented Vision contracts; no CC live backup |
+| [CC upload](../legacy/app/upload_cybercontroller_objects.py), [copy](../legacy/cc-objects/app/upload_cybercontroller_objects.py) | Duplicate login/INI; site/device POSTs and supporting GETs; requests/urllib3 | Upload-only, not backup; no unsafe root fallback or name-only placement adopted |
+| [CC update](../legacy/app/update_cybercontroller_objects.py), [copy](../legacy/cc-objects/app/update_cybercontroller_objects.py) | Duplicate login/INI; device PUT and supporting GETs; requests/urllib3 | Update-only; explicit offline identity mapping/comparison retained; no destination source-ID reuse |
+| [Credential transformer](../legacy/app/update_json_credentials.py), [copy](../legacy/cc-objects/app/update_json_credentials.py) | Local credential JSON transformation, no API/auth; prints secrets | Not a backup module; secret printing/mutation not ported; current access collection redacts credentials |
+| [LDAP download](../legacy/download_ldap_permissions%20(1).py), [copy](../legacy/ldap_permissions/download_ldap_permissions%20(1).py) | Vision JSON login; GET `/mgmt/system/config/itemlist/ldapobjectpermission`; missing `vision.ini`; requests/urllib3 | Login intent reused; exact Vision 5.4.9 response and CC contracts unqualified |
+| [LDAP upload](../legacy/upload_ldap_permissions%20(1).py), [copy](../legacy/ldap_permissions/upload_ldap_permissions%20(1).py) | Vision login/LDAP POST; missing `vision.ini`; requests/urllib3 | Import-only; no forced locking, scope-broadening fallback or write retry reused |
+| [Scheduler download](../legacy/download_scheduler.py), [copy](../legacy/schedulertask/download_scheduler.py) | Vision login/session/logout; configured scheduler GET; missing scheduler API `config.ini`; requests/urllib3 | Shared login intent reused; literal task endpoint, enumeration and response binding unresolved |
+| [Scheduler upload](../legacy/upload_scheduler.py), [copy](../legacy/schedulertask/upload_scheduler.py) | Configured task GET/create, sanitization and name-based skipping; missing INI | Import-only; no guessed paths, unsafe logging, sanitization or name-only skips adopted |
+| [Sleep wrapper](../legacy/app/run.sh), [copy](../legacy/cc-objects/app/run.sh) | Persistent sleep-based runtime | Not reused; selected backup executes and exits |
+| [Installer](../legacy/2install.sh), [copy](../legacy/cc-objects/2install.sh) | Docker load/create, optional cron and deployment INI | No legacy installation/cron workflow; use clone/build or save/load |
+| [Uninstaller](../legacy/2uninstall.sh), [copy](../legacy/cc-objects/2uninstall.sh) | Docker/container and cron cleanup | Not an application module; explicit operator cleanup only |
+| [Container wrapper](../legacy/run-cc-objects.sh), [copy](../legacy/cc-objects/run-cc-objects.sh) | Docker start/exec/stop | Replaced by [on-demand launcher](../run-vision-backup.sh), never invoked |
+| [AMS restoration](../legacy/AMS-alerts/restore_cfg.py) | Explicitly excluded, not reviewed for integration | Internal exclusion only; absent from routine operator UI/artifacts |
+
+Missing bindings remain Vision LDAP `vision.ini`, Scheduler `config.ini`
+login/logout/scheduler paths, and CC download/upload/update operation INIs
+(for example `download.ini`). [Deployment config](../legacy/cc-objects/config.ini)
+is not a substitute. No legacy script or authentication function was executed.
+Vendor PDFs remain local evidence excluded from Git/image publication.
 
 ## CCV-009-B - implemented offline subsets - E-036
 

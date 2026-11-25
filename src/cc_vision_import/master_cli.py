@@ -146,7 +146,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--exported-at", help="ISO-8601 timestamp for supplied export/lookup data.")
     parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
     parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
-    parser.add_argument("--lab-only", action="store_true", help="Explicit lab-only backup mode; required for tls.verify=false.")
     args = parser.parse_args(argv)
     live_backup = args.operation == "backup-vision"
     if live_backup:
@@ -160,7 +159,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         ):
             parser.error("backup-vision uses only its backup profile and credentials file, not offline input options.")
-    elif args.backup_profile is not None or args.credentials_file is not None or args.lab_only:
+    elif args.backup_profile is not None or args.credentials_file is not None:
         parser.error("backup profile/credentials options require explicit --operation backup-vision.")
     lookup = args.operation in _LOOKUPS
     standalone_export = args.operation == "export" and args.input is not None
@@ -216,7 +215,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif live_backup:
             from .vision_backup import run_vision_backup
 
-            report, status = run_vision_backup(args.backup_profile, args.credentials_file, lab_only=args.lab_only)
+            report, status = run_vision_backup(args.backup_profile, args.credentials_file)
         elif args.operation in ("authenticate", "import"):
             report, status = _unavailable(
                 args.operation, "live_execution_disabled",
