@@ -4,7 +4,777 @@ Date: 2026-11-18
 Evidence levels: source-observed endpoints; separately scoped offline mock
 coverage for authentication and three reads; owner-provided vendor PDF evidence
 for selected exact method/path pairs; E-036 synthetic offline subset regressions.
-Runtime compatibility remains unverified.
+Runtime compatibility is scoped; current owner-reported evidence and remaining
+qualification limits are recorded below.
+
+## SITE-MIGRATION-READINESS - source Sites only
+
+Implemented `tree-readiness-preview --site-readiness` using the existing native
+Vision envelope validator, source containment/dependency checks, local input
+reader, safe text/JSON reports and exclusive report writer. Organization only;
+no device/access inputs or associations, credentials, API calls or executable
+payloads. The report has a distinct domain, no top-level sites/devices arrays
+and is rejected by the existing controller import-artifact parser.
+
+Legacy evidence: `legacy/app/upload_cybercontroller_objects.py:143-175` reads
+sites in supplied order, consumes name and parent_site_name, resolves the latter
+using destination Site lookup, then submits name plus destination parent ID.
+Flat source id and parentOrmID are not read by this Site-create loop. Original
+downloader traversal establishes their separate source-reference roles.
+
+| Legacy field | Supported source-side preparation | Qualification boundary |
+| --- | --- | --- |
+| name | Direct native name, unchanged; nonempty printable text required | Destination allowed names, normalization/case rules and collisions unverified |
+| id | Rename meIdentifier.managedElementID to conceptual flat source id; require usable unique identity | No alias to destination ormID; no actual flat import object emitted |
+| parentOrmID | Derive containing Site/root native source ID when dependency is unambiguous | Source nesting inference only; not a destination parent ID; conflicting explicit parents block instead of reparenting |
+| parent_site_name | Derive observed containing Site/root name | Original downloader obtains this via Site-by-ID lookup; equivalence to the observed tree name and destination lookup behavior remains unqualified |
+
+Real Organization result: 30 Site candidates; 30 have sufficient source fields;
+zero missing source-field records or unresolved parent dependencies. All 30 are
+orderable from the single source Site-root context in observed depth-first,
+parent-before-child order. Zero duplicate source Site names or ambiguous exact
+parent-name candidates. All 30 have additional fields outside the legacy
+projection; these remain unqualified and untouched in the source backup.
+The root's identity/name/class are structurally usable, but its semantic root
+role remains legacy-inferred. It is not emitted as a Site candidate.
+
+Source-field sufficiency and source ordering do not imply migration readiness.
+All 30 Sites and the root require explicit destination mapping/resolution.
+Missing fields, duplicate IDs, unknown parents, conflicting explicit references
+and invalid root context block source ordering where appropriate; duplicate
+names are reported separately from valid source hierarchy. No global-name
+fallback, source-ID reuse, automatic root rename or unsupported field deletion.
+Enumeration completeness, native parent semantics and exact destination
+Site/create/lookup schemas remain unqualified. Source ordering is not a
+destination write plan.
+
+Verification: 127 existing/focused offline tests passed in 34.491 seconds
+(tree preview, inventory reconciliation, controller exports/workflow, Vision
+backup and setup). Five new Site tests cover valid projection/ordering,
+unprojected fields, name ambiguity, missing/duplicate identities, parent/root
+blockers, safe text/JSON, non-importability, exclusive output and unchanged
+inputs. Pylance syntax checks passed for all three changed Python files; both
+changed source files have empty diagnostics. The real source assessment ran
+under network guards, verified every reported parent-before-child dependency,
+and confirmed the original backup hash unchanged with zero network attempts.
+
+Smallest next step: an authorized offline destination Site/root snapshot and
+exact CC version/build/schema evidence, followed by an explicit root/Site
+mapping and collision-resolution preview. Qualify parent-name lookup scope and
+missing/duplicate behavior; do not activate creation or treat source IDs as
+destination identities. No new device identity investigation is required.
+
+## Device-access association qualification - offline evidence only
+
+Authorized inputs: Organization tree and the 36 controller-detail plus 36 access
+artifacts in the owner's local backup directory. All 73 files were inspected
+read-only under existing network guards; before/after hashes matched and zero
+network attempts occurred. Only aggregate counts/static labels were displayed.
+No native tree/detail identifiers were compared across namespaces.
+
+### Source contract and saved provenance
+
+- Original downloader `extract_device_access_data` (repository reference
+  `legacy/app/download_cybercontroller_objects.py:145-157`) queries
+  GET `/mgmt/system/config/tree/device/byip/{ip}` using the tree managementIp,
+  extracts deviceSetup.deviceAccess, deletes the access object's ormID, then
+  attaches it to the first flat device with that managementIp. It does not
+  verify the tree managedElementID against the detail ormID. This is observed
+  address-based behavior, not an explicit native identity-equivalence contract.
+- Current collector (`src/cc_vision_import/vision_backup.py:329-365`) makes one
+  detail read and writes both outputs from the same result. Access objects are
+  projected as `{ormID: detail.ormID, deviceAccess: detail.deviceSetup.deviceAccess}`;
+  access-envelope ormID is therefore a copied device ID, not an independently
+  observed access ID or a newly established alias for tree managedElementID.
+  The nested access object's own ormID is preserved with its separate role.
+- All 36 pairs match that exact projection and every other envelope field
+  except domain/objects, including source, timestamp, request, evidence,
+  identity-binding assertion, scope, redaction count and issues. All source
+  declarations also match the tree's declaration. Pairing compared all records,
+  not filenames, names, list positions or equal device IDs alone.
+- Both artifact groups record the expected distinct domains, GET by-IP template
+  and queried-management-IP/unique-response-ID binding assertion. The client
+  checks query/address consistency and rejects duplicate response IDs across
+  different queries (`src/cc_vision_import/product_clients.py:435-503`).
+  This protects query binding, not tree identity. Matching saved metadata is
+  derivation-consistent provenance, not signed/raw-response attestation or
+  proof of an atomic tree/detail snapshot.
+- Detail and access objects contain no ormId/meIdentifier/managedElementID
+  fields. Each group has 36 unique top-level device IDs. Reviewed API-06 and
+  Device/DeviceSetup/DeviceAccess/ManagedElementIdentifierPojo documentation
+  establishes the read and nested access data, not a detail-to-tree ID alias.
+
+### Association results (candidate and unresolved counts overlap)
+
+| Layer / classification | Count | Interpretation |
+| --- | ---: | --- |
+| Confirmed collector-derivation-consistent detail/access pairs | 36 | Unique exact projection plus matching provenance; no filename-based pairing |
+| Unpaired detail / access artifacts | 0 / 0 | All inputs have a unique derivation-consistent counterpart |
+| Ambiguous detail / access pairings | 0 / 0 | No multiple counterparts under that projection/provenance check |
+| Confirmed Organization-to-access identity associations | 0 established | Does not mean there is no real overlap |
+| Address-only candidate Organization-to-pair associations | 35 | Each tree device has exactly one recorded query-target candidate; explicitly not identity proof or approved enrichment |
+| Multiple candidates per tree / pairs shared by candidate tree records | 0 / 0 | No candidate-level fan-out observed; this does not verify identities |
+| Tree devices without an address-only candidate | 0 | A candidate is not a confirmed match |
+| Detail/access pairs without a tree address candidate | 1 | Not identified as a missing tree device; exclusion cause remains unknown |
+| Unresolved Organization-to-access identity associations | 35 | Every tree-device enrichment remains blocked |
+
+All 36 access artifacts have null/masked credential fields: 540 recognized fields
+in total. Redaction counts are copied from the full detail result, not an
+independently scoped access count; do not sum both artifact groups as separate
+redactions. The projection preserves redaction and cannot supply restorable
+credentials. Access/schema completeness, credential portability and exact target
+version behavior remain unverified.
+
+Exact missing evidence: an authoritative source API statement, or an authorized
+same-device response with documented field roles, binding Organization
+meIdentifier.managedElementID to the by-IP Device ormID within the relevant
+controller/snapshot scope. Alternatively, a documented tree-native identity
+binding to that same lookup result is needed. A shared IP/name, equal IDs,
+source-label match or another copy of the current responses is insufficient.
+No new endpoint is proposed.
+
+Smallest next implementation step, after that evidence is supplied: add a
+report-only association check to the existing compatibility preview that requires
+the qualified native binding plus unique projection/provenance and reports
+conflicts/missing evidence without merging payloads. Until then, retain the
+35 candidates as unresolved. No application code/check was added, so no new
+tests or redundant unchanged-code regression suite were run for this assessment.
+
+## Legacy cc-objects flat compatibility - offline preview
+
+Evidence: original `app/README.md` and the four named scripts under the owner's
+original migration workspace; all four scripts are byte-identical to the
+read-only repository copies. Existing original flat files were inspected without
+printing configuration values: Physical has empty sites/devices; Organization
+has 29 sites and 34 devices. These are a different snapshot, not evidence that
+the current 30-site/35-device native tree should lose any records.
+
+| Contract or behavior | Source-observed result / preview boundary |
+| --- | --- |
+| Original output | Exact top-level `sites`/`devices` arrays. All sampled sites have name/id/parent_site_name/parentOrmID; all sampled devices have name/type/managementIp/id/parentOrmID/deviceAccess. All 34 sampled devices have access objects. Master envelopes instead contain native `tree`; they are not uploader inputs. |
+| Identity and nesting | Downloader derives flat id from meIdentifier.managedElementID and source parentOrmID from containing tree node; sites are depth-first, parent before child. Root is not emitted. No inventory/alldevices identity crosswalk is used. Preview retains only opaque references to unchanged source nodes, not replacement IDs. |
+| Access enrichment | Original GET device/byip followed by deviceSetup.deviceAccess extraction and deletion of access ormID. Preview performs no reads/enrichment/deletion or association by IP/name/equal IDs; native access availability and credential gaps only are assessed. |
+| Order and hierarchy | Physical then Organization; sites before devices in each. Uploader resolves parent names with destination GET site/byname, then POST site or device. Missing parent resolution silently falls back to root in legacy; explicitly not adopted. Duplicate global site names are flagged. |
+| Root rename | README claims root renaming; reviewed uploader has no corresponding rename/write operation. It reads destination tree root, does not create/export source root, and uses root fallback. Root rename remains unsupported, not inferred. |
+| Creates and IDs | POST `/mgmt/system/config/tree/site` uses destination parent ID/name. POST `/mgmt/system/config/tree/device` uses name/destination parent/type/access, not source device id. No created-ID mapping/read-back/completion verification exists. Server ID assignment is expected, not target-live-qualified here. |
+| Updates | PUT `/mgmt/system/config/tree/device` sends flat device id as ormID. README explicitly requires a download from the same controller for update. Source IDs must never be treated as destination update IDs. Physical file precedes updated Organization file. |
+| Models/versions | README lists physical/virtual Alteon and DefensePro and claims tests across Vision 4.85 through CC 10.7.0. Reviewed code simply forwards type/access; no qualified model/form-factor conversion or version matrix. This is not exact-target compatibility proof. |
+| Credentials | Credential helper replaces CLI/HTTP/HTTPS username/password by old-username lookup, and SNMPv3 username/auth/privacy secrets from supplied mappings. Actual helper reads `snmpsecrets.ini`, unlike README's snmpcredentials.ini wording. It writes cleartext and logs usernames; not reused or executed. Missing/redacted credentials cannot be recovered from backups. |
+
+Implemented `tree-readiness-preview --legacy-compatibility`: always blocked,
+offline-only report; no flat sites/devices output, destination objects, import
+payloads, credentials or changes. Existing controller import parser rejects this
+report. Reuses envelope validation, inferred source dependencies, local strict
+JSON/exclusive reports and sensitive-field classification. Unknown fields/classes,
+missing flat fields, ambiguous names, access gaps and unqualified transformations
+remain explicit; no native fields are silently rewritten.
+
+Actual guarded current-tree assessment: Physical root only (zero flat candidates);
+Organization 30 site and 35 device candidates, with 35 missing deviceAccess and
+35 credential-gap records. Source tree files hash-unchanged; zero network attempts.
+The 36/35 inventory difference does not block this selected tree subset, but
+its cause and full device coverage remain unresolved.
+
+Verification: 122 offline preview/reconciliation/controller/backup/launcher
+regressions passed, including five focused compatibility tests. Pylance syntax
+checks passed for the three changed Python files; changed source diagnostics
+were empty. No legacy script, live API, import, deployment or Git operation ran.
+
+Smallest next step: qualify an explicit, independently evidenced tree-device to
+saved access-artifact association, plus destination root/site-resolution rules,
+before any enrichment preview. Do not copy the legacy IP merge as identity proof.
+
+## Native device identity crosswalk - artifacts supplied, bridge still unverified
+
+The earlier missing-artifact blocker is superseded: all 36 original detail
+envelopes were subsequently supplied and inspected offline. They have 36 unique
+top-level ormID identities but no ormId, meIdentifier or managedElementID fields
+anywhere. externalId and parentOrmID are null in all 36; physicalParentId is empty
+in 35 and null in one. Nested setup/access ormID fields have independent roles.
+No native dual-namespace bridge was established. No address/name/order/equal-ID
+matching was performed; the specific cause of 36 inventory versus 35 tree
+devices remains unknown. Required evidence is an authoritative same-device
+association between the actual native identity namespaces, not more copies of
+these responses. This blocks an inventory crosswalk, not tree-subset assessment.
+
+## Offline inventory reconciliation - VISION-INVENTORY-RECONCILIATION (2026-11-25)
+
+Authorized inputs only: controller-objects/inventory.json,
+organization-tree/tree.json and physical-tree/tree.json under the owner's
+local backup directory. Inspected allowlisted schema field types before
+reconciliation; no native values or unknown field names were displayed.
+No other operational input, controller request or live operation was used.
+
+### Observed local results (not a completeness claim)
+
+| Representation | Records / hierarchy candidates | Identity checks | Parent/site observations |
+| --- | --- | --- | --- |
+| Managed inventory | 36 records | 36 unique native ormId strings; zero missing or duplicate identities | All 36 parentOrmId fields null/absent; no usable inventory parent linkage |
+| Organization | 1 root candidate, 30 sites, 35 devices, zero unknown node classes | 35 unique device managedElementID strings; zero missing or duplicate device identities | 35 recognized direct site-containment associations across 20 site candidates; zero unresolved structural dependency issues in the current preview checks |
+| Physical | 1 root candidate, zero devices/sites below root | No device identities to compare | No device placement supplied by this tree |
+
+These are actual local observations, not synthetic counts. Structural checks
+do not certify vendor schema completeness, source snapshot atomicity, parent
+semantics or migration readiness.
+
+### Identity reconciliation boundary
+
+Inventory exposes `ormId`; tree nodes expose
+`meIdentifier.managedElementID` (and separately typed dbId metadata). Existing
+Vision/legacy evidence establishes these fields independently, not their equality
+or a crosswalk. The legacy by-address merge is not a verified identity rule.
+No names, addresses, string coincidences, dbId conversions, detail-ID aliases or
+identifier suffixes were used to match devices.
+
+- Verified cross-representation matches: **0 established**, not proof of no overlap.
+- Inventory-only and tree-only identity sets: **unresolved**, represented as null
+  rather than fabricated empty sets or a claimed one-device difference.
+- Unresolved cross-representation records: all 36 inventory and 35 Organization
+  device candidates. Cross-namespace ambiguity is distinct from within-set
+  duplicates (none observed).
+- The 36 versus 35 discrepancy is real at the record/class-count level but its
+  identity-level cause is **not established** by these files plus current evidence.
+  Zero structural parent problems does not resolve inventory/tree identity linkage.
+
+### Implementation and next smallest task
+
+[Standalone reconciler](../src/cc_vision_import/inventory_reconciliation.py)
+reuses the existing Vision tree preview and strict local input/report helpers.
+Source declarations must agree; tree slots/domains/GETs are checked. Duplicates,
+missing identities, site containment and unresolved dependency issues use only
+opaque positional references in output. The collector, auth, HTTP, launcher and
+master operations remain unchanged. Safe JSON output is optional/exclusive;
+status 1 explicitly indicates the identity bridge remains unverified.
+
+Next task: obtain authoritative field-equivalence evidence or approve an
+explicit independently reviewed offline identity-association contract; only then
+add a one-to-one inventory/tree matcher with duplicate/collision/missing mapping
+checks. Do not select an allegedly missing device through name/IP equality.
+No live request, import, placement change or destination mapping is proposed.
+
+Verification: 55 guarded offline reconciliation/preview/backup/launcher
+regressions passed in 55.067 seconds; final added inventory-parent reporting
+passed all four focused reconciliation cases (overlap, not additional tests).
+Cases cover equal cross-namespace IDs not matching, duplicates/missing identity,
+unresolved parents, invalid/swapped/provenance inputs, nonlocal path rejection,
+safe JSON/exclusive output and unchanged inputs. Syntax/Pylance checks passed.
+Actual local reconciliation also ran under the existing network guards with
+zero attempted network calls; before/after hashes confirmed all three original
+backups unchanged. Safe report contains no native operational values.
+
+## VISION-TREE-READINESS-PREVIEW - implemented offline bridge (2026-11-25)
+
+Owner-authorized extension of the proposed source readiness assessment to both
+existing Vision Physical/Organization tree envelopes. No actual lab artifact
+was supplied for local inspection; implementation is synthetic-offline verified,
+not a new live-schema certification.
+
+- [Preview implementation](../src/cc_vision_import/vision_tree_preview.py) accepts
+  local schema_version 1, Vision 5.4.9 source provenance, the matching tree domain/
+  recorded exact GET, incomplete evidence-only scope, native `tree`, and consistent
+  top-level count/redaction metadata. It never expects an `objects` artifact.
+  Unknown extra envelope/node/identifier fields are counted without exposing names
+  or values; their semantics remain unverified.
+- Structural evidence: [legacy traversal](../legacy/app/download_cybercontroller_objects.py)
+  lines 110-142 consumes children arrays, meIdentifier.managedElementID and the
+  explicit Site/Device managed-element classes. A single object root is a
+  position-based root candidate; array entries are not guessed roots.
+- `children` membership is an observed JSON containment relationship. Source
+  parent/dependency interpretation is marked legacy-based inference, not
+  vendor-verified hierarchy. The report deliberately records zero verified
+  semantic parent relationships. Only unique known child identities with a
+  unique root/site parent can receive an inferred dependency. Unknown/device
+  parent roles and missing/duplicate identities remain unresolved.
+- Explicit parentOrmID is inspected as a legacy field candidate, without
+  treating other aliases as equivalent. Null/unknown/ambiguous references or
+  conflicts with containment are blockers and clear the inferred dependency.
+  Native identity and unknown configuration fields are not copied into output.
+  Source device type/access and tree/detail identity associations remain unverified.
+- Meaningful counts distinguish top-level JSON records from inspected root/site/
+  device/unknown node candidates. Unknown/non-object nodes and unsupported child
+  shapes are not silently normalized into a complete hierarchy. Depth is bounded
+  at 64 and candidate count at 10,000.
+- Reused: strict local input/JSON handling, ContractReader validation, existing
+  dependency_order and exclusive local report writer. Synthetic CC adapters,
+  migration artifact product/version gates and production capability catalogue
+  are unchanged; no Vision-to-CC relabeling, destination mappings, semantic
+  acknowledgements or import actions.
+- CLI: `master.py --operation tree-readiness-preview --input <local tree.json>`,
+  text by default; optional `--report-format json` and `--output <new report.json>`.
+  Reports are safe counts/opaque node references/static issue codes. Inspection
+  returns status 1 (readiness blocked), local I/O failures 3 and malformed
+  envelopes/preview-limit violations 4. Existing CLI JSON and collectors unchanged.
+- Verification: 89 guarded offline tests passed in 36.356 seconds across
+  test_vision_tree_preview, test_vision_backup, test_backup_setup and
+  test_controller_workflow. Six focused preview tests cover both envelopes,
+  parent inference/conflicts, duplicates/missing/unknown fields and nodes,
+  array/opaque shapes, malformed envelope/strict JSON/nonlocal paths/depth limit,
+  safe text/JSON output, report overwrite rejection and original input preservation.
+  Preview/master syntax and Pylance error diagnostics passed. No network attempts,
+  live requests, imports, deployment or Git operations.
+
+This implements a source evidence bridge only. Destination inventory/schema/
+mapping contracts, credentials and exact-target compatibility remain blockers
+to any later comparison or execution. The earlier single-Physical proposal below
+is superseded only by this approved two-tree offline scope.
+
+## Vision-to-Cyber Controller migration readiness assessment - 2026-11-25
+
+Scope: six live-validated Vision 5.4.9 backup modules, existing offline code and
+legacy import references only. Owner also confirms the interactive summary works.
+No operational backup files or destination snapshot were supplied for this
+assessment; native field presence in the lab exports is therefore not verified
+by source inspection. No live requests, import execution or capability activation.
+An exact Cyber Controller destination release/build must still be declared and
+qualified; the historical CC PDF provenance conflict remains unresolved.
+
+Classification:
+
+- **Supported** means an evidenced, qualified destination migration path usable
+  with these exports. **None of the six currently meets this definition.**
+- **Transformation required** means a legacy CC operation candidate exists, but
+  source adaptation/mappings are necessary; this is not import approval.
+- **Unsupported** means no established CC import implementation in this project,
+  not a claim that the vendor cannot support the feature.
+- **Unverified** marks unresolved product/version/request/response semantics,
+  and can apply alongside a transformation-required candidate.
+
+### Source-to-destination capability matrix
+
+| Vision export | Classification | Verified legacy destination intent | Required transformation/dependencies and current blockers |
+| --- | --- | --- | --- |
+| Controller objects | Transformation required; CC execution unverified | [CC uploader](../legacy/app/upload_cybercontroller_objects.py) lines 143-202 creates sites with POST /mgmt/system/config/tree/site and devices with POST /mgmt/system/config/tree/device. [Updater](../legacy/app/update_cybercontroller_objects.py) lines 143-184 uses device PUT. | Master inventory/detail envelopes are not the uploader's flat sites/devices input. Need explicit source root/site/device identities, parent graph, destination root/parent/device mappings, supported device type and qualified field selection. Thin ormId and detail ormID are not proven equivalent. Discovery/detail reads do not prove complete site configuration. Create completion/returned IDs and PUT semantics unverified. |
+| Device access | Transformation required; CC execution unverified | CC device-create/update payload embeds deviceSetup.deviceAccess; there is no independent legacy access import operation. | Attach access to an explicitly associated device, not by first IP/name match. Preserve nested identity provenance without treating access ormID as a destination device ID. Need secure replacement of required redacted credentials, destination access-field/types/ownership qualification and device dependencies. A redacted export cannot be passed directly to the legacy payload. |
+| LDAP permissions | Unsupported CC import; unverified destination API/schema | [LDAP uploader](../legacy/upload_ldap_permissions%20(1).py) lines 10-39 targets Vision and POSTs ldapobjectpermission; not a CC implementation. | CC endpoint/version contract absent. Need directory/group/role/network-policy mappings, qualified attribute semantics and any required secure values. Vision role/group equality is not CC permission equivalence. Forced locking, defaults and all-scope retries in the legacy uploader must not be reused. |
+| Physical tree | Transformation required for root/site/device subset; whole-tree import unsupported; CC execution unverified | CC uploader lines 143-202 reads the destination Physical root, then creates flat sites/devices. No native whole-tree POST/import contract. | Extract only evidenced node classes from the native tree while preserving provenance/parent order; unknown classes/fields are blockers, not discarded configuration. Explicit destination root mapping first, then parent sites, then devices. Native root/children/identifier schema of supplied live exports and complete hierarchy coverage remain unqualified. |
+| Organization tree | Transformation required for root/site/device subset; whole-tree import unsupported; CC execution unverified | Same uploader selects Organization separately, lines 223-238; reuses site/device creation. | Independently qualify Organization schema/root/parents and destination object placement. No cross-tree merging or assumption that the same managed device should be created twice. Cross-tree identity, shared-device placement and exact write semantics are unresolved. |
+| Scheduler | Unsupported CC import; unverified destination API/schema | Original Scheduler uploader in the external reference workspace targets Vision; its task POST is not CC evidence. Repository [copy](../legacy/upload_scheduler.py) records the same configurable-task intent. | Need CC task-type/read/create contracts plus device/site/policy reference mappings, activation/timezone behavior and required secrets. Do not transfer Vision task IDs or blindly remove ormID/taskStatus/jobstatus/previousFeedMd5 as a CC transformation. Task-name skipping is not migration identity. |
+
+### Dependencies, IDs, credentials and missing information
+
+1. **Hierarchy:** destination controller/root mapping -> parent sites in dependency
+   order -> child sites/devices -> associated device access. Physical and
+   Organization contexts stay separate. Root is mapped, never created as a site.
+2. **Identifiers:** retain source controller/tree/kind/native-ID provenance;
+   independently qualify destination IDs and mappings. The updater assigns the
+   source exported device id to destination ormID: this is unsafe across
+   controllers and is not a reusable mapping rule. Uploader fallback to the
+   destination root and global site-name matching are likewise not acceptable.
+3. **Credentials:** destination session credentials require separately approved
+   provisioning for any future live stage. Persistent device usernames,
+   passwords/passphrases, SNMP communities/auth/privacy keys and task-specific
+   secrets may need secure re-entry where the destination requires them.
+   Redaction counts do not identify required destination fields. Null/masked
+   values must remain unresolved; session cookies/tokens are not restored.
+4. **Missing inputs:** exact target release/build and permissions; qualified
+   source tree node/field shapes; independent destination snapshot/root and
+   explicit object mappings; device-type/access translation; verified required,
+   optional/server-owned fields; completion/read-back behavior. LDAP/Scheduler
+   additionally lack established CC APIs and reference/authorization semantics.
+5. **No inferred completeness:** an absent destination object is not a CREATE
+   candidate without independently established destination enumeration. HTTP
+   acceptance is not asynchronous completion. A successful source backup does
+   not authorize deletes, replacements or configuration writes.
+
+### Existing offline functionality: reuse and boundaries
+
+- [Strict local JSON input](../src/cc_vision_import/offline_inputs.py) and
+  [contract validation](../src/cc_vision_import/_contract_validation.py) can be
+  reused for a no-network input/report path. Existing backup envelopes must be
+  recognized explicitly, not mistaken for controller migration artifacts.
+- [Controller export adapters](../src/cc_vision_import/controller_exports.py)
+  require synthetic version 0.0-test. [Controller artifact parsing](../src/cc_vision_import/controller_objects.py)
+  requires product cyber-controller and normalized controller-objects records.
+  The six real Vision backup envelopes do not satisfy these contracts. Never
+  relabel Vision as CC or a live release as 0.0-test to bypass them.
+- Existing hierarchy uniqueness/parent/cycle checks and identity ambiguity
+  assessment are useful prior art once a narrowly qualified Vision preview
+  representation exists. Unknown classes and missing parents must fail explicitly.
+- [Mapping resolution](../src/cc_vision_import/controller_mapping.py) requires
+  independent inventories, explicit same-kind/tree destination IDs and parent
+  dependencies. [Device reconciliation](../src/cc_vision_import/controller_reconciliation.py)
+  requires explicit associations; [access acknowledgements](../src/cc_vision_import/controller_access_policy.py)
+  are identity/snapshot-bound and grant offline planning only, not credential
+  completeness or import approval.
+- [Planning validation](../src/cc_vision_import/controller_planning.py) checks
+  mapping state, root resolution, collisions, hierarchy/dependencies, declared
+  destination completeness and unresolved credentials. [Comparison](../src/cc_vision_import/controller_comparison.py)
+  requires explicit semantic qualification and emits BLOCKED/CREATE/SKIP/CONFLICT,
+  not an executable UPDATE path. [Offline orchestration](../src/cc_vision_import/controller_workflow.py)
+  produces protected/redacted records with execution_authorized false; its
+  manifest path is synthetic CC-only. None is a ready-to-use live Vision-to-CC bridge.
+- [Production capability catalogue](../src/cc_vision_import/capabilities.py)
+  remains empty. Backup-specific live validation does not activate generic CC
+  migration reads/writes.
+
+### Proposed next task: VISION-PHYSICAL-READINESS-PREVIEW
+
+**Priority:** high. **Approval:** proposed, not implementation-authorized.
+**Objective:** one local, non-executing structural readiness report for the saved
+Physical tree root/site hierarchy, the subset directly evidenced by the legacy
+CC site/device workflow. This is source assessment, not a destination diff or
+import plan; no live destination inventory collection is needed.
+
+**Inputs:** existing physical-tree/tree.json envelope and source product/version/
+run provenance. Inspect only structural field names/types from an authorized
+local sample; if unavailable, ask for the minimum sanitized root/children/
+meIdentifier/site shape before binding the parser. Do not request credentials.
+
+**Bounded implementation proposal:**
+
+1. Validate the real Vision envelope, read its native tree without mutation,
+   retain source context and establish only the observed root/site identity and
+   nesting subset. Treat unknown/missing/null/inconsistent fields as reported
+   blockers; never default IDs/parents or silently exclude other nodes.
+2. Check duplicate native IDs, missing/conflicting parent relationships, cycles
+   and ambiguous sibling names using existing validation/dependency mechanisms
+   where their contracts permit. No source-to-destination matching by name/IP.
+3. Report site dependency order plus unresolved destination-root/parent mappings,
+   unknown semantics/fields and unsupported node counts. Device nodes are
+   identified as deferred dependencies only, not enriched or credential-resolved.
+4. Emit a safe machine-readable readiness report and concise counts with opaque
+   object references, issue codes, completeness unverified and
+   execution_authorized false. No API request, import payload, CREATE/UPDATE/
+   DELETE recommendation, source-ID reuse or automatic mapping.
+
+**Acceptance:** supplied valid hierarchy produces accurate site/dependency
+counts; duplicate IDs/missing identity/unknown classes and incompatible shapes
+produce explicit blockers; original backup files unchanged; no credentials,
+addresses or raw configuration in the operator report; existing six collectors
+and JSON workflows unchanged; focused existing-framework tests demonstrate zero
+network attempts. No synthetic relabeling or capability-gate bypass.
+
+**Later, separately approved work:** qualify a true Vision preview adapter and
+independent target snapshot before integrating existing destination comparison/
+planning. Qualify device/access transformations afterward. LDAP and Scheduler
+remain blocked pending CC-specific contracts. This sequence follows verified
+legacy root/site/device functionality rather than inventing whole-tree imports.
+
+Verification for this assessment: source/document inspection only; no code
+changed and no tests run (documentation-only task). Proposed preview remains
+unimplemented and unverified.
+
+## Operator backup coverage - Vision 5.4.9
+
+Latest owner-reported authorized lab result: all six modules live-tested;
+controller objects 36, device access 36, LDAP permission records 13, Physical
+and Organization trees collected, Scheduler 23 tasks with 46 fields redacted,
+zero reported collection failures. No lab request was made here. This supersedes
+historical pending master-live-validation statements below for these exercised
+reads only. It does **not** establish full configuration, schema completeness,
+restorability, migration readiness or support for another product/version.
+
+| Module | Collected and legacy comparison | Coverage/qualification limits |
+| --- | --- | --- |
+| Controller Objects | Documented managed-device thin inventory and supported site/device detail GETs. The [object downloader](../legacy/app/download_cybercontroller_objects.py) traverses tree sites/devices and flattens them; master preserves the thin discovery graph and qualified lookup data separately. Lab count: 36 device details. | Partial inventory/detail coverage; discovery is not a complete site configuration export. Thin inventory IDs are not assumed equal to detail IDs. Device query IP/response binding is checked, but full schema, empty-site coverage and complete enumeration are unqualified. |
+| Device Access | Redacted deviceSetup.deviceAccess subset of the same device-detail GET. Legacy downloader lines 145-157 extracts this subset, deletes its ormID and joins by IP; master retains qualified native data without that deletion. Lab count: 36 access exports. | Not appliance configuration dumps or portable credential backups. Unknown nonsecret fields retained, exact-version field semantics/nullability and restoration prerequisites unqualified. |
+| LDAP Permissions | Same fixed GET as the [LDAP downloader](../legacy/download_ldap_permissions%20(1).py); master exports records with the source-consumed attribute/role subset and unknown nonsecret fields. Lab count: 13 records. | Full LDAP schema, enumeration/pagination, external directory dependencies and cross-product mappings unqualified. No forced device locking, permission scope broadening or fabricated defaults. |
+| Physical Tree | Same exact Physical GET as the object downloader; native response under `tree`, unlike legacy flattened sites/devices. Lab: collected. | Root/nesting/order/IDs/parents retained as received, subject to redaction; no node-schema or tree-identity qualification. Top-level JSON records are not hierarchy-node counts or proof of complete enumeration. |
+| Organization Tree | Same independently selected Organization GET; separate native artifact rather than merged/flattened hierarchy. Lab: collected. | Same explicit opaque-export limits; shared parsing does not establish identical Physical/Organization schemas or shared-device identity semantics. |
+| Scheduler | Same configured GET as the [Scheduler downloader](../legacy/download_scheduler.py), resolved from both supplied Scheduler INIs; array of task objects, retaining IDs, status and unknown fields instead of upload sanitization. Lab: 23 tasks, 46 fields redacted. | Full task types/schema, timezone/reference/dependency semantics, paging and complete enumeration unqualified. Successful task export does not establish recreation/activation behavior. |
+
+### Restoration gaps and sensitive-data policy
+
+- Existing recursive field-name redaction replaces credential-like values with
+  null: usernames/security names, passwords/passphrases, SNMP communities,
+  authentication/privacy keys, tokens/cookies/session IDs, private/API keys and
+  related fields. Credential-valued LDAP attributes are also redacted.
+- Where persistent credentials or identity fields are required to recreate a
+  configuration, an authorized restoration workflow would need independently
+  supplied, verified secure values. They cannot be reconstructed from nulls or
+  masked server responses. Some redacted fields are transient session material
+  and should be freshly authenticated, not restored.
+- The Scheduler count of 46 describes redacted fields, not 46 distinct passwords
+  or known restoration prerequisites. No task-by-task restoration field schema
+  has been established. Terminal controller/access redaction totals describe
+  source detail responses and overlap; do not sum them as distinct secrets.
+  Inventory redactions remain in the inventory artifact, not that terminal total.
+- Unknown fields may have unqualified sensitivity/semantics; field-name
+  redaction is not a full secret-discovery guarantee. Protect every backup
+  artifact as operationally sensitive even though known credentials are redacted.
+- Native IDs and parents are retained for evidence, not certified portable
+  destination mappings. Imports would need approved dependency, identity, TLS/
+  trust, validation and verification contracts; none is implemented here.
+
+### Unsupported or outside current coverage
+
+No import/restore/update/delete operations, destination activation or live Cyber
+Controller backup is supported. Complete appliance configuration downloads,
+restorable credentials, vendor-wide schema/pagination certification and a complete
+controller configuration inventory are not provided by these six modules.
+Legacy credential transformation/upload scripts are references, not additional
+backup coverage. Document-store restoration and Docker/cron/sleep utilities
+remain outside the application modules. No endpoint is inferred for a missing domain.
+
+### Operator output and offline verification
+
+Menu-created backups show module status/count meaning/redaction scope and fixed
+safe limitations, the exact host run directory and overall status. Unselected
+modules say not requested; unavailable redaction counts are not shown as zero.
+Raw JSON/body/issue-message data is not printed by the readable renderer.
+The full summary artifact and existing profile/JSON/unattended output are unchanged.
+Missing/invalid engine JSON is an explicit presentation failure, not a fabricated
+successful report. Collection API calls, endpoints and transport are unchanged.
+
+45 targeted guarded offline launcher/backup regressions passed in 40.629 seconds.
+New tests cover concise six-module output including 23 tasks/46 redactions,
+artifact preservation, partial failures, malformed output without raw echo,
+exit-status behavior and unchanged JSON/profile/unattended stdout handling.
+Host-launcher syntax checks passed; Pylance reports only its pre-existing
+informational platform-dependent unreachable-code hint.
+
+## Scheduler backup - VISION-SCHEDULER-BACKUP (2026-11-25)
+
+Owner reports all five preceding modules live-validated on Vision 5.4.9:
+36 controller-object devices, 36 device-access devices, 13 LDAP permission
+records and both native trees collected. This supersedes their historical pending
+master-validation status below for the exercised subsets, not complete schemas.
+No live requests were executed here; Scheduler master behavior is offline-tested only.
+
+- External reference workspace: owner-supplied `CC -Master Config Migration`.
+  Root `download_scheduler.py` and `schedulertask/download_scheduler.py` are
+  byte-identical. Both `scheduler_config.ini` copies independently declare
+  `API.scheduler_endpoint = /mgmt/system/config/itemlist/scheduledtask` and the
+  existing `/mgmt/system/user/login` login path. Only safe API-path values were
+  extracted; credentials, hosts, ports and other operational settings were not copied.
+- Downloader lines 11-14 read `config.ini` from the process working directory,
+  not the supplied Scheduler INI filename or the script directory. The root
+  workspace's existing `config.ini` is not a valid ConfigParser INI; the
+  schedulertask directory has no sibling `config.ini`. Therefore the references
+  are not executed as delivered. This naming/configuration mismatch does not
+  make the two supplied, matching API path declarations ambiguous.
+- Downloader lines 34-37 concatenate the configured path with the HTTPS origin;
+  lines 42-71 use existing Vision JSON login, session cookies and Accept/
+  Content-Type/X-Requested-With headers. Lines 96-118 issue GET with no body or
+  query parameters, check HTTP success and serialize the returned JSON.
+  The uploader's read-only `get_existing_tasks` reference, lines 91-108, expects
+  an array of task objects with optionally consumed name fields. Its upload,
+  field deletion and name-only skipping logic is not adopted or executed.
+- Implemented contract: GET `/mgmt/system/config/itemlist/scheduledtask`,
+  fixed to the source/INI-observed path in the Vision 5.4.9 backup adapter.
+  No arbitrary API-path profile option or additional authentication is added.
+  Existing authentication, HTTP, TLS, credentials and local session cleanup
+  remain unchanged; no legacy session-ID logging or logout request is copied.
+- Component 6 and Full Supported inclusion; Scheduler runs last. Scheduler-only
+  skips device/LDAP/tree reads. Exact GET authorization, no query/body, no writes.
+  Native array-of-object records are retained under `tasks` in scheduler/tasks.json
+  with existing sensitive-field redaction. No mandatory name, ID, task type or
+  wrapper is invented; valid empty arrays save zero records, malformed input fails.
+- Independent Scheduler status/count/file/issues preserve earlier successful
+  modules. Counts are saved array elements. Full schema, pagination/enumeration,
+  timezone/reference/activation semantics, restoration and vendor-version-wide
+  qualification remain unverified; migration capability catalogues stay closed.
+- Verification: 118 guarded offline regressions passed in 85.472 seconds across
+  Vision backup, host setup, product clients, mocked integration and controller
+  workflow tests. New cases cover native/unknown/status/ID preservation, redaction,
+  empty/malformed responses, cookies/headers/TLS, exact GET scope and explicit
+  selection, skipped reads after login failure, Scheduler HTTP 401 independence,
+  five-module preservation and successful Scheduler after unrelated failures.
+  Initial run had one case-sensitive test header assertion error; corrected to
+  HTTP case-insensitive comparison without changing production transport.
+  Product-client syntax/error checks and backup error diagnostics passed.
+
+This resolves the source/INI read-path blocker for CFG-03 only. Historical
+missing-binding records below describe the earlier repository-only evidence;
+they do not authorize CFG-04 writes or establish a complete Scheduler schema.
+
+## Physical and Organization tree backup - VISION-TREE-BACKUP (2026-11-25)
+
+Latest owner-reported Vision 5.4.9 baseline: 36 managed devices discovered,
+36 controller-object exports, 36 device-access exports, 13 LDAP permission
+records and zero failures. No live requests were executed here. This is evidence
+for the existing selected backup subset, not full LDAP/schema completeness.
+The owner's correction additionally confirms both exact tree GETs below:
+HTTP 200 and valid tree JSON on the authorized Vision 5.4.9 lab. This supersedes
+the preceding incorrect "untested/unknown" classification. No live requests were
+executed here; the new master tree adapter has not yet been live-tested.
+
+| Module | Exact source-observed read | Current Vision 5.4.9 status |
+| --- | --- | --- |
+| physical-tree | GET `/mgmt/system/config/tree/Physical` | Owner-reported live HTTP 200/valid JSON; opaque export implemented and offline-tested |
+| organization-tree | GET `/mgmt/system/config/tree/Organization` | Independently owner-reported live HTTP 200/valid JSON; opaque export implemented and offline-tested |
+
+Evidence and limits:
+
+- [Legacy downloader](../legacy/app/download_cybercontroller_objects.py) lines
+  180-185 issues GET and parses JSON; lines 212-216 select the two exact paths.
+  The [cc-objects copy](../legacy/cc-objects/app/download_cybercontroller_objects.py)
+  agrees. Legacy sources were read only, not imported or executed.
+- Lines 110-142 consume a root object and recursive children arrays, node
+  meIdentifier.managedElementClass/managedElementID and name; device nodes
+  additionally use type/managementIp. These consumer assumptions do not
+  establish the complete native fields, parent semantics, unknown node types,
+  nullability or enumeration/pagination contract. The legacy flattened
+  sites/devices output is not a native tree backup.
+- The reviewed Vision PDF does not declare either exact GET (API-02/API-03
+  below). Absence is not proof of vendor non-support, but CC-intent source and
+  successful shared authentication alone are not Vision tree-read qualification.
+- Corrected owner evidence qualifies both exact reads, not their complete
+  schema. The master accepts opaque JSON object/array responses, preserves the
+  native root/nesting/ordering/unknown fields and applies existing recursive
+  credential redaction. It does not enforce the legacy consumer's guessed
+  field types, flatten sites/devices or infer identifiers/parents.
+- Both are selectable modules and included in Full Supported Backup. Exact
+  GET authorization only; existing authentication/HTTP/TLS/session management
+  unchanged. Tree-only skips device/LDAP collection. Separate module artifacts
+  store native JSON in `tree`; per-module failures preserve successful exports.
+- Counts are explicitly top-level JSON records (object root: one; array:
+  element count), not hierarchy-node totals. Schema, tree identity binding,
+  pagination/enumeration completeness and restoration remain unverified.
+  Empty arrays remain native zero-record results; malformed/error responses
+  fail, never become fabricated empty backups. Existing size/depth limits apply.
+- New artifact evidence distinguishes owner-reported live endpoint verification,
+  reviewed-PDF absence and master-live-untested status. The general migration
+  capability catalogue and historical CC mock contracts are not activated.
+- Verification: 113 guarded offline regressions passed in 47.432 seconds across
+  backup, setup, product clients, mocked integration and controller workflows.
+  New cases cover opaque object/array preservation, unknown/missing/nullable
+  fields, redaction, exact GET scope, cookies/TLS, tree-only selection, empty and
+  malformed responses, independent failures, and preservation of device/LDAP
+  exports. Pylance source error diagnostics and syntax checks passed; host setup
+  retains its existing informational platform-dependent unreachable-code hint.
+  No new dependency, test framework, Docker or launcher-architecture changes.
+
+The sections below retain their historical implementation-time verification
+limits; the latest owner-reported device/LDAP result above supersedes their
+pending lab-validation status only for the exercised backup subset.
+
+## Device identity and source-observed LDAP backup - 2026-11-25
+
+Owner reports the first successful Vision 5.4.9 backup: authenticated, 36
+devices discovered, 36 controller-object and 36 device-access exports, 73 valid
+module JSON files, zero failures. No new live requests were executed here.
+The report covers the prior deployment, not this update.
+
+Device detail queries now bind their response's documented
+deviceSetup.deviceAccess.managementIp to the canonical queried IP, require
+nonempty lookup ormID/name, and reject a reused ormID across distinct device
+queries. Rejected targets produce no controller/access detail file. Diagnostics
+use static missing/mismatch/duplicate codes, never addresses/IDs. Canonical
+discovery IPs are deduplicated; no undocumented equivalence between thin ormId
+and lookup ormID is assumed.
+
+LDAP is enabled only as a **legacy-source-observed read-only list subset**:
+
+- Request: GET /mgmt/system/config/itemlist/ldapobjectpermission, observed in
+  [downloader](../legacy/download_ldap_permissions%20%281%29.py) lines 17-29,
+  its [copy](../legacy/ldap_permissions/download_ldap_permissions%20%281%29.py),
+  and [uploader reference](../legacy/upload_ldap_permissions%20%281%29.py)
+  lines 14-32. Legacy sources are not imported or executed.
+- Response qualification: array of objects with nonempty string attributeValue;
+  present objectClassName/attributeName strings, and present roleGroupPairList
+  array of groupName/roleName string objects. This is the subset exercised by
+  existing GET/import source, not a fabricated complete vendor DTO.
+- Unknown fields/network policies are preserved, known credentials and
+  credential-valued attributes redacted. No default locking, permission changes,
+  scope broadening or guessed wrappers/page requests. Valid empty arrays save
+  zero records; malformed responses fail rather than becoming empty backups.
+- Existing session/GET authorization/TLS/credentials/output infrastructure is
+  reused. Controller/device collection runs before LDAP; LDAP-only skips device
+  discovery. Per-module results retain successful exports when another fails.
+- The backup policy/menu now supports LDAP; general VisionClient and migration
+  capability catalogues remain mock-only/closed. API-10 is still not found as an
+  exact endpoint in the reviewed PDF; output says source-observed, officially
+  documented false, master live-tested false, schema/enumeration completeness
+  unverified. Complete version contract, pagination, restoration and CC mapping
+  remain blockers to broader qualification, not to this declared narrow subset.
+- Verification: 108 guarded offline cases passed across backup, host setup,
+  product clients, mocked integration and offline controller workflows. Includes
+  identity rejection without leaking addresses, IPv6 normalization, LDAP
+  redaction/empty/malformed output, GET-only scope, TLS and module independence.
+  Actual LDAP master read/response shape still needs authorized lab validation.
+
+## Vision HTTP compatibility correction - 2026-11-24
+
+Owner-authorized functional correction based on the demonstrated comparison
+below, not confirmation of the original live response or a new milestone.
+
+- HTTP backend now supports bounded ordinary single-member gzip with CRC/EOF
+  checks and independent encoded/decoded limits (16 MiB in the backup).
+  Oversized output, truncation, corruption, extra/multiple members and ambiguous
+  framing fail before committing response cookies. Bodyless 204/304 skip
+  decompression; decoded responses remove stale length/encoding metadata.
+- Cache-Control/Vary repetitions are combined, not arbitrary headers.
+  Set-Cookie stays multi-valued/session-owned; sensitive or unknown duplicate
+  fields and original transport/read-only/TLS restrictions stay strict.
+- Selected Vision failures emit safe stderr diagnostics: method/template,
+  status, stage, exception/category, normalized Content-Type/Encoding and reason.
+  No bodies, credentials, session IDs, raw messages or full headers.
+  HTTP 200/status-ok/validated body JSESSIONID remain mandatory; no fallback.
+- Offline verification: 161 backend/transport/authentication/backup/launcher
+  cases passed, including compressed login followed by automatic inventory and
+  device GETs. Backend subset: 72 cases, zero network attempts/1080 guard
+  observations, zero actual dispatch/144 observations. Another 54 existing
+  offline-workflow/mocked-integration cases passed (215 total, non-overlapping).
+- Actual Vision lab authentication/discovery and original failure cause still
+  require an owner-authorized run. No API, product-version qualification,
+  import/write behavior, TLS/operator interface or accepted containment record
+  was changed. No new dependency; zlib is in Python's standard library.
+
+## Pre-fix Vision login compatibility investigation - 2026-11-24
+
+Source comparison only; no authentication or HTTP policy change. The owner
+confirmed LDAP, Scheduler and object downloaders as working references.
+Failed-master response metadata is not available yet.
+
+References: [Vision LDAP downloader](../legacy/download_ldap_permissions%20%281%29.py),
+[Vision Scheduler downloader](../legacy/download_scheduler.py),
+[object downloader](../legacy/app/download_cybercontroller_objects.py),
+[master authentication](../src/cc_vision_import/authentication.py),
+[session ownership](../src/cc_vision_import/sessions.py) and
+[HTTP backend](../src/cc_vision_import/http_backend.py). Legacy sources were
+read only, never imported or executed. The CC-labeled object downloader has a
+different authentication profile; the owner nevertheless confirms it as a
+working Vision lab reference. That report is not dismissed based on its label.
+
+| Aspect | Original LDAP/Scheduler scripts | Master |
+| --- | --- | --- |
+| Login target | LDAP: HTTPS `/mgmt/system/user/login`; Scheduler: configured endpoint in missing API INI | Same documented literal login path |
+| Method/payload | POST; JSON username/password | Same method and decoded JSON fields; compact ASCII serialization |
+| Application headers | Accept/Content-Type application/json; X-Requested-With XMLHttpRequest | Same on login; GET omits the legacy session-wide Content-Type |
+| HTTP client defaults | requests.Session; default User-Agent, compression negotiation, keep-alive and environment proxy handling | Direct http.client HTTPS; implicit Accept-Encoding identity; explicit Connection close; no redirects or ambient proxy credentials |
+| Status/JSON | raise_for_status then requests JSON decoding; require status ok | Backend validation precedes UTF-8/strict JSON/status checks; require HTTP 200 and validated body jsessionid |
+| Content encoding | requests/urllib3 decode supported compressed content | Reject every non-identity Content-Encoding |
+| Header/framing policy | HTTP library supports combining repeated Cache-Control fields | Reject repeated non-Set-Cookie headers; bounded reads, explicit length/framing checks |
+| Session ID | Cookie jar persists Set-Cookie; LDAP does not inspect body jsessionid; Scheduler displays it but does not require it | Retain cookie jar and explicitly send the validated body JSESSIONID; an existing explicit Cookie header is not replaced by jar insertion |
+| Session persistence | Same Session object across login/GET; pooled TCP connections | Same owned backend/strategy across login/GET; separate TCP connections; cookie state persists |
+
+The object downloader uses the same literal login URL and POST, but adds Basic
+Authorization, browser-style headers, Accept `application/json; */*` and explicit
+Accept-Encoding `gzip, deflate, br`. It constructs JSON manually; decoded fields
+match the master's for ordinary synthetic credentials. It accepts HTTP 200
+without checking login JSON/status/jsessionid and relies on session cookies for
+GETs. These differences are not adopted blindly or treated as the cause of the
+master's reported pre-interpretation malformed classification.
+
+In-memory verification on Python 3.13.14, using installed requests 2.32.5 and
+urllib3 2.6.3 (comparison tools only, not new application dependencies):
+
+- Identity JSON: both accepted.
+- Gzip JSON: requests accepted; master returned the reported
+  `transport_failure` / `malformed_response` pair.
+- Repeated Cache-Control: requests accepted; master returned the same pair.
+- Cookie-only status-ok JSON: requests accepted and persisted JSESSIONID on
+  a prepared GET; master returned `malformed_login_response`, a different code.
+- Identical URL/method, decoded login payload and application headers confirmed.
+  This header equivalence applies to LDAP/Scheduler, not object login. The
+  stdlib request buffer confirmed implicit Accept-Encoding identity.
+- Separate AST-only object-source inspection plus guarded request preparation
+  confirmed its Basic Authorization and differing headers. A two-request master
+  probe retained the response cookie and sent the body session ID on GET; when
+  the synthetic IDs differed, its explicit Cookie took precedence over the jar.
+- Zero network attempts; no secrets, bodies, full headers or exception messages
+  printed. The 115 existing guarded backend/authentication/backup tests passed.
+
+**Actual lab root cause remains unknown.** Legacy compression negotiation does
+not establish the encoding returned to the master's identity request. No
+duplicate header or cookie defect has been observed on the failed request.
+The reported pair is produced before authentication body/session interpretation,
+through backend malformed classification (or an invalid transport response
+envelope), not proof that Vision's JSON or credentials are invalid. Obtain safe
+exception function/line/class and status/encoding/framing metadata from an
+owner-authorized observation before implementing a compatibility fix. No retry,
+decompression, cookie fallback or globally weakened validation was introduced.
 
 ## Vision supported read-only backup - 2026-11-24
 
@@ -55,18 +825,19 @@ of the update remains pending owner validation.
 The operator interface presents only implemented selectable components.
 Unsupported/excluded JSON selections are rejected before controller access.
 Internal exclusions are not emitted in normal menus, summaries or manifests.
-Normal discovery remains the existing documented managed-device GET; no new
-tree/LDAP/Scheduler endpoints, pagination paths or write operations were added.
+Normal discovery remains the existing documented managed-device GET. Selected
+LDAP, native-tree and Scheduler reads reuse the same session. Scheduler uses its
+one source/INI-observed GET; no pagination path or write operation was added.
 
 | Capability | Status | Evidence/limits |
 | --- | --- | --- |
 | Controller Objects | Implemented; partial coverage; not live-verified | Managed-device thin graph plus supported detail GETs, not every site/tree configuration |
 | Managed Devices | Implemented within Controller Objects; not a separate selectable module | Native discovery graph preserved; duplicate management IP detail requests deduplicated |
 | Device Access | Implemented; redacted and completeness-unverified; not live-verified | Existing device detail response's documented nested access subset; missing access reports module failure |
-| Physical Tree / Organization Tree | Unsupported: missing exact Vision enumeration contract | Legacy CC tree intent does not establish Vision compatibility |
+| Physical Tree / Organization Tree | Implemented opaque native JSON exports; selectable independently | Owner confirms both exact Vision 5.4.9 GETs; new master offline-tested only; schemas/identity/enumeration completeness unqualified |
 | Credential Configuration | Unsupported as a restorable credential backup | Sensitive fields are redacted; portability/restore contracts unresolved |
-| LDAP Permissions | Unsupported: missing exact-version response qualification | Legacy Vision GET is source-observed; CC contract also absent |
-| Scheduler | Unsupported: missing API INI binding and response contract | No literal scheduler path invented |
+| LDAP Permissions | Implemented source-observed list subset; master live-unverified | Validated/redacted records; full exact-version schema/enumeration and CC mapping unqualified |
+| Scheduler | Implemented source/INI-observed array-of-task-object subset; master offline-tested only | Exact GET scheduledtask binding found in both supplied INIs; full schema/enumeration unqualified |
 | Cyber Controller live backup | Unsupported | Existing offline synthetic workflows do not qualify live CC versions |
 | AMS-alerts restoration | Intentionally out of scope | Document-store restoration/deployment utility, not a controller backup module; never integrated |
 
@@ -91,7 +862,7 @@ deployment config and archives are not new application dependencies.
 | [CC upload](../legacy/app/upload_cybercontroller_objects.py), [copy](../legacy/cc-objects/app/upload_cybercontroller_objects.py) | Duplicate login/INI; site/device POSTs and supporting GETs; requests/urllib3 | Upload-only, not backup; no unsafe root fallback or name-only placement adopted |
 | [CC update](../legacy/app/update_cybercontroller_objects.py), [copy](../legacy/cc-objects/app/update_cybercontroller_objects.py) | Duplicate login/INI; device PUT and supporting GETs; requests/urllib3 | Update-only; explicit offline identity mapping/comparison retained; no destination source-ID reuse |
 | [Credential transformer](../legacy/app/update_json_credentials.py), [copy](../legacy/cc-objects/app/update_json_credentials.py) | Local credential JSON transformation, no API/auth; prints secrets | Not a backup module; secret printing/mutation not ported; current access collection redacts credentials |
-| [LDAP download](../legacy/download_ldap_permissions%20(1).py), [copy](../legacy/ldap_permissions/download_ldap_permissions%20(1).py) | Vision JSON login; GET `/mgmt/system/config/itemlist/ldapobjectpermission`; missing `vision.ini`; requests/urllib3 | Login intent reused; exact Vision 5.4.9 response and CC contracts unqualified |
+| [LDAP download](../legacy/download_ldap_permissions%20(1).py), [copy](../legacy/ldap_permissions/download_ldap_permissions%20(1).py) | Vision JSON login; GET `/mgmt/system/config/itemlist/ldapobjectpermission`; missing `vision.ini`; requests/urllib3 | Read-only list subset uses external profile/shared session; full exact-version schema/enumeration and CC contracts remain unqualified |
 | [LDAP upload](../legacy/upload_ldap_permissions%20(1).py), [copy](../legacy/ldap_permissions/upload_ldap_permissions%20(1).py) | Vision login/LDAP POST; missing `vision.ini`; requests/urllib3 | Import-only; no forced locking, scope-broadening fallback or write retry reused |
 | [Scheduler download](../legacy/download_scheduler.py), [copy](../legacy/schedulertask/download_scheduler.py) | Vision login/session/logout; configured scheduler GET; missing scheduler API `config.ini`; requests/urllib3 | Shared login intent reused; literal task endpoint, enumeration and response binding unresolved |
 | [Scheduler upload](../legacy/upload_scheduler.py), [copy](../legacy/schedulertask/upload_scheduler.py) | Configured task GET/create, sanitization and name-based skipping; missing INI | Import-only; no guessed paths, unsafe logging, sanitization or name-only skips adopted |
@@ -792,11 +1563,11 @@ row is additionally excluded. No production capability is added.
 | Component | A: Vision 5.4.x to CC 10.10.x | B: CC 10.10.x to CC 10.10.x |
 | --- | --- | --- |
 | Sessions | Vision and CC login code observed separately; neither real version qualified. Vision logout is unresolved; CC logout not observed. | CC login intent observed; both builds/roles, expiry and logout unverified. |
-| Physical/Organization export | **Vision tree/export endpoints and schemas not established.** CC API-02/API-03 are only destination inventory candidates. | API-02/API-03 source and destination candidates; no real completeness/identity qualification. |
+| Physical/Organization export | Owner-confirmed Vision 5.4.9 HTTP 200/valid tree JSON for API-02/API-03; opaque exports enabled in VISION-TREE-BACKUP. Complete schemas/identity/enumeration remain unqualified. | API-02/API-03 source and destination candidates; no real completeness/identity qualification. |
 | Site/device create/update | CC API-07/API-08/API-09 destination candidates; Vision-to-CC type/field/identity transformations unestablished. | Same CC destination candidates; native IDs must still be independently mapped and patch-level differences qualified. |
 | Device detail/access | Vision source detail/access API missing; CC API-06 alone cannot bridge A. | API-06 source-observed; standalone access endpoint not established. Qualified association and credential portability remain gates. |
 | LDAP | Vision API-10 source observed; CC source/reference/create/read-back equivalents missing. API-11 is Vision-destination evidence only. | CC LDAP read/write/reference APIs and schemas not established at all by these scripts. |
-| Scheduler | Vision source CFG-03 path unresolved; no CC target task APIs/types established. | CC scheduler APIs/types not established. Vision configurable paths cannot be reused as CC evidence. |
+| Scheduler | Vision CFG-03 GET /mgmt/system/config/itemlist/scheduledtask resolved from supplied Scheduler INIs; native array/object subset export enabled. Full schema/enumeration unqualified. | CC scheduler APIs/types not established. Vision configurable paths cannot be reused as CC evidence. |
 | Backup/export/other management | JSON object/task/LDAP exports are partial exports, not full product backups. Additional documented management/backup APIs unknown because vendor references are absent. | Same boundary; API-12 document restore and shell Docker/cron operations remain excluded. |
 
 Manual automation opportunities and prioritized evidence/lab questions are

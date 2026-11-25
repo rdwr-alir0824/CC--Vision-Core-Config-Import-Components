@@ -1,6 +1,16 @@
 # Architecture Decision Register
 
-Date: 2026-11-21
+Date: 2026-11-22
+
+Current Windows containment contract refinement:
+[E-054](PROGRESS.md#e-054---ccv-010-c-targeted-contract-and-policy-resolution-2026-11-22),
+**DOCUMENTATION ONLY; NOT IMPLEMENTED; INDEPENDENT REVIEW/OWNER DECISIONS PENDING**.
+Independent E-052 verdict: **REVISE DESIGN BEFORE IMPLEMENTATION**.
+This is not a new owner acceptance or implementation/execution authorization.
+See the [targeted resolution](#design-resolution---ccv-010-c-e-054-contract-and-policy-dispositions-2026-11-22).
+Independent E-053 review supports a separately authorized nonexecuting proposal,
+not implementation/qualification. Historical E-043-E-053 evidence and decision
+sections remain unchanged.
 
 Current prototype decision: **CCV-010-C OFFLINE SUPERVISED-OPERATION PROTOTYPE -
 ACCEPT WITH EXPLICIT LIMITATIONS**, owner accepted **2026-11-21**.
@@ -27,6 +37,130 @@ Gates A-D remain **NOT PASSED**.
 **NOT READY — EXECUTION NOT AUTHORIZED**.
 Historical present-tense milestone passages below are preserved, not edited;
 this dated decision supersedes their B pending labels only for planning scope.
+
+## Design resolution - CCV-010-C E-054 contract and policy dispositions, 2026-11-22
+
+**Proposed engineering dispositions only; no owner decision recorded.**
+[E-054](PROGRESS.md#e-054---ccv-010-c-targeted-contract-and-policy-resolution-2026-11-22)
+records four-file documentation refinement of the independent E-053 findings.
+The [resolution contracts](WINDOWS_WORKER_CONTAINMENT_DESIGN.md#p-e-054-targeted-contract-and-policy-resolution)
+and [readiness matrix](WINDOWS_WORKER_CONTAINMENT_DESIGN.md#p7-implementation-readiness-matrix-and-stage-gates)
+control current proposals; dated E-052/E-053 sections below remain historical.
+
+Publication ambiguity is **RESOLVED AT DOCUMENTATION LEVEL** conservatively:
+internal/historical completion timestamps are not new publication authority.
+Successful commitment/reporting retains E-047 current owner, authorization,
+generation, release and deadline guards. Expired uncommitted or late candidates
+cannot succeed; uncertain publication cannot reconstruct success; delayed
+diagnostics cannot silently publish new successful state. No weakening of the
+accepted policy or post-D success behavior is approved.
+
+Required owner decisions remain proposed, not accepted:
+
+| Topic | Required decision / evidence boundary |
+| --- | --- |
+| U-01 | Accept authoritative creator-failure criterion or separately approve policy narrowing; review witness versus external owner authority/failure model. Quarantine does not prove orphan prevention |
+| U-04 | Appoint provisioning/trust authority; approve authenticated store/epoch/history, independent rollback checkpoint/update protocol, storage assumptions, limits and exceptional quarantine disposition |
+| U-05 | Approve boot/QPC/native conversion, immutable bootstrap and explicit versioned runtime projection; no v1 relabeling or deadline renewal |
+| U-06 | Approve synchronization/observation and each procedure's dispatch/in-flight criterion and residual race; no waiver after observed revocation/expiry |
+| U-07 | Accept producer authentication, evidence schema/bounds/retention and independent semantic/disposition authorities; no worker self-certification |
+| Publication | Retain conservative P.1 rule; any new post-deadline success publication or restart-success reconstruction needs separate policy approval |
+
+U-01/U-04/U-05/U-06/U-07 remain **UNRESOLVED — IMPLEMENTATION BLOCKED**.
+U-02/U-03/U-08 remain **CONTRACT SPECIFIED — RUNTIME QUALIFICATION PENDING**,
+preserving ABI, ownership/nesting and strict bounded secured IPC. U-09 never
+promises hard-real-time physical cleanup; U-10 grants no authentication, remote
+revocation, live networking, product changes or capability activation.
+
+Next recommendation: separately authorize Stage 0 independent E-054/source
+review and nonexecuting Stage 1 ABI/API planning. Stages 2-5 and their dependent
+runtime paths remain blocked; classification is not execution authorization.
+E-047 and E-051 decisions are unchanged. Historical 491-test evidence not rerun.
+No source/tests/configuration/PDF edits, Git, native processes/endpoints/stores,
+network/product/laboratory activity, commit, merge or owner acceptance.
+**Full CCV-010-C acceptance WITHHELD; Gates A-D NOT PASSED; default-deny.**
+
+## Design refinement - CCV-010-C Windows containment contracts, 2026-11-22
+
+**Status:** documentation-only proposed contracts; not implemented or owner
+accepted. [E-053](PROGRESS.md#e-053---ccv-010-c-windows-containment-contract-refinement-2026-11-22)
+records authorized changes to the [containment design](WINDOWS_WORKER_CONTAINMENT_DESIGN.md),
+architecture, this register and progress only. E-052's independent verdict
+**REVISE DESIGN BEFORE IMPLEMENTATION** is review input, not acceptance.
+The E-052 section below remains a historical proposal-time record.
+
+Selected proposed contracts:
+
+- Conditional creation-time JOB_LIST with suspended creation; no atomic rollback,
+  universal creator-crash orphan guarantee or post-create-assignment fallback.
+- Explicit acquisition ownership/rights/lifetimes, including attribute values
+  through list destruction, duplicates and pending I/O. Exit/accounting/closure/
+  disposition are separate; nested-host incompatibility fails closed.
+- Bounded append-only local NTFS journal, retained no-sharing owner guard and
+  independent rollback checkpoint, with write/flush/checkpoint permission barriers.
+  Unknown/torn/lost state cannot permit replacement/replay. Restart is failure-only;
+  commit eligibility is not proof of final timely commitment or publication.
+- Immutable identity/deadline/bootstrap capability, proposed runtime QPC authority
+  without reinterpreting accepted v1's synthetic tag. One D, no deadline renewal.
+- Revocation closes future permission/commit authority; proposed worker observation
+  and predispatch checks retain an explicit check-to-use/in-flight residual.
+  Actual external dispatch remains blocked pending separate model acceptance.
+- Producer/acquisition-bound candidate/release evidence; worker declarations cannot
+  establish normal exit or independently verified semantic/resource disposition.
+- Protected logon-SID/System, local first-instance named pipe, exact inherited
+  capabilities, overlapped client/server and bounded completion-owned buffers.
+  Cancellation request is not completion; accepted v1 schema/budgets stay intact.
+
+The [requirement-to-evidence matrix](WINDOWS_WORKER_CONTAINMENT_DESIGN.md#l1-e-053-requirement-to-evidence-disposition-matrix)
+labels U-01/U-04/U-05/U-06/U-07 **UNRESOLVED — IMPLEMENTATION BLOCKED**;
+U-02/U-03/U-08 **CONTRACT SPECIFIED — RUNTIME QUALIFICATION PENDING**.
+The three lifetime/platform/reference corrections are **RESOLVED AT DOCUMENTATION
+LEVEL**, relying on prior independent review source verification, not new network
+research or OS execution. No platform assumption is resolved by documenting it.
+
+W-01-W-20 retain historical objectives and gain mandatory failure subcases,
+observable/evidence/proof-limit/fail-closed criteria. U-09 overruns and U-10
+secret/session/product/egress limitations remain unresolved at runtime.
+Next independently reviewable activity is nonexecuting E-053 contract review.
+No test run; 491 tests remain historical. No commands/Git/processes/network,
+dependencies, endpoint/store creation, PDF changes or laboratory activity.
+**Full CCV-010-C acceptance: WITHHELD. Gates A-D: NOT PASSED. Production
+default-deny. No owner acceptance or runtime implementation authorization.**
+
+## Design proposal - CCV-010-C Windows worker containment, 2026-11-21
+
+**Status:** documentation-only proposal, not accepted or implemented.
+The authorized [design](WINDOWS_WORKER_CONTAINMENT_DESIGN.md) refines E-046's
+Windows lifecycle seam under the E-051 accepted offline coordinator, preserving
+E-047 deadline policy and E-048-E-050 framing, admission and identity safeguards.
+[E-052](PROGRESS.md#e-052---ccv-010-c-windows-worker-containment-design-2026-11-21)
+is design evidence only; E-043-E-051 remain unchanged.
+
+Recommend conditional creation-time job assignment with suspended creation,
+explicit membership/identity verification and one resume. Do not silently
+fall back to suspended-create-then-assign. Atomic rollback, orphan prevention,
+kill-on-last-close ownership, host/nested-job constraints and physical disposition
+must not be inferred from API success; unresolved creation guarantees block spawn.
+
+Parent retains all coordination/commitment/recovery authority. Worker would be
+one-shot, credential/session-owning, with reference-only sanitized IPC and no
+reusable session export. Prefer private local overlapped named-pipe inherited
+capabilities, preserving strict v1 fields/sequence/budgets. Real clock/bootstrap,
+revocation and result/release provenance require separate reviewed contracts.
+Durable nonsecret ownership/intents/quarantine/high-water history are proposed,
+not implemented; replacement cannot clear uncertainty or replay operations.
+Termination, exit, reaping and disposition evidence remain independent; no
+unconditional cleanup/report by deadline is claimed.
+
+**Next recommendation:** separately authorized nonexecuting independent architecture/
+security and authoritative Windows API/source review before implementation.
+W-01-W-20 are future synthetic tests, not run or authorized here.
+Historical independent **491 passing tests** were not rerun.
+No application/test/configuration/PDF changes, Git operations, commands,
+subprocess/network/authentication activity, dependency installation or laboratory
+operations occurred. No owner acceptance is recorded.
+**Full C acceptance: WITHHELD. Gates A-D: NOT PASSED. Laboratory execution:
+NOT AUTHORIZED. Production capabilities remain default-deny.**
 
 ## Owner prototype acceptance - CCV-010-C offline supervised-operation prototype, 2026-11-21
 

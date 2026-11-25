@@ -1,0 +1,83 @@
+{
+  "services": {
+    "ccv-source": {
+      "profiles": ["source"],
+      "image": "${CC_VISION_IMAGE:-cc-vision-master:0.3}",
+      "build": {"context": "."},
+      "pull_policy": "never",
+      "entrypoint": ["python", "-m", "cc_vision_import.compose_entrypoint", "source"],
+      "command": ["--help"],
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"],
+      "restart": "no",
+      "environment": {
+        "CCV_VISION_URL": "${CCV_VISION_URL:-}",
+        "CCV_SOURCE_NAME": "${CCV_SOURCE_NAME:-vision-source}",
+        "CCV_TLS_VERIFY": "${CCV_TLS_VERIFY:-true}",
+        "CCV_TRUSTED_CA": "${CCV_TRUSTED_CA:-}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${CCV_SOURCE_BACKUPS_DIR:-../ccv-runtime/source-backups}",
+          "target": "/backups",
+          "bind": {"create_host_path": false}
+        },
+        {
+          "type": "bind",
+          "source": "${CCV_SOURCE_SECRETS_DIR:-../ccv-runtime/source-secrets}",
+          "target": "/run/secrets",
+          "read_only": true,
+          "bind": {"create_host_path": false}
+        },
+        {
+          "type": "bind",
+          "source": "${CCV_SOURCE_CONFIG_DIR:-../ccv-runtime/source-config}",
+          "target": "/run/config",
+          "read_only": true,
+          "bind": {"create_host_path": false}
+        }
+      ]
+    },
+    "ccv-destination": {
+      "profiles": ["destination"],
+      "image": "${CC_VISION_IMAGE:-cc-vision-master:0.3}",
+      "build": {"context": "."},
+      "pull_policy": "never",
+      "entrypoint": ["python", "-m", "cc_vision_import.compose_entrypoint", "destination"],
+      "command": ["--operation", "operations"],
+      "network_mode": "none",
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"],
+      "restart": "no",
+      "environment": {
+        "CCV_VISION_URL": "${CCV_VISION_URL:-}",
+        "CCV_SOURCE_NAME": "${CCV_SOURCE_NAME:-vision-source}",
+        "CCV_DESTINATION_URL": "${CCV_DESTINATION_URL:-}",
+        "CCV_DESTINATION_VERSION": "${CCV_DESTINATION_VERSION:-}",
+        "CCV_DESTINATION_NAME": "${CCV_DESTINATION_NAME:-cyber-controller-destination}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${CCV_DESTINATION_INCOMING_DIR:-../ccv-runtime/destination-incoming}",
+          "target": "/incoming",
+          "read_only": true,
+          "bind": {"create_host_path": false}
+        },
+        {
+          "type": "bind",
+          "source": "${CCV_DESTINATION_REPORTS_DIR:-../ccv-runtime/destination-reports}",
+          "target": "/reports",
+          "bind": {"create_host_path": false}
+        }
+      ]
+    }
+  }
+}

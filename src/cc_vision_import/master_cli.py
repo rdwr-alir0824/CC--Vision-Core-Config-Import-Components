@@ -23,7 +23,7 @@ _LOOKUPS = {
 }
 _OPERATIONS = (
     "operations", "profiles", "export", "compare", "plan", "import-preview",
-    "authenticate", "import", "backup-vision", *_LOOKUPS,
+    "authenticate", "import", "backup-vision", "tree-readiness-preview", *_LOOKUPS,
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -130,6 +130,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Offline consolidation, or explicitly selected read-only Vision backup. Never writes controller configuration.",
     )
     parser.add_argument("--operation", choices=_OPERATIONS, required=True)
+    parser.add_argument("--report-format", choices=("text", "json"), help="Tree readiness stdout format; defaults to text.")
+    parser.add_argument("--legacy-compatibility", action="store_true", help="Assess tree fields against the legacy flat input contract; report only.")
+    parser.add_argument("--site-readiness", action="store_true", help="Assess Organization Site source fields and dependencies only; report only.")
     parser.add_argument("--module", choices=("controller-objects", "ldap-permissions", "scheduler"), default="controller-objects")
     parser.add_argument("--source-product", choices=("vision", "cyber-controller"), default="cyber-controller")
     parser.add_argument("--destination-product", choices=("cyber-controller",), default="cyber-controller")
@@ -147,6 +150,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
     parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
     args = parser.parse_args(argv)
+    tree_preview = args.operation == "tree-readiness-preview"
+    if args.report_format is not None and not tree_preview:
+        parser.error("--report-format is supported only for tree-readiness-preview.")
+    if args.legacy_compatibility and not tree_preview:
+        parser.error("--legacy-compatibility requires tree-readiness-preview.")
+    if args.site_readiness and (not tree_preview or args.legacy_compatibility):
+        parser.error("--site-readiness requires tree-readiness-preview and cannot combine with --legacy-compatibility.")
+    if tree_preview:
+        if args.input is None or args.module != "controller-objects" or any(
+            value is not None for value in (
+                args.request, args.source_profile, args.destination_profile, args.lookup_value,
+                args.format, args.tree, args.controller_id, args.root, args.exported_at,
+            )
+        ):
+            parser.error("tree-readiness-preview requires --input and optional --output/--report-format only.")
     live_backup = args.operation == "backup-vision"
     if live_backup:
         if args.backup_profile is None or args.credentials_file is None:
@@ -163,13 +181,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("backup profile/credentials options require explicit --operation backup-vision.")
     lookup = args.operation in _LOOKUPS
     standalone_export = args.operation == "export" and args.input is not None
-    if args.output is not None and args.operation != "export" and not lookup:
+    if args.output is not None and args.operation != "export" and not lookup and not tree_preview:
         parser.error("--output is supported only for offline export or lookup artifacts.")
     if args.operation == "export" and args.output is None:
         parser.error("offline export requires --output.")
     if args.operation in ("export", "compare", "plan", "import-preview") and args.request is None and not standalone_export:
         parser.error("this operation requires --request.")
-    if args.input is not None and not (lookup or standalone_export):
+    if args.input is not None and not (lookup or standalone_export or tree_preview):
         parser.error("--input is supported only for export or lookup.")
     if args.request is not None and (lookup or standalone_export):
         parser.error("standalone export/lookup cannot be combined with --request.")
@@ -207,6 +225,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "compare": "CC-to-CC offline comparison and candidate actions",
                 "plan": "CC-to-CC offline planning",
                 "import-preview": "same offline plan; not a legacy dry-run or write authorization",
+                "tree-readiness-preview": "offline inspection of real Vision tree backup envelopes; no import plan",
                 "authenticate": "unavailable: shared authentication exists but is not wired to live execution",
                 "import": "unavailable: no live writes, even after offline planning",
                 "vision-to-cc": _VISION_LIMITATION,
@@ -216,6 +235,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .vision_backup import run_vision_backup
 
             report, status = run_vision_backup(args.backup_profile, args.credentials_file)
+        elif tree_preview:
+            from .vision_tree_preview import inspect_legacy_tree_compatibility, inspect_site_migration_readiness, inspect_vision_tree
+
+            inputs = OfflineInputs(Path.cwd())
+            inspect = (
+                inspect_site_migration_readiness if args.site_readiness else
+                inspect_legacy_tree_compatibility if args.legacy_compatibility else inspect_vision_tree
+            )
+            report = inspect(inputs.read(args.input, None, base=Path.cwd()))
+            status = ExitStatus.VALIDATION_FAILED
+            if args.output is not None:
+                _write_export(args.output, json.dumps(report, allow_nan=False, indent=2))
         elif args.operation in ("authenticate", "import"):
             report, status = _unavailable(
                 args.operation, "live_execution_disabled",
@@ -282,5 +313,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "output_exists", "output_unwritable", "output_cleanup_failed",
         } else ExitStatus.CONTRACT_ERROR
         report = _report(args.operation, "error", errors=[{"code": code} for code in codes])
-    print(json.dumps(report, allow_nan=False))
+    if tree_preview and args.report_format != "json":
+        from .vision_tree_preview import format_tree_preview
+
+        print(format_tree_preview(report))
+    else:
+        print(json.dumps(report, allow_nan=False))
     return int(status)

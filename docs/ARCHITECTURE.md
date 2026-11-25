@@ -1,5 +1,25 @@
 # Master Application Architecture
 
+## Simplified MVP consolidation - 2026-11-22
+
+The owner's current application-consolidation request supersedes platform
+expansion as the active implementation priority. The small
+[master entry point](../master.py) dispatches to
+[master_cli](../src/cc_vision_import/master_cli.py), reusing existing profile,
+local JSON, export/reconciliation, comparison and offline planning components.
+Shared authentication/session/HTTP interfaces are retained but never instantiated
+for controller execution by the master. No new platform or transport is added.
+
+Supported now: synthetic CC-to-CC local artifact export and plan/import preview,
+plus Vision/CC profile inspection. Vision controller migration, CC LDAP,
+Scheduler, authentication execution and all controller writes return explicit
+unavailable results. Preview is not a legacy upload dry-run or write approval.
+See the [MVP usage, inventory and limitations](../README.md).
+
+CCV-010-C and the existing package CLI remain unchanged. The following dated
+architecture/design records are historical context, not instructions to begin
+containment, IPC, journals, qualification, or other milestones.
+
 Date: 2026-11-20
 Status: **Architectural direction approved on 2026-11-17**. CCV-002-A/B/C offline
 foundation and contracts implemented; CCV-003-A/B transport and authentication
@@ -44,6 +64,154 @@ directional approval does not authorize later milestones or live operations.
 The [progress tracker](PROGRESS.md) records approval and verification evidence.
 Decision records are in [DECISIONS.md](DECISIONS.md); their proposal-time labels
 are superseded by the approval record in the progress tracker.
+
+## CCV-010-C E-054 targeted contract resolution overlay - 2026-11-22
+
+[E-054](PROGRESS.md#e-054---ccv-010-c-targeted-contract-and-policy-resolution-2026-11-22)
+addresses the supplied independent E-053 review in the
+[targeted resolution](WINDOWS_WORKER_CONTAINMENT_DESIGN.md#p-e-054-targeted-contract-and-policy-resolution).
+**DOCUMENTATION ONLY; NOT IMPLEMENTED; INDEPENDENT REVIEW/OWNER DECISIONS PENDING.**
+E-053 review supports a separately authorized nonexecuting proposal, not Windows
+qualification. The dated E-052/E-053 overlays below retain historical status.
+E-047 policy and E-051 offline acceptance remain unchanged; 491 tests are historical.
+
+Publication: historical timestamps/internal completion do not license new valid
+success after D. Current owner/authorization/generations, disposition and deadline
+checks apply after durable barriers and during reporting. Late candidates and
+uncertain publication cannot reconstruct success; delayed diagnostics are
+historical only and cannot authorize actions.
+
+U-01 retains conditional JOB_LIST/suspended creation, pre-call occupied intent
+and no B fallback. Unknown creator-failure existence/membership or lost identity
+keeps quarantine; sampled crashes cannot prove universal orphan prevention.
+Witness versus external termination-owner alternatives need separate decisions.
+U-04 separates logical journal protocol from trusted provisioning and qualified
+storage: authenticated store/epoch/history, exclusive owner and independent
+anti-rollback checkpoint are all required. Missing/torn/stale state, lost worker
+disposition and interrupted commitment cannot permit replay or clean restart.
+
+U-05 proposes integer QPC authority and immutable original bootstrap/cutoffs;
+boot/CPython/native conversion and versioned runtime projection remain open.
+Offline v1 is unchanged. U-06 separates coordinator revocation, worker observation,
+native dispatch and external effects; check-to-use and in-flight uncertainty
+requires procedure-specific review, not instantaneous physical revocation.
+U-07 distinguishes worker/parent/native/OS/disposition/external evidence;
+authenticated declarations alone cannot satisfy trusted cleanup or semantics.
+
+U-01/U-04/U-05/U-06/U-07 remain **UNRESOLVED — IMPLEMENTATION BLOCKED**.
+U-02/U-03/U-08 remain **CONTRACT SPECIFIED — RUNTIME QUALIFICATION PENDING**;
+ABI, acquisitions/nesting and protected bounded overlapped IPC are preserved.
+No hard-real-time termination/cleanup guarantee or qualified product/remote
+revocation/live capability is added (U-09/U-10).
+
+The [readiness matrix](WINDOWS_WORKER_CONTAINMENT_DESIGN.md#p7-implementation-readiness-matrix-and-stage-gates)
+distinguishes Stage 0 source review, Stage 1 ABI/API planning, Stage 2 synthetic
+network-incapable process qualification, Stage 3 IPC/recovery integration,
+Stage 4 transport and Stage 5 product laboratory qualification. Dependencies
+control execution; numbering does not waive unresolved recovery/clock/IPC needs.
+Next proposed activity is separately authorized independent E-054 Stage 0 review
+and nonexecuting Stage 1 planning, not implementation.
+**Full C acceptance WITHHELD; Gates A-D NOT PASSED; production default-deny.**
+No runtime/test/Git/network/laboratory activity or owner acceptance in E-054.
+
+## CCV-010-C Windows containment contract refinement overlay - 2026-11-22
+
+[E-053](PROGRESS.md#e-053---ccv-010-c-windows-containment-contract-refinement-2026-11-22)
+refines [WINDOWS_WORKER_CONTAINMENT_DESIGN.md](WINDOWS_WORKER_CONTAINMENT_DESIGN.md)
+after the independent E-052 verdict **REVISE DESIGN BEFORE IMPLEMENTATION**.
+Status: **DOCUMENTATION ONLY; NOT IMPLEMENTED; INDEPENDENT E-053 REVIEW PENDING**.
+The following E-052 overlay and all E-043-E-052 evidence retain historical scope;
+their review-pending statements are not the current E-052 review status.
+The owner-accepted E-051 offline model and historical 491-test baseline are unchanged.
+
+Conditional creation-time JOB_LIST plus suspended creation remains preferred.
+Attribute values/backing arrays remain valid through attribute-list destruction.
+No universal rollback/orphan prevention or Option B fallback is claimed.
+The refined design specifies a pinned Windows 11/CPython 3.13.14/AMD64 qualification
+matrix and native ABI dossier, not a verified binding/support claim.
+
+Each job/process/thread/attribute/IPC/bootstrap/duplicate acquisition and pending
+I/O has an owner, generation-bound acquisition identity, lifetime and independent
+disposition evidence. Exit, accounting, closure and scoped release stay distinct;
+unknown last-handle ownership or incompatible nested jobs blocks containment.
+No breakaway, host-limit modification or privilege workaround is allowed.
+
+Selected proposed recovery uses a bounded append-only protected local NTFS
+journal, no-sharing owner guard and independently trusted rollback checkpoint.
+Write/flush/checkpoint barriers precede launch and possible PERMIT delivery.
+No lease-based takeover, fresh-ledger recovery, history eviction or replay.
+Trust/provisioning and storage durability remain unresolved. Commit-eligible
+markers cannot prove the final live deadline check or publication; initial restart
+recovery is failure-only and cannot reconstruct success from journal markers.
+
+Proposed immutable bootstrap carries original clock/deadline/identity/policy
+bindings through a read-only capability. Runtime QPC/boot/CPython equivalence and
+accepted v1 synthetic-clock projection remain unresolved; no field/tag expansion.
+Revocation retires permission/commit authority; a worker observation capability
+and each-step predispatch checks require separate acceptance. Delivered PERMIT
+and in-flight effects cannot be recalled; check-to-use uncertainty keeps actual
+external dispatch blocked.
+
+Worker flags are declarations, not OS/semantic release evidence. Parent,
+OS/native adapter and channel observations have separate producer/acquisition
+bindings; unverifiable candidate/release evidence rejects success.
+Named-pipe proposal specifies protected logon-SID/System access, local first
+instance, controlled inherited endpoint, overlapped server and client, bounded
+queues and completion-owned buffers/events. Cancellation is not completion.
+Strict accepted v1 envelope, sequence, generations and budgets remain unchanged.
+
+The design's section L distinguishes **RESOLVED AT DOCUMENTATION LEVEL**,
+**CONTRACT SPECIFIED — RUNTIME QUALIFICATION PENDING** and
+**UNRESOLVED — IMPLEMENTATION BLOCKED**. Only three wording/reference corrections
+are documentation-resolved; no Windows guarantee is certified. W-01-W-20 now
+include explicit observables, evidence sources, limits of proof and fail-closed
+outcomes; all remain future tests.
+
+Next recommendation: independently review these contracts without execution,
+especially creation evidence, recovery trust, clock/revocation and candidate
+provenance. No code/tests/commands/Git/network or laboratory activity in E-053.
+**Full C acceptance: WITHHELD. Gates A-D: NOT PASSED. Production default-deny.
+No implementation, runtime qualification, laboratory or owner acceptance.**
+
+## CCV-010-C Windows worker containment design overlay - 2026-11-21
+
+[WINDOWS_WORKER_CONTAINMENT_DESIGN.md](WINDOWS_WORKER_CONTAINMENT_DESIGN.md)
+records the documentation-only proposal in
+[E-052](PROGRESS.md#e-052---ccv-010-c-windows-worker-containment-design-2026-11-21).
+It refines the future Windows seam under the accepted offline coordinator; it
+does not introduce another coordinator or implement process/IPC/storage behavior.
+The E-051 prototype acceptance and independent **491-test baseline** remain
+unchanged historical evidence; tests were not rerun.
+
+Preferred creation is conditional creation-time Job Object assignment through
+`PROC_THREAD_ATTRIBUTE_JOB_LIST`, with `CREATE_SUSPENDED` and
+`EXTENDED_STARTUPINFO_PRESENT`; identity, membership, ownership, authority and
+startup cutoff must be verified before one resume. Suspended-create-then-assign
+is evaluated but not a silent fallback. Failed creation rollback, parent-crash
+orphan prevention, exact Windows/host compatibility and sole last-handle
+ownership remain qualification blockers, not demonstrated guarantees.
+
+Parent retains admission, immutable deadline/generations, job/process/channel
+ownership, candidate acceptance, commitment and quarantine/recovery authority.
+Future one-shot worker owns temporary credentials/session/resources and bounded
+validation; no reusable authenticated session crosses IPC. Private overlapped
+local named-pipe capability inheritance is proposed; strict accepted v1 framing
+is preserved, not expanded with unsupported fields. Real-clock bootstrap,
+revocation observation and trusted result/disposition evidence binding remain
+explicit integration blockers.
+
+Native lifecycle evidence is orthogonal to the accepted operation state graph.
+Termination request/acceptance, observed and confirmed exit, reaping and scoped
+resource disposition remain separate. Proposed nonsecret durable intent/evidence
+records and exclusive supervisor fencing preserve quarantine/high-water history
+across restart; no fresh-ledger recovery, PID-only adoption or automatic replay.
+One D covers setup through reporting; reserves/cutoffs cannot renew it.
+No unconditional termination, physical cleanup or report delivery by D is claimed.
+
+W-01-W-20 are future synthetic qualification designs only. Independent architecture/
+security and authoritative platform review are required before implementation.
+**Full C acceptance: WITHHELD. Gates A-D: NOT PASSED. Laboratory execution:
+NOT AUTHORIZED. Production capabilities remain default-deny.**
 
 ## CCV-010-C network-incapable prototype overlay - 2026-11-20
 

@@ -1,6 +1,925 @@
 # Persistent Development Tracker
 
-Last updated: 2026-11-21
+Last updated: 2026-11-25
+
+## Current task: PORTABLE-COMPOSE-DEPLOYMENT - independent on-demand roles
+
+- Objective/priority: high; supply the missing Compose configuration for source
+  backup and destination offline validation/preflight on independent hosts.
+- Dependencies: unchanged Python 3.13 Dockerfile, master CLI, six-module backup,
+  profile validator and existing offline tree/Site preview. Host launcher starts
+  Docker itself and is deliberately not run inside containers.
+- Approval: owner-authorized minimal Compose implementation, documentation and
+  focused offline tests only. No live requests, deployments or Git operations.
+- Implementation status: implemented; source/destination profiles build the same
+  application image. Source backup shortcut creates a temporary non-secret
+  environment-derived profile and calls existing backup-vision. Destination
+  passes existing CLI arguments or maps preflight to offline profiles validation.
+  Source default is help; destination default is offline operations.
+- Safety: UID/GID 10001, read-only root, dropped capabilities, no-new-privileges,
+  /tmp tmpfs, no socket/host-network/ports/privilege/restarts. Destination network
+  disabled. Five distinct external bind mounts; config/secrets/incoming read-only,
+  backups/reports writable, missing host paths not auto-created.
+- Files affected: compose.yaml, src/cc_vision_import/compose_entrypoint.py,
+  tests/test_compose_deployment.py, README.md, docs/PROGRESS.md.
+  Dockerfile/.dockerignore already include only runtime Python and synthetic
+  examples; unchanged. No collector, authentication or run-vision-backup.sh edits.
+- Verification status: offline checks passed; Docker build/runtime unverified.
+  67 tests run in 20.173 seconds: 66 passed, one Docker/Compose availability check
+  skipped (Docker executable absent). Selectors: test_compose_deployment,
+  test_vision_tree_preview, test_vision_backup, test_backup_setup.
+  Tests cover Compose role/mount/network/privilege separation, six-module profile
+  delegation without nested Docker, ephemeral profile cleanup, real offline
+  preflight, existing CLI dispatch, sanitized environment/IO errors and TLS
+  setting forwarding. Pylance syntax/diagnostics clear for the new source module.
+- Known gaps: no live CC connectivity/authentication/TLS/license/capacity preflight
+  and no complete six-module package validator in the existing CLI. Preflight
+  success validates profile syntax only; tree readiness is artifact-scoped and
+  remains migration-blocked. No invented API operation or write path added.
+- Next action: authorized operator runs documented compose config/build, Python
+  version/help/operations and transferred-artifact checks on a Docker host;
+  schedule source live collection separately only with explicit authorization.
+
+## Previous task: SITE-MIGRATION-READINESS - offline source Site preparation
+
+- Objective/priority: high; first useful Sites-only preparation of the real
+  Organization tree against reviewed legacy Site field/reference behavior.
+- Dependencies: Organization tree envelope, original downloader/uploader Site
+  contract, existing tree preview/dependency/input/report infrastructure.
+- Approval: owner-authorized focused implementation and offline tests;
+  no device identity investigation, associations, credentials, controller calls,
+  configuration writes, Git operations or deployment.
+- Implementation status: implemented and verified for offline source assessment;
+  destination compatibility and migration remain blocked.
+  Added --site-readiness to existing tree-readiness-preview; safe text/default,
+  optional structured JSON/exclusive report, Organization only. Shared native
+  traversal with existing compatibility preview; no new architecture.
+- Supported preparation: native name/source managedElementID, containing source
+  Site/root ID and parent name; dependency validation and source-only depth-first
+  parent-before-child order. Root context excluded from Site candidate records.
+  Uploader consumes only name/parent_site_name in its Site-create loop; flat
+  id/parentOrmID are source-reference fields, not destination IDs.
+- Real findings: 30 candidates, 30 with sufficient source fields and source
+  ordering; zero missing-field records, unresolved parent dependencies,
+  duplicate source names or ambiguous exact parent names. All 30 have additional
+  unprojected metadata. Root fields structurally usable, semantic role inferred.
+  All 30 Site mappings and destination root mapping remain required.
+- Files affected: src/cc_vision_import/vision_tree_preview.py,
+  src/cc_vision_import/master_cli.py, tests/test_vision_tree_preview.py,
+  README.md, docs/API_MATRIX.md, docs/PROGRESS.md. No working backup module,
+  authentication, launcher, Docker or identity reconciliation changes.
+- Verification status/test evidence: 127 offline tests passed in 34.491 seconds:
+  test_vision_tree_preview, test_inventory_reconciliation,
+  test_controller_exports, test_controller_workflow, test_vision_backup,
+  test_backup_setup. Five focused Site regressions cover source projection/order,
+  missing fields/IDs, name ambiguity, parent/root/unknown structure blockers,
+  privacy/unchanged inputs, report non-importability and CLI output behavior.
+  Pylance syntax clear for all three changed Python files; both changed source
+  diagnostics empty. Guarded real-tree assessment independently checked ordering,
+  source hash unchanged and zero network attempts.
+- Known blockers: destination Site/root identities and parent resolution,
+  duplicate/missing lookup behavior, source parent-name projection equivalence
+  to legacy Site lookup, extra field policies, enumeration/parent semantics and
+  exact destination schema/version. Source sufficiency is not migration-ready.
+- Next action: obtain an authorized offline destination root/Site snapshot and
+  exact target contract evidence; build explicit mapping/collision assessment,
+  still without import payloads or writes. No source-ID substitution/root fallback.
+
+## Previous task: VISION-DEVICE-ACCESS-ASSOCIATION - qualification assessment
+
+- Objective/priority: high; distinguish saved same-response detail/access pairing
+  from an unverified Organization tree association before any future enrichment.
+- Dependencies: original downloader, current collector/client provenance logic,
+  reviewed API-06/model evidence, and owner's 73 authorized local tree/detail/
+  access files. No inventory input or reconciliation changes.
+- Approval: owner-authorized offline/read-only assessment only; reusable checks
+  and tests conditional on sufficient evidence. No live requests, imports, Git
+  operations, deployment or six-module collector changes.
+- Implementation status: assessment complete; enrichment blocked. Documentation
+  only; no speculative rule or reusable association check implemented.
+- Findings: 36 unique exact detail/access projection-and-provenance pairs,
+  zero unpaired or ambiguous pairings. Access-envelope ormID is explicitly
+  copied from its detail device. This is collector-derivation consistency, not
+  a tree identity crosswalk or cryptographic original-response attestation.
+- Tree results: 35 address-only candidates, one per tree device; zero candidate
+  fan-out or missing candidates, one detail/access pair without a tree candidate.
+  Zero tree identity links established; all 35 remain identity-unresolved.
+  Candidate counts overlap unresolved counts, not disjoint result categories.
+  The additional pair does not establish the cause of the 36/35 difference.
+- Redaction: all 36 access objects contain null/masked credential fields,
+  540 recognized fields total. Copied full-detail redaction counts must not
+  be double-counted. No credentials can be restored by this association.
+- Verification status/evidence: guarded strict local JSON inspection of all 73
+  files; source declarations, request metadata, copied binding assertions, native
+  field presence and full access projection examined without raw value output.
+  All input hashes unchanged; zero network attempts. No new code/tests;
+  documentation-only assessment does not require rerunning unchanged suites.
+- Files affected: docs/API_MATRIX.md and docs/PROGRESS.md only.
+- Exact blocker: no authoritative/documented same-device relationship binding
+  tree managedElementID to by-IP Device ormID, or equivalent documented
+  tree-native binding to the same lookup result within controller/snapshot scope.
+  Legacy IP merge and matching saved source labels do not establish that rule.
+- Next action: obtain that minimal API evidence; then add a small report-only
+  unique association validator to the existing compatibility preview. Do not
+  implement enrichment/import or guess an ID alias in the meantime.
+
+## Previous task: VISION-LEGACY-TREE-COMPATIBILITY - report-only flat-contract assessment
+
+- Objective/priority: high; align native tree assessment with the original
+  cc-objects workflow, not a new migration architecture.
+- Dependencies: four original scripts/README, existing original flat JSON,
+  current native trees and existing offline preview/input/report helpers.
+- Approval: owner-authorized offline compatibility preview and focused tests.
+  No imports, API calls, Git operations or collector/auth/launcher/Docker changes.
+- Implementation status: implemented; optional --legacy-compatibility on existing
+  tree-readiness-preview. Report only; no sites/devices import file, payloads,
+  renaming, fallback, identity reassignment or automatic access association.
+- Findings: original flat snapshot has 29 sites/34 access-enriched devices;
+  current Organization has 30 sites/35 devices, all missing embedded access.
+  Physical is root-only. Snapshots are not assumed equivalent. Tree workflow
+  does not read inventory ormId; the unresolved 36/35 gap limits total coverage,
+  not assessment of the selected tree subset.
+- Source evidence: tree-native IDs/source nesting; Physical then Organization;
+  sites before devices; global destination name lookup/root fallback; device
+  create omits source id; update uses flat id and requires same-controller
+  re-export. README root-rename claim has no implementation in reviewed scripts.
+  Type forwarding is not a version/form-factor transformation contract.
+- Files affected: src/cc_vision_import/vision_tree_preview.py,
+  src/cc_vision_import/master_cli.py, tests/test_vision_tree_preview.py,
+  README.md, docs/API_MATRIX.md, docs/PROGRESS.md.
+- Verification status: preview verified offline only; migration remains blocked.
+  Final 122 tests passed in 47.929 seconds: test_vision_tree_preview,
+  test_inventory_reconciliation, test_controller_exports,
+  test_controller_workflow, test_vision_backup, test_backup_setup.
+  Five focused compatibility tests cover field/access gaps, ambiguous names,
+  unknown/array nodes, no input mutation, privacy and non-importable CLI reports.
+  Pylance syntax checks passed for all three changed Python files; both changed
+  source files have no Pylance diagnostics. Actual two-tree assessment ran under
+  existing guards: original hashes unchanged, zero network attempts.
+- Blockers: no qualified tree-to-access artifact association, redacted/missing
+  credentials, destination root/site mapping and exact target-version semantics.
+  Always readiness-blocked; no migration-ready or completeness claim.
+- Next action: qualify explicit tree/access association and destination root/
+  site resolution offline; do not adopt name/IP/equal-ID identity heuristics.
+
+## Previous task: VISION-NATIVE-IDENTITY-CROSSWALK - bridge unverified
+
+Superseding result: owner supplied all 36 detail files after the initial
+availability checks below. Read-only inspection found 36 unique top-level ormID
+values, no ormId/meIdentifier/managedElementID fields, no usable externalId or
+parent links. Ten existing preview/reconciliation tests passed; guarded original
+files were hash-unchanged. No code change or crosswalk invented. The current
+blocker is missing authoritative field-association evidence, not missing files.
+The following availability findings describe the earlier attempts only.
+
+- Objective/priority: high; inspect local device-detail native identities for an
+  evidence-based inventory-to-Organization crosswalk, without name/IP/position
+  matching or coincidental ID equivalence.
+- Dependencies: inventory.json, Organization tree.json and original
+  controller-objects/device-by-ip-*.json backup envelopes.
+- Approval: owner-authorized offline inspection/minimal reconciler extension
+  and focused tests only; no collector/authentication/API/launcher/Docker changes.
+- Implementation status: blocked before code changes. Initial inspection found
+  zero matching device-detail files. Owner reconfirmed the same local directory;
+  second bounded check confirmed the directory/inventory exist, but no matching
+  detail files and no other JSON files are present there.
+- Evidence result: no actual detail response was available to inspect. Existing
+  reviewed Device ormID/setup/access fields do not by themselves establish
+  inventory ormId-to-tree managedElementID equivalence. Prior 36/35 count result
+  remains unchanged; no new match/unmatched/ambiguity count is claimed.
+- Files affected: docs/API_MATRIX.md and this tracker only. Reconciler, tests and
+  original backups unchanged. No operational paths outside the authorized
+  directory were searched; no values, addresses, identifiers or hashes printed.
+- Verification status/test evidence: two local availability checks; no executable
+  changes, crosswalk tests or live requests. No synthetic verified-bridge rule
+  invented merely to create a passing test.
+- Exact blocker: original device-by-ip-*.json envelopes absent from the confirmed
+  local controller-objects directory. Native dual-identity association/contract
+  still unverified even if future files contain similarly valued identifiers.
+- Next action: supply those existing detail artifacts or their actual authorized
+  local directory, then inspect field provenance/relationships before implementing
+  verified, ambiguous and unresolved crosswalk handling. No Git/deployment work.
+
+## Previous task: VISION-INVENTORY-RECONCILIATION - local count discrepancy
+
+- Objective/priority: high; reconcile the 36 managed inventory records with
+  Organization/Physical tree device candidates without guessing identity aliases.
+- Dependencies: owner's three authorized local backup files, existing tree
+  preview/legacy schema evidence, strict local input and safe report helpers.
+- Approval: local read-only inspection, minimal reconciliation code and focused
+  offline tests. No other operational inputs, live requests, imports or Git work.
+- Implementation status: implemented standalone inventory_reconciliation module;
+  reuses inspect_vision_tree and emits only safe counts/opaque positional
+  references/static issue codes. Inventory/tree source declarations and selected
+  domains/GETs validated. No collector, auth, launcher or master CLI change.
+- Actual local findings: inventory 36 unique ormId records, Organization 1 root/
+  30 sites/35 unique managedElementID device candidates; Physical root only.
+  No duplicate or missing inventory/Organization device identities. All 35 tree
+  devices have recognized containment associations across 20 site candidates.
+  Zero structural dependency issues in current preview checks; all 36 inventory
+  parentOrmId links null/absent, so inventory site linkage remains unresolved.
+- Identity result: no verified equivalence between inventory ormId and tree
+  meIdentifier.managedElementID. No address/name/dbId or ID-string matching.
+  Zero cross-representation matches established; inventory-only/tree-only sets
+  unknown (null), all cross-namespace records unresolved. Count discrepancy
+  confirmed, specific missing device/cause not established. No completeness claim.
+- Verification status: 55 guarded tests passed in 55.067 seconds:
+  test_inventory_reconciliation, test_vision_tree_preview, test_vision_backup,
+  test_backup_setup. Final inventory-parent count addition passed four focused
+  reconciliation tests; overlapping counts not added. Syntax/Pylance checks clear.
+  Actual three-file run used existing network guards, zero attempts, before/after
+  hashes verified originals unchanged. Safe final JSON report saved in session
+  deliverables, no native addresses/names/IDs/configuration values.
+- Files affected (five): src/cc_vision_import/inventory_reconciliation.py (new),
+  tests/test_inventory_reconciliation.py (new), README.md, docs/API_MATRIX.md,
+  docs/PROGRESS.md. No source backup modified.
+- Blockers: native cross-representation identity contract unqualified; snapshot
+  atomicity/enumeration/schema completeness/semantic parentage unverified.
+- Next action: qualify ormId-to-managedElementID field relationship or approve
+  an independently reviewed explicit offline association contract, then add a
+  one-to-one matcher. Do not infer the unmatched device from names/addresses.
+
+## Previous task: VISION-TREE-READINESS-PREVIEW - real Vision envelope inspection
+
+- Objective/priority: high; first offline source-readiness bridge for both native
+  Physical/Organization `tree.json` envelopes, without import plans or writes.
+- Dependencies: working Vision 5.4.9 tree envelope structure, legacy node identity/
+  children/class evidence, existing local JSON/contract/dependency/report helpers.
+- Approval: owner's explicit two-tree preview implementation request. No lab
+  artifact supplied for this local task; use synthetic fixtures without inferring
+  a complete schema from the owner-reported live backup.
+- Implementation status: implemented; master tree-readiness-preview operation,
+  local --input, text default, optional JSON stdout and exclusive --output report.
+  Validates true Vision provenance/domain/GET/scope/native tree/count metadata,
+  not synthetic CC objects. Existing collectors/launcher/auth/HTTP/Docker untouched.
+- Supported relationships: observed children containment, known Site/Device
+  classes and unique string managedElementID candidates. Single object root role
+  and source parent dependency semantics are explicitly inferred from legacy
+  nesting, never vendor-certified. Explicit parentOrmID conflicts/unresolved
+  references clear inferred dependencies. No destination mappings are invented.
+- Reporting: safe opaque node references, structural counts, missing/duplicate
+  identities, unknown fields/classes, invalid children, parent-reference issues,
+  required destination mappings and completeness/credential limitations.
+  Top-level record count remains distinct from hierarchy-node candidate count.
+  No sensitive names/addresses/IDs/raw values or unknown field names printed.
+- Readiness: always blocked; no semantic parent relationship certified, no
+  executable plan/payload/write recommendations. Inspection status 1, local
+  I/O errors 3, malformed envelopes/limit errors 4. Original exports unchanged.
+- Reuse: OfflineInputs/strict JSON, ContractReader, dependency_order and exclusive
+  report writer. Synthetic controller adapters and capability gates unchanged.
+- Verification status/test evidence: 89 guarded offline tests passed in
+  36.356 seconds: test_vision_tree_preview, test_vision_backup, test_backup_setup,
+  test_controller_workflow. Six new focused cases cover both trees and safe
+  text/JSON, hierarchy/missing/duplicate/unknown/parent conflicts, arrays/opaque
+  nodes, invalid envelopes, strict JSON/nonlocal paths/depth bounds, no raw data,
+  overwrite rejection and unchanged source artifacts. Pylance diagnostics and
+  syntax checks passed; no network attempts. Earlier overlapping run not added.
+- Files affected (six): src/cc_vision_import/vision_tree_preview.py (new),
+  src/cc_vision_import/master_cli.py, tests/test_vision_tree_preview.py (new),
+  README.md, docs/API_MATRIX.md and this tracker.
+- Known limits: exact live node schema/root meaning, alternate parent/ID fields,
+  array-root semantics, device enrichment/type/credential mapping, destination
+  identity/semantics and complete enumeration unqualified. Depth 64/node budget
+  10,000 bound inspection. New preview not run against actual lab files here.
+- Next action: operator runs preview locally against saved tree artifacts and
+  reviews safe issue codes; qualify the minimal source/destination schemas before
+  separately authorizing comparison or mapping functionality.
+
+## Previous task: VISION-MIGRATION-READINESS - capability assessment
+
+- Objective/priority: high; assess six Vision backup modules against legacy CC
+  import intent and current offline validation/planning, without implementing
+  migration or altering successful backups.
+- Dependencies: six live-validated Vision exports, legacy CC upload/update and
+  Vision LDAP/Scheduler upload references, existing offline controller code and
+  exact-product document evidence. No actual source/target snapshots supplied.
+- Approval: owner-authorized documentation/source assessment only.
+- Owner evidence: six-module backup and interactive summary live-validated;
+  prior collection counts remain owner-reported, not re-executed here.
+- Implementation status: assessment documented in docs/API_MATRIX.md. No module
+  has a qualified ready-to-run CC import path. Controller/device access and
+  root/site/device tree subsets require transformation and target qualification;
+  native whole-tree, LDAP and Scheduler CC imports are not established.
+- Key findings: legacy CC site/device creates and device PUT are candidates;
+  root fallback, name matching and source-ID reuse are unsafe. LDAP/Scheduler
+  upload references target Vision, not CC. Existing offline adapters require
+  synthetic CC input and cannot directly consume real Vision backup envelopes;
+  their product/version gates must not be bypassed.
+- Reuse identified: strict local inputs/validation, hierarchy/dependency checks,
+  explicit identity mapping, snapshot-bound access acknowledgements and redacted
+  planning reports once a qualified source adapter/destination contract exists.
+- Proposed next task: VISION-PHYSICAL-READINESS-PREVIEW, not approved/implemented.
+  Local root/site structural readiness and dependency report from one saved
+  Physical tree; unknown classes/schema/IDs are explicit blockers. No destination
+  matching, import payloads or create/update recommendations. Minimum sanitized
+  source shape needed before binding parser; exact target evidence needed later.
+- Verification status/test evidence: inspected relevant source/document contracts;
+  documentation-only, no tests run and no new executable behavior claimed.
+- Files affected: docs/API_MATRIX.md and this tracker only.
+- Blockers: actual tree schema/field availability, target release/build/provenance,
+  destination root/object mappings, credentials/field/type transformations,
+  completion/enumeration semantics and CC LDAP/Scheduler contracts unqualified.
+- Boundaries: no code/collector/authentication/HTTP/TLS/Docker changes, imports,
+  live API calls, Git operations, deployment or unrelated document edits.
+- Next action: owner reviews/authorizes the proposed local Physical-tree preview
+  and supplies minimum structural evidence if needed; migration remains blocked.
+
+## Previous task: VISION-OPERATOR-COVERAGE - readable summary and coverage report
+
+- Objective/priority: high; improve menu-mode usability and visibility of backup
+  coverage without changing the six successful collection paths.
+- Dependencies: existing engine summary JSON, host launcher and legacy/API
+  evidence already qualified for the six read-only modules.
+- Approval: owner's operator summary/coverage request; local changes and guarded
+  offline tests only. No live requests, Git operations, deployment or restore work.
+- Latest owner live evidence: six modules tested on Vision 5.4.9; controller
+  objects 36, access 36, LDAP 13, both trees collected, Scheduler 23 tasks/
+  46 fields redacted, zero reported collection failures. Owner-reported, not
+  independently re-executed here. Supersedes historical pending live-read status
+  for exercised subsets only, not completeness/restoration qualification.
+- Implementation status: implemented; menu options 1/2 capture engine stdout
+  for safe readable module-level status, count meaning, redactions/limitations,
+  host run directory and overall status. Static labels and validated counts
+  only; raw response/issue messages and unknown fields are not echoed.
+- Compatibility: profile --config, menu option 3 and unattended workflows retain
+  inherited engine JSON stdout; summary.json unchanged. Collection/authentication/
+  HTTP/TLS/Docker/endpoints untouched. Nonzero engine statuses preserved; missing/
+  invalid summary after engine success reports presentation failure with status 3.
+- Count limits: device details versus access exports/LDAP records/task records;
+  tree top-level JSON records explicitly not nodes. Controller/access redactions
+  describe source detail responses and overlap; inventory redactions not included
+  in terminal controller totals. Missing counts are not silently reported as zero.
+- Coverage deliverable: concise six-module comparison in docs/API_MATRIX.md with
+  source references, partial/unsupported domains, restoration-sensitive fields,
+  incomplete schema/enumeration/identity assumptions and protection requirements.
+  No inference of completeness from HTTP success or invented restoration values.
+- Verification status: 45 targeted guarded offline tests passed in 40.629 seconds:
+  test_backup_setup and test_vision_backup. Covers six-module readability, task
+  count/redactions, unchanged artifact, partial/invalid output/exit statuses,
+  JSON/profile/unattended stdout preservation and existing backups. Initial
+  failures were fixture stdout/input and preexisting-directory permission setup
+  in new tests; corrected without changing collection code. Syntax check passed;
+  Pylance only the existing informational Windows platform unreachable-code hint.
+- Files affected (five): src/cc_vision_import/backup_setup.py,
+  tests/test_backup_setup.py, README.md, docs/API_MATRIX.md and this tracker.
+- Known limits: complete schema/enumeration, unknown-field sensitivity, native
+  identity portability, restoration/dependencies remain unqualified. Actual
+  updated terminal presentation on lab host remains untested.
+- Next action: owner reviews the terminal output/coverage report and authorizes
+  any subsequent lab execution separately; no import/restore capability activated.
+
+## Previous task: VISION-SCHEDULER-BACKUP - sixth read-only backup component
+
+- Objective/priority: high; add source-observed Scheduler export while preserving
+  the five working Vision 5.4.9 backup modules.
+- Dependencies: existing backup/session/HTTP/redaction infrastructure; owner-supplied
+  original downloaders and matching Scheduler INIs in the external
+  CC -Master Config Migration reference workspace.
+- Approval: owner's Scheduler integration request; local implementation and
+  guarded offline tests only. No live requests, legacy execution, Git operations
+  or deployment. Upload source inspected for GET/response evidence only.
+- Latest owner live evidence: all five preceding modules validated: controller
+  objects/device access 36 devices each, LDAP 13 records, both trees collected.
+  Owner-reported, not independently re-executed here; no full schema claim.
+- Source findings: root and schedulertask downloaders byte-identical; both INIs
+  bind API.scheduler_endpoint to /mgmt/system/config/itemlist/scheduledtask and
+  the existing login path. GET has no parameters/body; session JSON login and
+  cookies/application headers are reused. Uploader GET reference consumes a
+  list of task objects, with no complete field/schema contract established.
+- Legacy naming caveat: downloaders read working-directory config.ini, not
+  scheduler_config.ini. Root config.ini is not a valid ConfigParser INI; no
+  schedulertask sibling config.ini exists. Supplied Scheduler INIs nevertheless
+  establish the matching safe read path; master loads neither legacy file.
+  No credentials, hosts, ports or deployment settings copied into source/docs.
+- Implementation status: implemented; component 6 and Full Supported membership.
+  Fixed exact GET scope; Scheduler last protects earlier five-module exports.
+  Scheduler-only makes no device/LDAP/tree queries. Separate scheduler/tasks.json
+  preserves native array/object data, unknown fields, IDs and status fields,
+  subject to existing redaction. No upload sanitization/defaults/name-only skips.
+- Reporting: independent scheduler collected/failed/skipped status, saved-array
+  record count, file/redactions/issues and completeness limits. Empty arrays
+  valid; malformed/wrapped/non-object responses fail rather than become empty.
+- Verification status: focused offline-verified; new master Scheduler read remains
+  live-untested. 118 guarded tests passed in 85.472 seconds:
+  test_vision_backup, test_backup_setup, test_product_clients,
+  test_mocked_integration, test_controller_workflow. Covers native preservation/
+  redaction, cookies/headers/TLS, empty/malformed results, exact GET authorization,
+  explicit selection, login failures, all five exports surviving Scheduler errors
+  including HTTP 401, and successful Scheduler despite unrelated module failures.
+  Initial run had one case-sensitive header test assertion error; fixed the test,
+  not transport. Product-client syntax/error and backup error checks passed.
+- Files affected (nine): src/cc_vision_import/product_clients.py, vision_backup.py,
+  backup_policy.py, backup_setup.py; tests/test_vision_backup.py,
+  test_backup_setup.py; README.md, docs/API_MATRIX.md and this tracker.
+- Known limits: complete task schema/types, timezone/reference semantics,
+  pagination/enumeration, restoration and master live behavior unverified.
+  Source/INI contract is not a vendor-version-wide compatibility certification.
+  Existing response/redaction limits and local-only session cleanup remain.
+- Boundaries: existing authentication/HTTP, Docker, launcher architecture, legacy,
+  containment and unrelated documents unchanged; no new runtime dependency,
+  framework, Scheduler writes or generic migration capability activation.
+- Next action: owner follows normal review/release process and separately
+  authorizes one six-module lab run; inspect Scheduler artifacts/counts/issues.
+
+## Previous task: VISION-TREE-BACKUP - Physical and Organization native tree export
+
+- Objective/priority: high; extend read-only Vision 5.4.9 backup with native
+  Physical/Organization trees only where safe read contracts are established.
+- Dependencies: existing backup/session/JSON infrastructure, original downloader
+  GET paths, and owner's corrected Vision 5.4.9 live endpoint evidence.
+- Approval: owner's corrected tree-backup implementation request; local source
+  changes and offline tests only. No live requests, legacy execution, Git
+  operations or deployment.
+- Latest owner live evidence: 36 managed devices discovered, 36 controller-object
+  exports, 36 device-access exports, 13 LDAP permission records, zero failures.
+  This supersedes the preceding pre-LDAP baseline; reported by owner, not
+  independently re-executed here. It does not establish complete LDAP coverage.
+- Findings: [legacy downloader](../legacy/app/download_cybercontroller_objects.py)
+  lines 180-185 GETs the supplied path and parses JSON; lines 212-216 explicitly
+  select /mgmt/system/config/tree/Physical and /mgmt/system/config/tree/Organization.
+  The cc-objects copy uses the same paths. Lines 110-142 consume recursive
+  children/meIdentifier fields, but the export flattens the tree to sites/devices;
+  it does not preserve a complete native hierarchy or establish pagination.
+- Product qualification correction: owner confirms both exact GETs returned
+  HTTP 200 and valid native tree JSON on authorized Vision 5.4.9. This supersedes
+  the preceding incorrect "untested/unknown" classification and removes the
+  endpoint-use blocker. Neither exact GET is found in the reviewed Vision PDF.
+  Exact sanitized schemas and completeness have not been supplied/qualified.
+- Implementation status: implemented; both independently selectable modules,
+  component choices 4/5 and Full Supported membership. Native object/array
+  responses stored in separate physical-tree/tree.json and organization-tree/tree.json
+  envelopes under `tree`; only existing sensitive-field redaction transforms
+  the data. No assumed node schema, flattened hierarchy, invented IDs/parents,
+  schema defaults or additional API paths.
+- Reporting: per-tree collected/failed/skipped status, saved file, issue codes
+  and top-level JSON record counts (object: one; array: element count), explicitly
+  not hierarchy-node totals. Independent failures preserve successful exports
+  where the session remains authenticated. Device/LDAP requests run first;
+  tree-only skips discovery/device/LDAP queries. Blank selection stays 1,2.
+- Verification status: implemented and focused offline-verified. Owner endpoint
+  reads are live evidence; the new master tree implementation remains live-untested.
+- Test evidence: 113 guarded offline tests passed in 47.432 seconds:
+  test_vision_backup, test_backup_setup, test_product_clients,
+  test_mocked_integration and test_controller_workflow. Covers native object/
+  array preservation including unqualified/missing/nullable fields, redaction,
+  independent tree failures, empty/malformed responses, exact GET authorization,
+  cookie/TLS reuse, module selection and existing device/LDAP regressions.
+  Pylance source error diagnostics and syntax checks passed; host setup retains
+  its informational platform-dependent unreachable-code hint. No new framework.
+- Files affected (nine): src/cc_vision_import/product_clients.py, vision_backup.py,
+  backup_policy.py, backup_setup.py; tests/test_vision_backup.py,
+  test_backup_setup.py; README.md, docs/API_MATRIX.md and this tracker.
+- Known limits: native node counts, complete schemas, identity binding,
+  pagination/enumeration, restoration and new master live behavior unverified.
+  Existing 16 MiB response and recursive redaction bounds remain. None of these
+  limits is silently described as a complete/restorable configuration backup.
+- Boundaries: authentication, HTTP, session/TLS configuration, Dockerfile,
+  Bash launcher architecture, legacy and containment records unchanged.
+  Scheduler/imports remain outside this task; no new runtime dependencies.
+- Next action: owner reviews/publishes changes and rebuilds the existing image
+  under their normal release process, then separately authorizes a master tree
+  backup. Check native artifacts and per-tree results before broader qualification.
+
+## Previous task: VISION-BACKUP-COVERAGE - device binding and LDAP subset
+
+- Objective/priority: high; qualify device response/query binding and extend
+  selected Vision read-only coverage without changing the working transport,
+  authentication, Docker or launcher architecture.
+- Dependencies: existing managed sessions/backup/JSON/schema infrastructure,
+  documented device-access managementIp field, original LDAP download/upload
+  scripts and their shared observed GET/list behavior.
+- Approval: owner's Task A/B request; local offline implementation/tests only.
+- Owner live evidence: authentication successful, 36 devices discovered,
+  36 controller-object exports, 36 device-access exports, 73 valid module JSON
+  files, zero failures. Reported by owner, not independently re-executed here;
+  it qualifies the prior deployment, not this LDAP/identity update.
+- Device implementation: require response ormID/name and managementIp; compare
+  canonical response/query IP before writing exports, track response IDs across
+  distinct device queries, reject mismatches/missing identity/duplicate replies.
+  Canonical discovery IPs deduplicate equivalent addresses. Discovery ormId is
+  not guessed to be equivalent to lookup ormID. Static error codes contain no
+  addresses, IDs or credentials. Valid controller/access output is preserved.
+- LDAP evidence: download scripts (root and ldap_permissions copy) use GET
+  /mgmt/system/config/itemlist/ldapobjectpermission. Existing uploader GET
+  processing demonstrates array/object attributeValue and roleGroupPairList
+  subset. No guessed endpoint, wrapper, pagination or permission mapping.
+- LDAP implementation: selectable read-only list export with existing session,
+  TLS and credential provisioning. LDAP-only needs no object input/discovery.
+  Controller/access collection runs first; per-module errors preserve other
+  successful files. One redacted permissions.json, accurate saved record count,
+  explicit source-observed/partial/schema-and-enumeration-unverified evidence.
+  Empty lists are valid; malformed lists/records fail, never empty fallbacks.
+  No forced locking, authorization scope changes or write/import capability.
+- Module interface: third existing component choice added; Full Supported now
+  includes LDAP. Blank selected-mode choice still means controller/access.
+  JSON/unattended/image/TLS/temporary-credential workflows remain unchanged.
+- Files (ten): src/cc_vision_import/capabilities.py, product_clients.py,
+  backup_policy.py, backup_setup.py, vision_backup.py;
+  tests/test_vision_backup.py, test_backup_setup.py;
+  README.md, docs/API_MATRIX.md and this tracker.
+- Verification: 108 guarded offline tests passed on Python 3.13.14 across
+  Vision backup, host setup, product clients, mocked integration and existing
+  controller workflows. Covers wrong/missing/repeated device identity, IPv6
+  canonical binding/deduplication, no wrong device files or address diagnostics,
+  valid/empty/malformed LDAP, credential-valued attribute redaction, permissions
+  preservation, LDAP-only selection, HTTP 401 after existing exports,
+  module independence, TLS choices and GET-only authorization. Earlier 20/69
+  runs overlap this final result and are not added to it. Product-client syntax
+  and product-client/backup error diagnostics passed. Launcher has only the
+  existing platform-dependent informational unreachable-code hint.
+- Status: implemented and focused offline-verified; LDAP master live behavior
+  and new identity checks on the operator's real responses remain unverified.
+- Blockers/limits: exact-version full LDAP DTO/nullability, pagination/complete
+  enumeration, native thin-ID/lookup-ID equivalence, restoration and CC LDAP
+  mappings are not qualified. None are invented or claimed by this limited
+  source-observed export. Scheduler and full Physical/Organization trees remain
+  out of scope. No new runtime packages.
+- Boundaries: authentication, HTTP compatibility, transport/sessions, Dockerfile,
+  Bash wrapper, legacy source and containment records unchanged. No live calls,
+  Git operations, automatic deployment or production/import activation.
+- Next action: owner publishes reviewed changes and rebuilds the selected image;
+  use existing explicit domain selection for unchanged device scope, or select
+  LDAP/the expanded Full Supported mode for separately authorized lab validation.
+
+## Previous task: VISION-HTTP-COMPAT - focused Vision HTTP compatibility
+
+- Objective/priority: high; remove demonstrated HTTP compatibility obstacles
+  and make any remaining failed Vision login actionable. Functional correction,
+  not an architecture or discovery milestone.
+- Dependencies: existing HTTP/backend/session/authentication and Vision backup;
+  working legacy requests references and preceding guarded comparison.
+- Approval: owner's focused HTTP compatibility/diagnostic request; offline
+  implementation and verification only. Reported lab baseline: commit 4c929a5,
+  image cc-vision-master:0.3; not independently checked or deployed here.
+- Implementation: standard-library zlib single-member gzip decoding, capped at
+  byte budget + one detection byte. Wire bytes and decoded output independently
+  bounded; encoded Content-Length checked before decoding. CRC/truncation,
+  trailing/multiple members and size violations fail before cookie commit.
+  Decoded response removes stale Content-Encoding/Content-Length headers.
+  Bodyless 204/304 responses do not undergo gzip decoding.
+- Headers: only repeated Cache-Control/Vary are safely comma-combined.
+  Set-Cookie remains separately parsed; other duplicates/framing/control-header
+  restrictions stay intact. Timeouts, checked deadlines, exact origin/operation
+  authorization, TLS interface, read-only scope and no-retry behavior unchanged.
+- Diagnostics: enabled only by selected Vision backup, failure-only stderr JSON.
+  Safe method/path template, status, stage, normalized exception/category,
+  Content-Type/Encoding and static validation reason; no raw messages, bodies,
+  cookies, credentials or full headers. Login interpretation supplies safe
+  reasons without changing HTTP 200/status-ok/body-JSESSIONID requirements.
+  Success remains quiet; launcher already forwards stderr without new options.
+- Files (eight): src/cc_vision_import/http_backend.py, authentication.py,
+  vision_backup.py; tests/test_http_backend.py, test_vision_backup.py;
+  README.md, docs/API_MATRIX.md and this tracker.
+- Verification: 161 existing/focused backend, transport, authentication, backup
+  and launcher tests passed on Python 3.13.14. Backend subset: 72 tests, zero
+  network attempts/1080 guard observations and zero real dispatch attempts/144
+  observations. Eight focused cases passed first (overlap, not additional).
+  Covers compressed login through automatic discovery/device GET, normal and
+  malformed login, cookie persistence, gzip exact decoded limit/overflow,
+  corruption/truncation/trailing members, real stdlib chunk framing, unsafe
+  duplicate/header rejection, redaction and existing TLS/read-only/operator
+  behavior. Backend Pylance syntax check passed; authentication/backup error
+  diagnostics were clear. An additional 54 existing offline-controller workflow
+  and mocked-session integration tests passed (215 total across the two
+  non-overlapping runs). Backend constructor/header-helper signature checks and
+  authentication syntax check passed. No new packages or test framework.
+- Status: implemented and focused offline-verified; actual lab authentication,
+  discovery, image build and original live root cause remain unverified.
+- Boundaries: no live/controller requests, legacy execution/modification,
+  Git operations, deployment, launcher/profile/interface changes or containment
+  documentation edits. No production/write capability activated.
+- Next action: owner publishes reviewed changes, rebuilds selected image and
+  separately authorizes the normal read-only launcher run. Expect authentication
+  and discovery or a safe specific failure record; do not infer the original
+  server encoding/repeated headers from these synthetic fixes.
+
+## Previous task: VISION-LOGIN-COMPARE - working legacy compatibility investigation
+
+- Objective/priority: high; identify the failed master login's actual cause by
+  comparing the working legacy authentication behavior, before changing it.
+- Dependencies: original LDAP/Scheduler/object downloader sources, shared authentication,
+  sessions/transport/backend, and sanitized evidence from the failed master.
+- Approval: owner-authorized source inspection and offline checks only. No live
+  requests, legacy execution, deployment or Git operations.
+- Findings: Vision LDAP uses the same literal login URL, POST, username/password
+  JSON fields and three application headers as the master. Scheduler uses the
+  same request shape, but its literal endpoint depends on the missing API INI.
+  Both use requests.Session cookies; neither requires a body jsessionid for
+  success. The master additionally validates the body session ID and sends it
+  explicitly on GETs, retains a cookie jar, but closes each HTTP connection.
+- Working references: owner confirmed all three downloaders (LDAP, Scheduler,
+  and CC-labeled objects). The object downloader additionally sends Basic
+  Authorization/browser-style headers, advertises gzip/deflate/br, manually
+  builds JSON and accepts HTTP 200 without examining login JSON. Its label is
+  not used to dismiss the owner's successful Vision lab evidence.
+- Offline evidence: an in-memory comparison with installed requests 2.32.5 /
+  urllib3 2.6.3 reproduced the reported transport_failure/malformed_response
+  pair for gzip and duplicate Cache-Control headers: requests accepted both,
+  the master rejected both. Identity JSON succeeded in both. Cookie-only
+  status-ok login persisted a cookie in requests but failed the master's later
+  interpretation with malformed_login_response, a different failure code.
+  A second guarded probe extracted object-login headers through AST inspection,
+  confirmed its request differences, and verified that the master keeps its
+  response cookie across two requests while its explicit body session cookie
+  takes precedence when those two synthetic session IDs differ.
+  No passwords, session IDs, raw bodies/messages or complete headers were printed.
+- Important limit: these are demonstrated compatibility differences, NOT the
+  proven lab root cause. Requests advertises compression; stdlib sends
+  Accept-Encoding: identity. No failed-master response encoding, duplicate
+  headers or exception location has been observed.
+- Implementation: no authentication, HTTP policy, retry or session changes.
+  The preceding unverified diagnostic draft was removed using a targeted patch;
+  no diagnostic option is enabled or ready for publication.
+- Verification: 115 existing backend/authentication/backup tests passed on
+  Python 3.13.14. Backend subset: 67 tests, zero network attempts across 1005
+  guard observations, zero real dispatch attempts across 134 observations.
+  The separate in-memory requests/master comparison also recorded zero network
+  attempts. Legacy scripts were read, never imported or executed.
+- Files affected: this tracker and the related
+  [API compatibility investigation](API_MATRIX.md). No new runtime dependency,
+  launcher/TLS/networking/policy change, framework or architecture milestone.
+- Status/blocker: comparison offline-verified; working references confirmed.
+  Owner has no safe failure metadata yet. Actual root cause and corrective
+  implementation remain blocked on sanitized failure-location/response metadata
+  from the master. The Scheduler INI login binding remains unavailable.
+- Next action: obtain only safe exception
+  function/line/class and response status/encoding/framing metadata from an
+  owner-authorized observation, then reproduce that specific case offline.
+  Do not infer gzip from successful legacy login or weaken validation globally.
+
+## Previous task: VISION-OPERATOR-FINAL - consistent backup operator workflow
+
+- Objective/priority: high; finalize existing interactive/JSON/unattended backup,
+  simple TLS choices, quiet scope enforcement and configurable Docker image.
+  Functional correction, not a new architecture milestone.
+- Dependencies: current master, Python 3.8-compatible host helpers, existing
+  Vision discovery/client/session/HTTP/output implementation and API evidence.
+- Approval: owner's latest attached operational-workflow specification.
+  Implementation/offline checks only; no controller connection or deployment.
+- Implementation: removed the extra TLS flag from both entry points and backup
+  validators. Explicit boolean false automatically selects the scoped Vision
+  backup context/backend permission; true/default remains strict. The warning is
+  displayed once before confirmation; exact duplicate container warnings are
+  suppressed without dropping other diagnostics. No separate lab/production
+  workflow or new transport framework. General transport still rejects false.
+- Operator UX: banner, four-option menu, human-readable supported components,
+  simplified single supported-source display, hidden password, one certificate
+  question, optional settings save and final read confirmation. JSON/unattended
+  reuse the same engine. Discovery remains automatic; no normal target lists.
+- Scope: internal excluded component variants use normal unsupported-component
+  validation. No exclusion messages in menu, routine output, summaries or
+  manifests. Detailed rationale and complete 25-script mapping moved to the
+  [internal API matrix](API_MATRIX.md), not lost. No new APIs or backup modules.
+- Image: `CC_VISION_IMAGE` selects the exact inspected/executed reference;
+  default `cc-vision-master:0.3` matches the known release. Missing/invalid images
+  fail explicitly, never fall back. UID/GID 10001 and Python 3.13 unchanged.
+- Files changed (12): [host setup](../src/cc_vision_import/backup_setup.py),
+  [policy](../src/cc_vision_import/backup_policy.py),
+  [master CLI](../src/cc_vision_import/master_cli.py),
+  [backup engine](../src/cc_vision_import/vision_backup.py),
+  [transport](../src/cc_vision_import/transport.py),
+  [HTTP backend](../src/cc_vision_import/http_backend.py),
+  [launcher tests](../tests/test_backup_setup.py),
+  [backup tests](../tests/test_vision_backup.py),
+  [example](../examples/vision-backup/profile.json), [README](../README.md),
+  API matrix and this tracker. Wrapper/root master/Dockerfile unchanged.
+- Verification: 157 focused guarded tests passed across launcher, backup,
+  transport, backend and existing offline controller workflow. Backend evidence:
+  67 cases, 0 network attempts/1005 observations and 0 real dispatch attempts/
+  134 observations. Tests inspect actual mocked HTTPS contexts for login and
+  every GET under both TLS settings, invalid booleans, redaction, discovery,
+  module failures, image selection/failure, permissions, credential cleanup,
+  cancellation, quiet exclusions and preserved offline operations.
+  Final 23 launcher/backup follow-up cases passed, including the immediate
+  certificate-choice warning and interactive JSON menu. The complete example
+  profile validated under existing network guards. Bash syntax, actual wrapper
+  help and root `python -S -B` help/operations passed; host import-chain Python
+  3.8 grammar passed. An initial Git-Bash smoke check failed with mixed inherited
+  Windows/MSYS PYTHONPATH; clean process-local environment retry passed without
+  changing the Linux wrapper. Checked application modules had no Pylance error
+  diagnostics (existing informational hints were not treated as failures).
+- Status: implemented and focused offline-verified; supervised Linux/Docker/live
+  validation remains pending. Owner reports prior image 0.3 and host Python
+  3.8.10 working; that is baseline evidence, not qualification of this update.
+- Blockers/limits: Python 3.8 runtime and Docker unavailable locally; new build,
+  actual Linux ownership/mount behavior, TLS/wire/RBAC and completeness remain
+  unverified. Existing missing tree/LDAP/Scheduler/credential portability
+  contracts, remote logout and DNS/whole-run deadline limits remain unchanged.
+- Boundaries: no Git operations, live calls, deployments, new dependencies,
+  system Python replacement, legacy modifications, CCV-010-C or E-051 changes.
+- Next action: owner reviews exact files/publication instructions, rebuilds the
+  selected tag, runs offline help/menu checks on Python 3.8.10, then separately
+  authorizes supervised read-only controller validation.
+
+## Previous task: VISION-LAUNCHER-PY38 - host Python compatibility
+
+- Objective/priority: high; fix the reported Python 3.8 launcher import failure
+  without replacing appliance Python or changing Docker's Python 3.13 engine.
+- Dependencies: existing Bash wrapper, host setup, backup policy and JSON helper.
+- Approval: owner's Linux launcher compatibility request; local offline checks
+  only, no live connections, commits or pushes.
+- Root cause: `_json.py` evaluates `list[tuple[str, object]]` at import time;
+  `backup_policy.py` independently evaluates built-in generic annotations.
+  Both need postponed annotation evaluation on Python 3.8. Host setup already
+  uses postponed annotations; the package initializer imports no engine code.
+- Changes: added future annotations in
+  [JSON helper](../src/cc_vision_import/_json.py) and
+  [backup policy](../src/cc_vision_import/backup_policy.py); updated host version
+  text in [setup](../src/cc_vision_import/backup_setup.py) and
+  [README](../README.md); added focused regressions to
+  [existing launcher tests](../tests/test_backup_setup.py); updated this tracker.
+  Six files changed; wrapper, Dockerfile, engine and API matrix unchanged.
+- Verification: 20 guarded launcher/backup tests passed on Python 3.13.14,
+  covering interactive cancellation/Exit, JSON/unattended execution, temporary
+  credential cleanup, TLS choices, module/AMS selection, discovery and artifacts.
+  New checks cover deferred annotations, strict JSON rejection and help before
+  platform/Docker/credential checks. Actual Bash wrapper `--help` and `bash -n`
+  passed. All four host import-chain modules passed Python 3.8 AST grammar
+  validation; edited helper syntax checks passed in Pylance.
+- Status: implemented; available offline checks passed. Python 3.8 runtime and
+  real Linux behavior remain unverified locally: no 3.8 interpreter is installed.
+  Grammar validation is not claimed as execution under Python 3.8.
+- Boundaries: no new dependencies, system Python changes, privileged helpers,
+  Docker socket mounts, Git commands, controller connections or API changes.
+  Existing credentials/TLS/exclusions/output and offline operation behavior kept.
+- Next action: owner reruns `./run-vision-backup.sh --help` and menu Exit on
+  the Python 3.8 lab host, without starting collection; no Docker rebuild is
+  needed solely to test the updated host-side launcher imports.
+
+## Previous task: VISION-BACKUP-LAUNCHER - unified supported read-only backup
+
+- Objective/priority: high; one interactive/JSON/unattended application for
+  Vision 5.4.9 discovery and supported collection, external artifacts and exit.
+  Packaging/functionality continuation, not an architecture milestone.
+- Dependencies: existing master, documented login/lookup subset, shared
+  HTTP/session/output helpers, local Vision 5.4.9 PDF pages 119-120/263.
+- Approval: owner's attached implementation request; automatic discovery,
+  simple TLS boolean, isolated lab-only exception and module selection approved
+  for implementation. Live testing/deployment remains separately unauthorized.
+- Implementation: [Bash launcher](../run-vision-backup.sh) and
+  [host setup](../src/cc_vision_import/backup_setup.py) provide Full Supported
+  Backup, Select Components, JSON and Exit; private temporary credential files,
+  optional non-secret settings save, confirmation, UID/GID 10001:10001 and
+  dedicated output outside Git. [Shared policy](../src/cc_vision_import/backup_policy.py)
+  rejects unsupported modules/AMS variants before live dispatch.
+- Supported modules: controller-objects (documented recursive managed-device
+  inventory and deduplicated device GETs) and device-access (documented nested
+  access subset with credential redaction). Module directories and independent
+  completion/failure results explicitly retain unverified completeness.
+- TLS: verify defaults true/system trust, optional custom CA. False requires
+  explicit lab-only selection and warning; propagated to login/every GET through
+  existing transport. Other operations retain mandatory verification/default-deny.
+- Inventory: 25 actual scripts (17 Python, 8 shell); 24 reviewed read-only,
+  AMS restoration excluded. Twelve duplicate pairs, including three deployment
+  shell pairs, hash-confirmed. Complete legacy-to-master matrix in [README](../README.md).
+- Files created: launcher, [.gitattributes](../.gitattributes), host setup,
+  shared backup policy, [backup engine](../src/cc_vision_import/vision_backup.py),
+  [secret-free example](../examples/vision-backup/profile.json),
+  [launcher tests](../tests/test_backup_setup.py), [backup tests](../tests/test_vision_backup.py).
+  Modified: master/root CLI, authentication/session, HTTP backend/transport,
+  product clients, document evidence, shared local output, Git exclusions,
+  README, API matrix and tracker. Exact 21-file publication list is in README.
+  Existing Dockerfile/.dockerignore need no further changes.
+- Verification: 238 targeted unittest cases passed with existing network guards
+  across launcher, backup, transport, backend, workflow, schema qualification,
+  product clients and authentication. Backend: 0 network attempts/1005
+  observations, 0 real dispatch attempts/134 observations; schema: 0 attempts/
+  435 observations. Bash syntax and host Python 3.9 grammar checks passed.
+  Pylance reported no implementation error diagnostics; host Linux body is
+  structurally unreachable under the selected Windows environment, not a
+  Linux type/runtime qualification. Final 18 launcher/backup checks passed after
+  credential cancellation cleanup, selected-only artifacts, skipped-module
+  failure reporting and targeted device-count corrections. All 36 application
+  modules parsed with no third-party imports; example JSON parsed. Root help
+  and operations passed under `python -S -B`. The signature helper flagged a
+  keyword-only call, but LSP hover/diagnostics and actual `inspect.signature.bind`
+  confirmed that exact call valid; no runtime-signature workaround was added.
+  Temporary PDF-reader/page-extraction files were removed.
+- Status: implemented and focused offline/mock verified. Not verified complete
+  end-to-end on Linux/Docker/Vision; no production capabilities activated.
+- Blockers/limits: Docker unavailable locally; real UID/mount behavior, Python
+  3.9 host execution and Vision RBAC/wire compatibility unverified. Empty sites,
+  other trees, pagination/full inventory completeness unestablished. LDAP
+  exact-version response contract and scheduler API INI binding missing; CC live
+  backup, credential portability, writes/imports, appliance downloads, remote
+  logout and renewal unsupported. DNS/whole-run deadline limitations retained.
+- Boundaries: no controller connections, deployment, Git commands, legacy
+  execution/modification, vendor PDF edits, E-051 or CCV-010-C document changes.
+- Next action: owner reviews publication/files and securely prepares the approved
+  target/account; authorize lab testing separately, rebuild image 0.2, then
+  execute the launcher and review partial/completeness metadata.
+
+## Previous task: VISION-BACKUP-RO - targeted read-only Vision backup
+
+- Objective/priority: high; authenticate to Vision 5.4.9, collect explicitly
+  selected site/device information, retain redacted external JSON and exit.
+- Dependencies: packaged master MVP, existing HTTP/session/authentication
+  components, strict JSON/profile/document-subset helpers, local Vision PDF.
+- Approval: owner's 2026-11-24 implementation request plus explicit approval
+  for profile-listed targets and opt-in live HTTPS with the documented
+  DNS/whole-run hard-deadline limitation. No new architecture milestone.
+  Live controller testing/deployment remains pending separate authorization.
+- Implementation: explicit `backup-vision` selector; external profile/CA and
+  owner-private credentials-file input; documented login cookie and exact
+  site-by-name/site-by-ID/device-by-IP GET allowlist; new private output run
+  directories, per-object redaction and explicit partial/failure summaries.
+  No configuration writes, imports/deletes, automatic discovery or full-backup
+  claims. Existing offline commands/default-deny migration clients preserved.
+- Files: [master](../master.py), [CLI](../src/cc_vision_import/master_cli.py),
+  [backup](../src/cc_vision_import/vision_backup.py),
+  [clients](../src/cc_vision_import/product_clients.py),
+  [authentication](../src/cc_vision_import/authentication.py),
+  [sessions](../src/cc_vision_import/sessions.py),
+  [HTTP backend](../src/cc_vision_import/http_backend.py),
+  [shared local output](../src/cc_vision_import/offline_inputs.py),
+  [secret-free example](../examples/vision-backup/profile.json),
+  [tests](../tests/test_vision_backup.py), [Git exclusions](../.gitignore),
+  [README](../README.md), [API matrix](API_MATRIX.md), and this tracker.
+- Status: implemented; targeted offline verification passed; live readiness
+  not verified. 170 guarded targeted tests passed across backup, controller
+  workflow, product clients, authentication and HTTP backend modules (eight
+  new focused tests). No network attempts; Pylance reported no error diagnostics
+  in the checked implementation files; session initialization callers compatible.
+- Known limits: explicit target list only; no complete configuration inventory,
+  device credentials are redacted/nonportable; no LDAP/Scheduler, CC live backup,
+  appliance configuration downloads, remote logout or auth renewal. DNS and
+  whole-run execution are not hard-deadline bounded. Linux mount permissions
+  and POSIX credential mode checks remain unverified on this Windows workstation.
+  New Docker build and real Vision compatibility/RBAC remain unverified.
+- Boundaries: no Git commands, controller connections, legacy execution,
+  deployment, containment-document or historical E-051 acceptance changes.
+- Next action: owner reviews profile, CA, selected targets and read account;
+  separately authorize the lab target before rebuilding/deploying/live testing.
+
+## Previous task: Controller Objects master integration
+
+- Authorization: owner's continuation request after the committed MVP; offline
+  code integration only, no live execution or additional milestone.
+- Work: CC site-by-name/site-by-ID/device-by-IP mock-only GET methods sharing
+  managed-session authentication, URL/request construction and response parsing;
+  master lookup request previews and supplied-response inspection; source-only
+  local tree/flat export using existing adapters. Unknown configuration preserved;
+  incomplete exports explicitly invalid and blocked from planning.
+- Preserved: manifest export, comparison, planning/import preview, TLS
+  verification, production default-deny and separate write-approval requirements.
+  Lookup results explicitly are not complete configuration exports.
+- Files: [master CLI](../src/cc_vision_import/master_cli.py),
+  [product clients](../src/cc_vision_import/product_clients.py),
+  [capabilities](../src/cc_vision_import/capabilities.py),
+  [mock catalogue](../src/cc_vision_import/mock_capabilities.py), two synthetic
+  lookup examples, two existing test modules and [usage/report](../README.md).
+- Verification: 76 targeted network-guarded tests passed in existing product
+  client, controller workflow and mocked integration modules, including six new
+  regressions; zero guarded network attempts. Master/client syntax and Pylance
+  checks passed.
+- Unavailable: all live authentication/reads/writes; real-version lookup/export,
+  Vision controller migration, CC LDAP and Scheduler contracts.
+- No Git commands, commits, legacy execution, containment-document/PDF changes,
+  new workers/IPC/transport/DNS validation/recovery or testing framework.
+- Next action: review the offline functionality; no automatic live execution.
+
+## Previous task: simplified MVP application consolidation
+
+- Authorization: owner's 2026-11-22 simplified MVP request; offline implementation
+  only. No new milestone or controller-execution authority.
+- Priority/objective: smallest usable master application, reusing existing code.
+- Dependencies: existing profiles, local JSON input, controller adapters,
+  reconciliation, comparison and planning. No new dependencies.
+- Status: implemented and targeted offline-verified; live functionality unavailable.
+- Files: [master.py](../master.py),
+  [master_cli.py](../src/cc_vision_import/master_cli.py),
+  [workflow tests](../tests/test_controller_workflow.py),
+  [README inventory/usage/report](../README.md), and this tracker plus
+  [architecture](ARCHITECTURE.md).
+- Work: unified operation/product/profile selection; supplied source export to a
+  new local artifact; comparison/planning/import preview; explicit unavailable
+  authentication/import/Vision migration/LDAP/Scheduler results. No live dispatch,
+  approval-to-execution shortcut, silent object changes, or retry logic.
+- Evidence: 35 guarded offline workflow tests passed (30 retained + five focused
+  master CLI tests), zero guarded network attempts. Python file syntax checks
+  passed for the root entry point, master CLI and affected test file.
+- Inventory: legacy sources read only; SHA-256 confirmed nine duplicate file pairs.
+  No legacy scripts were imported or executed. No Git operations or live tests.
+- Boundaries: CCV-010-C, existing application contracts/CLI and production gates
+  unchanged; no worker containment, IPC, durable journal, custom network stack,
+  new testing framework, API research, or extra milestone.
+- Blockers/remains: Vision controller schemas/mappings, CC LDAP/task contracts,
+  real-version compatibility, and separately authorized real-controller execution.
+- Next action: owner review of this offline MVP; no automatic migration or
+  additional implementation scope is authorized.
+
+The following evidence and acceptance entries retain their historical scope.
+
+Latest design evidence: **E-054 - targeted contract and policy resolution;
+DOCUMENTATION ONLY; NOT IMPLEMENTED; INDEPENDENT REVIEW/OWNER DECISIONS PENDING.**
+See [WINDOWS_WORKER_CONTAINMENT_DESIGN.md](WINDOWS_WORKER_CONTAINMENT_DESIGN.md)
+and [E-054](#e-054---ccv-010-c-targeted-contract-and-policy-resolution-2026-11-22).
+Independent E-052 verdict: **REVISE DESIGN BEFORE IMPLEMENTATION**.
+Independent E-053 review supports a separately authorized nonexecuting proposal,
+not implementation or qualification.
+No new owner acceptance or runtime/laboratory authority; historical E-043-E-053
+and the independent 491-test baseline are preserved, not rerun.
+
 Latest owner acceptance: **E-051 - CCV-010-C OFFLINE SUPERVISED-OPERATION
 PROTOTYPE - ACCEPT WITH EXPLICIT LIMITATIONS**, accepted **2026-11-21**.
 Scope: offline supervised-operation control model only, based on independent
@@ -939,6 +1858,195 @@ for shape and consistency, not read or authenticated. No approval, durable
 journal, execution, or live destination-preflight mechanism exists.
 
 ## Evidence log
+
+### E-054 - CCV-010-C targeted contract and policy resolution, 2026-11-22
+
+**Authority/identifier:** supplied project-conversation documentation-only
+authorization following independent E-053 review. E-054 was absent from inspected
+documentation before allocation; this is its single evidence-log entry. Modified
+only [WINDOWS_WORKER_CONTAINMENT_DESIGN.md](WINDOWS_WORKER_CONTAINMENT_DESIGN.md),
+[ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md) and this tracker.
+Branch/checkpoint context is user-supplied, not Git-verified in E-054.
+
+**Review input:** E-053 supports a separately authorized nonexecuting proposal;
+HIGH creator-failure, recovery trust, clock/revocation and evidence gaps remain,
+plus MEDIUM publication ambiguity. These are contracts/authorization risks,
+not demonstrated exploitable defects in E-051's accepted offline prototype.
+
+**Deliverables:** [P.1-P.8](WINDOWS_WORKER_CONTAINMENT_DESIGN.md#p-e-054-targeted-contract-and-policy-resolution)
+provide publication truth table; creator-crash alternatives/proof limits;
+exclusive owner/authenticated journal/independent rollback and failure matrix;
+original QPC/bootstrap/clock-version boundary; distinct coordinator/worker/native/
+external revocation; producer-bound evidence and exact commitment prerequisites;
+U-01-U-10 readiness matrix with evidence, stage, failure action and decision owner;
+stopping criteria and proposed owner decisions.
+
+**Publication reconciliation — RESOLVED AT DOCUMENTATION LEVEL:** historical
+timestamps/internal completion do not authorize new success publication after D.
+Current authority/generation/disposition/deadline checks apply after barriers
+and during reporting. Late or expired uncommitted candidates cannot succeed;
+delayed diagnostics cannot promote them; uncertain publication/restart markers
+cannot reconstruct success. E-047 and accepted TLS policy are not weakened.
+
+**Disposition:** U-01/U-04/U-05/U-06/U-07 remain **UNRESOLVED — IMPLEMENTATION
+BLOCKED**. U-02/U-03/U-08 remain **CONTRACT SPECIFIED — RUNTIME QUALIFICATION
+PENDING**, with their ABI/ownership/job/pipe/v1/I/O contracts preserved.
+U-09 timing limitations and U-10 product/auth/remote-session/egress/default-deny
+restrictions remain explicit. Documentation does not qualify Windows behavior.
+
+**Stage separation:** 0 documentation/source review; 1 ABI/API planning;
+2 synthetic network-incapable process qualification; 3 IPC/durable recovery;
+4 network transport; 5 product laboratory. Stage order does not bypass
+dependencies or authorize execution. Creator-failure, owner/trust, bootstrap,
+revocation, evidence and independent no-egress prerequisites block affected paths.
+No automatic replay, exactly-once external-effect or instantaneous revocation claim.
+
+**Verification:** local source/contract and reference/status inspection only,
+not executable documentation testing, Git comparison or OS qualification.
+E-054 references resolve to its single log entry, resolution overlay and P
+subsections; E-043-E-053 evidence entries and E-051 acceptance were not edited.
+The independent review's fetched-source conclusions remain historical evidence;
+no external reference fetched here. Architecture/Decisions use the same
+dispositions/stages/recommendation as this tracker. **491 passed is historical,
+not rerun.**
+
+**Exclusions:** no application/Python/test/configuration/vendor PDF changes;
+no tests, commands, Git operations, installation, subprocesses/workers,
+IPC endpoints/stores, DNS/network/TLS/product authentication, configuration
+changes, laboratory activity, production activation, commit or merge.
+No owner acceptance recorded; no new milestone started.
+
+**Next recommendation:** separately authorize Stage 0 independent E-054/source
+review and a bounded nonexecuting Stage 1 native ABI/API qualification plan,
+including the proposed owner decisions; do not implement or run qualification.
+**Full CCV-010-C acceptance WITHHELD; Gates A-D NOT PASSED.
+Laboratory readiness NOT READY; execution NOT AUTHORIZED; production default-deny.**
+Stop after this refinement and completion report.
+
+### E-053 - CCV-010-C Windows containment contract refinement, 2026-11-22
+
+**Authority and identifier:** project-conversation authorization for documentation
+refinement only, following the independent E-052 review. E-053 was unused in the
+inspected documentation before allocation. Revised only
+[WINDOWS_WORKER_CONTAINMENT_DESIGN.md](WINDOWS_WORKER_CONTAINMENT_DESIGN.md),
+[ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md) and this tracker.
+Historical E-043-E-052 evidence records remain unchanged.
+User-supplied branch `feature/ccv-010c-http-safety` and checkpoint `4bdbbee`
+remain unverified by Git in this phase.
+
+**Review input:** independent E-052 verdict **REVISE DESIGN BEFORE IMPLEMENTATION**;
+no confirmed exploitable vulnerability in the reviewed offline scope, but
+creation/crash, durable ownership, clock/bootstrap, revocation, evidence and
+channel contracts blocked Windows implementation. This is not owner acceptance.
+
+**Three corrections — RESOLVED AT DOCUMENTATION LEVEL:** attribute values,
+HANDLE arrays and backing storage persist through `DeleteProcThreadAttributeList`;
+`CloseHandle` minimum corrected to Windows 2000 Professional/Server;
+`CreateNamedPipeW` URL corrected to the official `namedpipeapi` reference verified
+by the prior independent review. Static Markdown/link/anchor inspection only;
+no new network request or API behavior verification.
+
+**Selected proposed contracts:** conditional creation-time JOB_LIST + suspended
+creation, with launch-intent and crash-boundary evidence, never universal rollback
+or B fallback; pinned Windows/CPython/AMD64/SDK/host qualification cells and ABI
+dossier; per-acquisition job/process/thread/attribute/IPC/duplicate/I/O lifetimes;
+protected bounded append-only local NTFS journal, no-sharing owner guard and
+independently trusted rollback checkpoint with write/flush/checkpoint barriers;
+immutable runtime bootstrap and original D; predispatch revocation semantics
+with explicit check-to-use/in-flight uncertainty; producer-bound candidate/exit/
+cleanup evidence; exact local pipe ACL/ownership/bounds/completion contracts.
+
+**Disposition:** U-01/U-04/U-05/U-06/U-07 are **UNRESOLVED — IMPLEMENTATION
+BLOCKED**. U-02/U-03/U-08 are **CONTRACT SPECIFIED — RUNTIME QUALIFICATION PENDING**,
+not qualification passes or implementation permission. Trust/provisioning,
+universal creator-failure behavior, native ABI, runtime clock-wire projection,
+revocation mechanism and evidence authentication remain open as identified.
+Unknown records/process/containment prevent replacement/replay; quarantine
+requires authorized independent abort evidence. Initial restart recovery never
+restores success from commit-eligible markers; publication may remain unknown.
+
+**Qualification refinement:** all W-01-W-20 retain their initial objectives and
+gain required observables, evidence source, passing-claim limits, unproven matters
+and fail-closed outcome. Subcases include creator-crash/native boundaries,
+interrupted write/flush/checkpoint/commit/publication, cancellation completion,
+stale acquisition callbacks, clock/sleep/boot uncertainty, revocation races,
+forged evidence, bootstrap/ACL attacks and independent no-egress observation.
+All remain future tests only; no test or laboratory qualification performed.
+
+**Preserved safeguards:** E-047 one immutable deadline and no late success,
+E-049 admission/owner fencing, E-050 captured-operation protection, strict v1
+fields/sequence/generations/budgets, distinct termination/exit/reaping/disposition,
+high-water quarantine history, no automatic auth/write replay or reusable session
+export. U-09 cleanup/reporting overruns and lack of hard-real-time guarantees
+remain explicit; U-10 product/auth/secrets/sessions/egress remains unqualified.
+
+**Validation and exclusions:** scoped local document inspection and traceability/
+Markdown-reference checks, not an executable documentation test or runtime proof.
+No Python/application/test/configuration/vendor PDF edit; no tests, subprocesses,
+workers, endpoints, stores, dependencies, commands, Git, network/controller access,
+production activation or laboratory operations. The independent **491 passing
+tests** remain historical E-050/E-051 evidence, not rerun. No owner acceptance.
+
+**Recommendation/status:** nonexecuting independent E-053 contract review next,
+particularly creation evidence, recovery trust/ordering, clock-wire projection,
+revocation residual and trusted candidate evidence. No implementation authorized.
+**Full CCV-010-C acceptance: WITHHELD. Gates A-D: NOT PASSED.
+Laboratory readiness: NOT READY. Laboratory execution: NOT AUTHORIZED.
+Production capabilities remain default-deny; concrete dispatch disabled.**
+
+### E-052 - CCV-010-C Windows worker containment design, 2026-11-21
+
+**Authority and scope:** documentation-only architecture authorized in the project
+conversation. Created
+[WINDOWS_WORKER_CONTAINMENT_DESIGN.md](WINDOWS_WORKER_CONTAINMENT_DESIGN.md);
+updated relevant sections only in this tracker,
+[ARCHITECTURE.md](ARCHITECTURE.md) and [DECISIONS.md](DECISIONS.md).
+E-052 was absent from inspected documentation before allocation.
+
+**Reviewed evidence:** E-043-E-051, the accepted deadline/complete-operation design,
+architecture/decision/progress records, laboratory plan, and the existing
+[offline coordinator](../src/cc_vision_import/supervised_operations.py) and
+[synthetic regressions](../tests/test_supervised_operations.py).
+User-supplied branch `feature/ccv-010c-http-safety` and checkpoint `4bdbbee` were
+not verified by Git operations.
+
+**Design deliverables:** executive summary/diagram; creation-time job assignment
+versus suspended-create-then-assign comparison; Windows API/rights/platform review
+inventory; job/handle/child/nested-job ownership; parent/worker trust boundaries;
+legal coordinator/native-stage transitions and complete failure paths; immutable
+deadline/cutoffs/fencing; strict v1 IPC and private overlapped named-pipe proposal;
+parent-crash/nonsecret durable recovery; threat model; W-01-W-20 future synthetic
+qualification matrix; uncertainties, prerequisites and next-phase recommendation.
+
+**Recommendation:** prefer conditional creation-time Job Object assignment using
+`PROC_THREAD_ATTRIBUTE_JOB_LIST`, `CREATE_SUSPENDED` and
+`EXTENDED_STARTUPINFO_PRESENT`, then exact identity/membership/ownership checks
+before resume. No silent Option B fallback. No atomic rollback, unconditional
+orphan prevention, completed termination or physical release claim. Authoritative
+API/source review, exact host/build qualification, durable ownership, clock/bootstrap,
+revocation and evidence provenance gaps are explicit blockers.
+
+**Preserved contracts:** same accepted coordinator, one immutable deadline and
+one occupied/uncertain worker slot, admission reservation/captured-operation fencing,
+strict bounded v1 JSON, no stale/late commitment, separate termination/exit/reaping/
+disposition, quarantine across replacement and no automatic auth/write replay.
+Durable recovery remains proposed/unimplemented. No reusable session crosses IPC.
+
+**Verification scope:** local static evidence inspection and design traceability
+only. Windows references are listed but were not fetched; no Windows API behavior
+was demonstrated. No tests, commands, Git operations, applications, subprocesses,
+network/DNS/TLS/authentication, installation or laboratory activities were run.
+No Python/test/configuration/vendor PDF changes. The independent **491 passing
+tests** remain historical E-050/E-051 evidence, not a new run or runtime guarantee.
+
+**Status:** design prepared, not implemented, independently reviewed or owner
+accepted. Next recommendation is separately authorized nonexecuting independent
+architecture/security and authoritative Windows API/source review before any
+implementation. W-01-W-20 remain future tests only.
+**Full CCV-010-C acceptance: WITHHELD. Gates A-D: NOT PASSED.
+Laboratory readiness: NOT READY. Laboratory execution: NOT AUTHORIZED.
+Production capabilities remain default-deny; concrete product dispatch disabled.**
+No import/update/delete/configuration migration or subsequent phase is authorized.
 
 ### E-051 - CCV-010-C owner acceptance of offline supervised-operation prototype, 2026-11-21
 
@@ -5440,6 +6548,14 @@ These are implementation/qualification gates, not permission to investigate
 external systems during offline contract development.
 
 ## Next-session checkpoint
+
+Current documentation checkpoint is
+[E-054](#e-054---ccv-010-c-targeted-contract-and-policy-resolution-2026-11-22).
+Next proposed activity: separately authorized independent Stage 0 review and
+nonexecuting Stage 1 ABI/API planning. No worker/IPC/recovery implementation,
+qualification execution, owner acceptance or laboratory authority follows.
+U-01/U-04/U-05/U-06/U-07 remain blocked; full C acceptance WITHHELD, Gates A-D
+NOT PASSED. The following checkpoint paragraphs retain their historical scope.
 
 Latest bounded documentation work is
 [E-047](#e-047---ccv-010-c-revised-deadline-containment-policy-2026-11-20):

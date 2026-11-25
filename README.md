@@ -65,6 +65,161 @@ PDFs, legacy artifacts, Git metadata, caches and TAR archives stay out.
 [Git exclusions](.gitignore) are separate and cannot untrack existing sensitive
 files. Owner review of tracked files/history remains required before publication.
 
+## Portable Docker Compose roles
+
+[compose.yaml](compose.yaml) provides independent `source` and `destination`
+profiles. Both use the same Dockerfile/image (`cc-vision-master:0.3`, overridable
+with `CC_VISION_IMAGE`). Rebuild it after updating the application. A current
+Docker Compose v2 plugin is required. The file uses JSON-compatible YAML so its
+structure can also be tested with Python's standard library.
+
+- `ccv-source backup` delegates to existing `backup-vision`, Full Supported
+  Backup (all six modules), with normal discovery, authentication and TLS rules.
+  Running the source service without a command displays help, not a backup.
+- `ccv-destination` defaults to the existing offline operation inventory.
+  Existing master arguments, including tree/Site readiness, pass through.
+  Its `preflight` shortcut invokes existing `profiles` validation using
+  environment-derived, temporary non-secret profiles: **syntax only**.
+- **Capability gaps:** no live Cyber Controller connectivity/authentication/TLS/
+  licensing/capacity preflight exists. No complete six-module backup-package
+  validator exists; tree readiness validates only the selected native artifact.
+  A successful profile check does not qualify destination APIs or migration.
+
+Containers run as `10001:10001`, with a read-only root filesystem, dropped
+capabilities and no-new-privileges. Temporary profiles use a small `/tmp` tmpfs.
+Source uses ordinary Compose bridge networking; destination has
+`network_mode: none`. There are no published ports, host networking, Docker
+socket mounts, nested Docker, persistent services or automatic restarts.
+The host launcher remains unchanged and is a separate alternative to Compose.
+
+### Prepare and build
+
+Run commands from the clone on each relevant Docker host. By default, runtime
+directories are siblings of the clone, outside the build context:
+
+```sh
+# Source host only:
+sudo install -d -m 0700 -o 10001 -g 10001 \
+  ../ccv-runtime/source-backups ../ccv-runtime/source-secrets \
+  ../ccv-runtime/source-config
+# Copy an already-provisioned owner-private {"username": "...", "password": "..."}
+# JSON file; do not put credentials in command arguments, .env, Git or the image.
+sudo install -m 0600 -o 10001 -g 10001 /absolute/private/vision-credentials.json \
+  ../ccv-runtime/source-secrets/credentials.json
+
+# Destination host only:
+sudo install -d -m 0700 -o 10001 -g 10001 \
+  ../ccv-runtime/destination-incoming ../ccv-runtime/destination-reports
+
+# Offline configuration check; it does not start containers or contact controllers:
+docker compose --profile source --profile destination config --quiet
+# Build the shared image on a host with the base image or registry access:
+docker compose --profile source --profile destination build
+```
+
+Only the selected role's directories must exist to run that role. Missing bind
+directories fail instead of being silently created as root. On SELinux-enforcing
+hosts, have the host administrator provision appropriate bind-mount labels.
+Do not solve permission/label errors with privileged mode or world-writable data.
+
+These optional environment variables override the five independent host binds:
+`CCV_SOURCE_BACKUPS_DIR`, `CCV_SOURCE_SECRETS_DIR`, `CCV_SOURCE_CONFIG_DIR`,
+`CCV_DESTINATION_INCOMING_DIR`, `CCV_DESTINATION_REPORTS_DIR`.
+Use dedicated directories (prefer absolute paths), never the same source and
+destination directory. Secrets/config and incoming packages are mounted read-only;
+only backups and reports are writable. Ensure transferred input trees are
+readable by UID 10001 and reports are writable by that UID.
+
+### Source: explicit authorized backup
+
+Non-secret connection settings come from environment variables, not the image:
+
+```sh
+docker compose --profile source run --rm ccv-source --help
+read -r -p 'Approved Vision HTTPS origin: ' CCV_VISION_URL
+export CCV_VISION_URL
+export CCV_TLS_VERIFY=true
+# Run only after authorization; this command authenticates and performs reads:
+docker compose --profile source run --rm ccv-source backup
+```
+
+`CCV_SOURCE_NAME` defaults to `vision-source`; use the existing lowercase
+hyphenated profile-name syntax. The origin must be HTTPS without credentials,
+path, query or fragment. Credentials are read exclusively from the mounted
+`source-secrets/credentials.json`. Full engine JSON stdout and per-run
+`summary.json` are preserved; run directories appear in `source-backups/`.
+
+For an approved private CA, provision it in `source-config/vision-ca.pem`
+(readable by UID 10001), then set
+`CCV_TRUSTED_CA=/run/config/vision-ca.pem`. Verification defaults to true/system
+trust. Explicit `CCV_TLS_VERIFY=false` uses the existing warning-bearing backup
+exception only; it is not the recommended deployment setting.
+
+### Transfer and destination checks
+
+Source and destination hosts need **no direct connectivity**. Through an approved
+offline transfer process, copy a complete `vision-backup-...` directory into
+`destination-incoming/` on the destination host, preserving private permissions
+and UID-10001 readability. Do not copy the source credential directory.
+Incoming packages are not embedded in or automatically unpacked by the image.
+
+The same built image can also be transported without a registry:
+
+```sh
+# Build host; transfer this archive and the reviewed repository separately:
+docker save --output cc-vision-master-0.3.tar cc-vision-master:0.3
+# Destination host:
+docker load --input cc-vision-master-0.3.tar
+docker compose --profile destination run --rm --entrypoint python ccv-destination --version
+docker compose --profile destination run --rm ccv-destination --operation operations
+
+# Replace RUN with the transferred directory name; report name must be new:
+docker compose --profile destination run --rm ccv-destination \
+  --operation tree-readiness-preview --site-readiness \
+  --input /incoming/RUN/organization-tree/tree.json \
+  --output /reports/site-readiness.json
+```
+
+Python should report 3.13.x. Site readiness exits **1** when inspected but still
+migration-blocked; this is expected, not a successful migration qualification.
+Use `--report-format json` for machine-readable stdout. Omitting
+`--site-readiness` uses the existing general tree check.
+
+For **offline profile syntax preflight**, supply actual, non-secret origins and
+the exact installed CC version; nothing is resolved or contacted:
+
+```sh
+read -r -p 'Source Vision HTTPS origin (metadata only): ' CCV_VISION_URL
+read -r -p 'Destination CC HTTPS origin (metadata only): ' CCV_DESTINATION_URL
+read -r -p 'Exact installed CC version: ' CCV_DESTINATION_VERSION
+export CCV_VISION_URL CCV_DESTINATION_URL CCV_DESTINATION_VERSION
+docker compose --profile destination run --rm ccv-destination preflight
+```
+
+`CCV_DESTINATION_NAME` defaults to `cyber-controller-destination`. Valid profiles
+exit 0; this is not a read-only live CC probe. Preflight JSON is stdout only;
+the existing `profiles` operation does not support `--output`.
+All per-role environment settings are optional during Compose configuration,
+image loading and offline tree checks; connection fields are required only by
+the selected backup/preflight shortcut. A private ignored `.env` may contain
+non-secret settings, but never passwords/tokens.
+
+### Cleanup and offline verification
+
+Each `run --rm` container exits and is removed. To remove Compose resources:
+
+```sh
+docker compose --profile source --profile destination down
+```
+
+This leaves bind-mounted backups, incoming packages, credentials and reports
+untouched. No application/service needs to stay running.
+
+Focused checks: `PYTHONPATH=src:tests python -S -B -m unittest test_compose_deployment`.
+Docker/Compose configuration validation and image build/runtime checks remain
+**unverified locally when Docker is unavailable**; structural tests and mocked
+delegation are not a successful container build or deployment.
+
 ## Interactive backup
 
 ```sh
@@ -115,6 +270,132 @@ Normal setup displays the supported Vision source, then asks for:
 4. Persistent external output directory.
 5. Optional non-secret settings save.
 6. Final read-only backup confirmation.
+
+### Offline Vision tree readiness preview
+
+From the repository, inspect either existing native `tree.json` envelope:
+
+```sh
+python master.py --operation tree-readiness-preview \
+  --input /srv/cc-vision-backups/<run>/physical-tree/tree.json
+
+python master.py --operation tree-readiness-preview \
+  --input /srv/cc-vision-backups/<run>/organization-tree/tree.json \
+  --report-format json --output /srv/cc-vision-backups/organization-readiness.json
+```
+
+On Windows, use the same arguments with local Windows paths. No Docker,
+controller profiles, credentials or network access are required. `--output`
+writes a new structured JSON report and refuses to overwrite an existing file;
+omit it for stdout only. Text is the default for this operation only; existing
+operations retain JSON output. URLs and UNC inputs are rejected.
+
+The preview validates the Vision 5.4.9 backup envelope and counts inspected
+node candidates, separately from top-level JSON records. It recognizes the
+legacy-observed Site/Device classes and managedElementID string identities.
+A single object root is a root candidate, not a vendor-qualified root.
+Actual `children` nesting is observed; interpreting it as a parent/dependency
+relationship is explicitly legacy-based inference. Missing/duplicate identities,
+unknown classes/fields, malformed children and conflicting/unresolved explicit
+parent references are reported without configuration names, addresses, IDs,
+field names or values. Array root semantics remain unverified.
+
+Dependency order is source nesting evidence only, never destination mapping or
+write order. No ID aliases, device-access enrichment, credentials, import
+payloads or executable plans are created. Root/site/device destination mappings,
+schema/enumeration completeness and restoration remain unresolved.
+
+Exit status **1** means inspected but migration readiness remains blocked,
+including otherwise well-shaped trees. Status **3** reports local input/output
+failure; **4** reports an invalid envelope or exceeded preview limits (depth 64,
+10,000 node candidates). Original backup artifacts are never modified.
+
+### Offline legacy cc-objects compatibility assessment
+
+Add `--legacy-compatibility` to the tree preview to assess the original
+downloader/uploader's flat field contract without producing an import file:
+
+```powershell
+python master.py --operation tree-readiness-preview --legacy-compatibility `
+  --input "C:\CCV-Backups\organization-tree\tree.json" `
+  --output "C:\CCV-Backups\organization-legacy-preview.json"
+```
+
+Use the Physical tree input separately; add `--report-format json` for JSON
+stdout. Exit status 1 means assessed but blocked, not migration-ready.
+The report contains only counts, opaque node references and static field/code
+labels, not copied source IDs, names, addresses, secrets or flat `sites/devices`.
+Original source IDs and hierarchy remain unchanged in the original backups.
+
+The original flat format is not interchangeable with native `tree` envelopes.
+Legacy site/device projection and source-parent traversal are reusable concepts;
+legacy by-IP access enrichment, root fallback, global site-name lookup and
+destination writes are not adopted. Inventory-to-tree ID equivalence is not a
+prerequisite to assess the tree subset, but the 36/35 difference still prevents
+claiming full device coverage. Device-access enrichment, credentials, destination
+IDs/root mapping and exact target-version compatibility remain unqualified.
+
+### Offline Site migration readiness
+
+Assess only the source Sites in an existing Vision Organization backup:
+
+```powershell
+python master.py --operation tree-readiness-preview --site-readiness `
+  --input "C:\CCV-Backups\organization-tree\tree.json" `
+  --output "C:\CCV-Backups\site-readiness.json"
+```
+
+Default stdout is a safe text summary; add `--report-format json` for structured
+stdout. The optional JSON report is created exclusively, never overwritten.
+`--site-readiness` cannot combine with `--legacy-compatibility` and rejects
+Physical tree inputs. Exit 1 means assessed but migration remains blocked;
+existing local-I/O/invalid-envelope exit codes 3/4 still apply.
+
+The report assesses name and native source ID, derives source parent ID/name
+from observed nesting, and lists source-only parent-before-child ordering.
+The legacy Site-create loop consumes name/parent_site_name, not the flat
+id/parentOrmID reference fields. The latter are retained conceptually for
+source integrity, never treated as destination identities. Parent-name projection
+from nesting is not certified equivalent to the original downloader's Site
+lookup. The source root is context, not a Site to create.
+
+Sufficient source fields do not establish full schema coverage or destination
+readiness. Extra fields, duplicates, unknown structure, root/parent problems and
+destination identity/schema requirements remain explicit. No source values,
+Device associations, credentials, flat import files or executable plans are
+produced; source identities and hierarchy remain in the unchanged backup.
+
+### Offline inventory/tree reconciliation
+
+From the repository on Windows, use only the saved local inputs:
+
+```powershell
+$env:PYTHONPATH = "$((Get-Location).Path)\src"
+python -B -m cc_vision_import.inventory_reconciliation `
+  --inventory "C:\CCV-Backups\controller-objects\inventory.json" `
+  --organization "C:\CCV-Backups\organization-tree\tree.json" `
+  --physical "C:\CCV-Backups\physical-tree\tree.json" `
+  --output "C:\CCV-Backups\reconciliation-safe.json"
+```
+
+The optional output must be a new file. Safe JSON stdout/report uses opaque
+record references, counts and static issue codes, never native identifiers,
+names, addresses or configuration values. Original backups are unchanged.
+Existing tree preview validates trees and supplies containment/dependency evidence.
+
+Inventory `ormId` and tree `meIdentifier.managedElementID` are separate native
+identity fields with no established equivalence. Equal values, names or addresses
+are not used to join them. The current report therefore returns status 1
+(`identity-bridge-unverified`), zero **verified** matches, unresolved record
+references, and null inventory-only/tree-only sets (unknown, not empty).
+Duplicates/missing identities are evaluated within each representation.
+Site associations describe observed tree containment and legacy-based parent
+inference, not certified semantic parentage or destination mapping.
+A record-count difference alone is not evidence that a specific device is missing.
+
+Next prerequisite: qualify the native identity crosswalk with independent
+schema evidence or an explicitly reviewed offline association contract before
+implementing a one-to-one matcher. No name/IP/ID alias inference is authorized.
 
 No individual site/device IDs or IP lists are needed for automatic discovery.
 Opening the menu, help, Exit or declining Start makes no controller requests.
@@ -236,7 +517,8 @@ CC_VISION_IMAGE=cc-vision-master:0.4 ./run-vision-backup.sh --config backup.json
 
 Missing/inaccessible images report the selected reference and require an
 explicit build/load or override. `CC_VISION_IMAGE` contains an image reference,
-never credentials. No Compose, persistent service, cron or port publishing.
+never credentials. The host launcher does not use Compose; the optional roles
+above are independent. Neither path adds a persistent service, cron or ports.
 
 ## Discovery, artifacts and results
 
