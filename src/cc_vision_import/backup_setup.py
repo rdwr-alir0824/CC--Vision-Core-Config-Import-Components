@@ -143,6 +143,95 @@ def _docker_mount(source: Path, target: str, *, readonly: bool) -> str:
     return f"type=bind,source={source},target={target}" + (",readonly" if readonly else "")
 
 
+def _operator_summary(raw: str, output: Path) -> str:
+    if not isinstance(raw, str):
+        raise SetupError("Readable backup summary output is missing; inspect the saved summary.json.")
+    report = load_json(raw)
+    if not isinstance(report, dict) or report.get("operation") != "backup-vision":
+        raise SetupError("Readable backup summary unavailable; inspect the saved summary.json and engine diagnostics.")
+    requested = report.get("requested_modules")
+    completed = report.get("completed_modules")
+    failed = report.get("failed_modules")
+    results = report.get("results")
+    run = report.get("run_directory")
+    overall_status = report.get("overall_status")
+    overall = {
+        "supported_collection_succeeded": "Selected supported collection succeeded",
+        "partial_collection": "Partial collection",
+        "failed_collection": "Collection failed",
+    }.get(overall_status) if isinstance(overall_status, str) else None
+    if (
+        not isinstance(requested, list) or not isinstance(completed, list)
+        or not isinstance(failed, list) or not isinstance(results, list)
+        or any(domain not in SUPPORTED_DOMAINS for domains in (requested, completed, failed) for domain in domains)
+        or any(not isinstance(row, dict) for row in results)
+        or not isinstance(run, str) or not run.startswith("vision-backup-")
+        or any(not (c.isascii() and (c.isalnum() or c == "-")) for c in run)
+        or overall is None
+    ):
+        raise SetupError("Readable backup summary has an unsupported format; inspect the saved summary.json.")
+
+    def count(value: object) -> int:
+        if type(value) is not int or value < 0:
+            raise SetupError("Readable backup summary has invalid counts; inspect the saved summary.json.")
+        return value
+
+    labels = ("Controller Objects", "Device Access", "LDAP Permissions", "Physical Tree", "Organization Tree", "Scheduler")
+    lines = ["\nVision backup summary", "Module | Status | Collected count | Redacted fields"]
+    for domain, label in zip(SUPPORTED_DOMAINS, labels):
+        if domain not in requested:
+            lines.append(f"{label} | not requested | - | -")
+            continue
+        if domain in ("controller-objects", "device-access"):
+            inventory = report.get("inventory")
+            if not isinstance(inventory, dict):
+                raise SetupError("Readable backup summary is missing inventory status.")
+            device_rows = [
+                row for row in results if row.get("status") == "collected" and row.get("operation") == "device-by-ip"
+            ]
+            if domain == "controller-objects":
+                rows = [row for row in results if row.get("status") == "collected"]
+                discovery = inventory.get("status") != "not_requested"
+                number = count(report.get("device_details_collected") if discovery else len(rows))
+                meaning = "device details" if discovery else "targeted lookup responses"
+                warning = "Partial inventory; detail-response redactions shown, inventory redactions not included."
+            else:
+                rows = device_rows
+                number = count(report.get("device_access_objects"))
+                meaning = "device-access exports"
+                warning = "Redactions describe source detail responses, not access-only fields; secrets are not restorable."
+            redacted = sum(count(row.get("redacted_fields")) for row in rows)
+            status = "incomplete" if domain in failed else "collected" if domain in completed else "skipped"
+        else:
+            if domain in ("physical-tree", "organization-tree"):
+                trees = report.get("trees")
+                item = trees.get(domain) if isinstance(trees, dict) else None
+                meaning = "top-level JSON records (not nodes)"
+                warning = "Native JSON export; tree identity, schema and enumeration completeness unverified."
+            else:
+                item = report.get("ldap_permissions" if domain == "ldap-permissions" else "scheduler")
+                meaning = "LDAP permission records" if domain == "ldap-permissions" else "task records"
+                warning = "Schema/enumeration completeness and restore semantics unverified."
+            if not isinstance(item, dict) or item.get("status") not in ("collected", "failed", "skipped"):
+                raise SetupError("Readable backup summary is missing module status.")
+            status = item["status"]
+            number = count(item.get("record_count"))
+            redacted = count(item["redacted_fields"]) if "redacted_fields" in item else "not reported"
+            issues = item.get("issue_codes", [])
+            if not isinstance(issues, list):
+                raise SetupError("Readable backup summary has invalid module issues.")
+            warning += f" Reported issue/limitation codes: {len(issues)}."
+        lines.append(f"{label} | {status} | {number} {meaning} | {redacted}")
+        lines.append(f"  Limitations: {warning}")
+    lines.extend([
+        f"Overall: {overall}",
+        f"Backup directory: {output / run}",
+        f"Full report: {output / run / 'summary.json'}",
+        "Not a complete configuration backup or migration-ready export.",
+    ])
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Interactive or JSON Vision backup using the existing Docker image.")
     parser.add_argument("--config", help="Reusable non-secret JSON configuration.")
@@ -258,13 +347,29 @@ def main(argv: list[str] | None = None) -> int:
                 command.extend(["--mount", _docker_mount(runtime_ca, "/run/config/vision-ca.pem", readonly=True)])
             command.extend([image_reference, "--operation", "backup-vision", "--backup-profile", "/run/config/profile.json",
                             "--credentials-file", "/run/secrets/credentials.json"])
-            result = subprocess.run(command, check=False, stderr=subprocess.PIPE, text=True)
+            concise = not args.config and not args.non_interactive
+            result = subprocess.run(
+                command, check=False, stderr=subprocess.PIPE, text=True,
+                **({"stdout": subprocess.PIPE} if concise else {}),
+            )
             for line in result.stderr.splitlines(keepends=True):
                 # This exact warning was already displayed before confirmation.
                 if not profile["tls"]["verify"] and line.rstrip("\r\n") == TLS_WARNING:
                     continue
                 sys.stderr.write(line)
-            print(f"Backup output directory: {output}; exit status: {result.returncode}")
+            if concise:
+                try:
+                    print(_operator_summary(result.stdout, output))
+                except (SetupError, ValueError, UnicodeError, RecursionError):
+                    print(
+                        "Backup summary unavailable; inspect summary.json under the backup output directory and engine diagnostics.",
+                        file=sys.stderr,
+                    )
+                    print(f"Backup output directory: {output}; exit status: {result.returncode}")
+                    return result.returncode if result.returncode != 0 else 3
+                print(f"Exit status: {result.returncode}")
+            else:
+                print(f"Backup output directory: {output}; exit status: {result.returncode}")
             return result.returncode
     except BackupPolicyError as error:
         print(f"Setup failed: {error}", file=sys.stderr)

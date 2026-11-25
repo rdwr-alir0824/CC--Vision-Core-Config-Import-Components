@@ -30,6 +30,22 @@ class BackupSetupTests(OfflineTestCase):
             "output_directory": str(self.output),
         }
         self.credentials = {"username": "private-user-marker", "password": "private-password-marker"}
+        self.report = {
+            "operation": "backup-vision", "requested_modules": list(self.setup.SUPPORTED_DOMAINS),
+            "completed_modules": list(self.setup.SUPPORTED_DOMAINS), "failed_modules": [],
+            "run_directory": "vision-backup-synthetic", "overall_status": "supported_collection_succeeded",
+            "inventory": {"status": "collected"}, "device_details_collected": 36, "device_access_objects": 36,
+            "results": [{"status": "collected", "operation": "device-by-ip", "redacted_fields": 2}],
+            "ldap_permissions": {"status": "collected", "record_count": 13, "redacted_fields": 0, "issue_codes": []},
+            "trees": {
+                domain: {"status": "collected", "record_count": 1, "redacted_fields": 0, "issue_codes": []}
+                for domain in ("physical-tree", "organization-tree")
+            },
+            "scheduler": {"status": "collected", "record_count": 23, "redacted_fields": 46, "issue_codes": []},
+            "opaque": {"password": "must-not-print-marker"},
+        }
+        self.engine_stdout = None
+        self.engine_status = 0
         self.read_credentials = self.setup._read_credentials
         self.stack.enter_context(patch.object(self.setup, "_read_credentials", return_value=self.credentials))
         self.stack.enter_context(patch.dict(os.environ, {}, clear=False))
@@ -76,7 +92,10 @@ class BackupSetupTests(OfflineTestCase):
                     raise KeyboardInterrupt
                 if run_failure:
                     raise OSError("Mock Docker launch failure")
-            return Mock(returncode=0, stderr="")
+            return Mock(
+                returncode=self.engine_status if "run" in command else 0, stderr="",
+                stdout=json.dumps(self.report) if self.engine_stdout is None else self.engine_stdout,
+            )
 
         with (
             patch.object(self.setup.subprocess, "run", side_effect=docker) as runner,
@@ -108,6 +127,63 @@ class BackupSetupTests(OfflineTestCase):
         self.assertFalse(any("CA" in call.args[0] for call in prompts.call_args_list))
         self.assertIn("Cancelled", stdout)
         self.assertEqual(stderr, "")
+
+    def test_menu_summary_is_concise_and_keeps_full_artifact_unchanged(self):
+        artifact_directory = self.output / self.report["run_directory"]
+        artifact_directory.mkdir(parents=True)
+        artifact = artifact_directory / "summary.json"
+        raw = json.dumps(self.report)
+        artifact.write_text(raw)
+        with patch.object(self.setup, "_output_permissions"):
+            result, runner, _, _, stdout, stderr = self.invoke(
+                [], ["1", "192.0.2.1", self.credentials["username"], "", str(self.output), "n", "y"],
+            )
+        self.assertEqual(result, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(runner.call_args_list[-1].kwargs["stdout"], self.setup.subprocess.PIPE)
+        self.assertIn("Controller Objects | collected | 36 device details", stdout)
+        self.assertIn("Device Access | collected | 36 device-access exports", stdout)
+        self.assertIn("LDAP Permissions | collected | 13 LDAP permission records", stdout)
+        self.assertIn("Scheduler | collected | 23 task records | 46", stdout)
+        self.assertIn("top-level JSON records (not nodes)", stdout)
+        self.assertIn("inventory redactions not included", stdout)
+        self.assertIn(str(artifact_directory), stdout)
+        self.assertNotIn("must-not-print-marker", stdout)
+        self.assertNotIn('"requested_modules"', stdout)
+        self.assertEqual(artifact.read_text(), raw)
+
+    def test_partial_and_unavailable_summary_preserve_engine_failure_and_hide_raw_output(self):
+        inputs = ["1", "192.0.2.1", self.credentials["username"], "", str(self.output), "n", "y"]
+        self.engine_status = 1
+        self.report["overall_status"] = "partial_collection"
+        self.report["completed_modules"].remove("scheduler")
+        self.report["failed_modules"] = ["scheduler"]
+        self.report["scheduler"] = {"status": "failed", "record_count": 0, "issue_codes": ["must-not-print-marker"]}
+        result, _, _, _, stdout, _ = self.invoke([], inputs)
+        self.assertEqual(result, 1)
+        self.assertIn("Scheduler | failed | 0 task records | not reported", stdout)
+        self.assertIn("Overall: Partial collection", stdout)
+        self.assertNotIn("must-not-print-marker", stdout)
+        for raw, engine_status, expected in (
+            ("not-json-must-not-print-marker", 125, 125),
+            ('{"operation": "backup-vision"}', 0, 3),
+        ):
+            self.engine_stdout, self.engine_status = raw, engine_status
+            result, _, _, _, stdout, stderr = self.invoke([], inputs)
+            self.assertEqual(result, expected)
+            self.assertIn("summary unavailable", stderr)
+            self.assertNotIn("must-not-print-marker", stdout + stderr)
+
+    def test_json_profile_and_unattended_modes_do_not_capture_machine_output(self):
+        for arguments, inputs in (
+            (["--config", str(self.config)], [self.credentials["username"], "y"]),
+            ([], ["3", str(self.config), self.credentials["username"], "y"]),
+            (["--config", str(self.config), "--non-interactive", "--credentials-file", "private.json"], []),
+        ):
+            result, runner, _, _, stdout, _ = self.invoke(arguments, inputs)
+            self.assertEqual(result, 0)
+            self.assertNotIn("stdout", runner.call_args_list[-1].kwargs)
+            self.assertNotIn("Vision backup summary", stdout)
 
     def test_json_unattended_uses_private_credentials_nonroot_and_cleans_runtime(self):
         result, runner, prompts, snapshots, stdout, stderr = self.invoke([
@@ -268,6 +344,7 @@ class BackupSetupTests(OfflineTestCase):
             with patch.object(self.setup.getpass, "getpass", return_value=self.credentials["password"]):
                 with patch.object(self.setup.subprocess, "run", return_value=Mock(
                     returncode=0, stderr=self.setup.TLS_WARNING + "\nDocker diagnostic\n",
+                    stdout=json.dumps(self.report),
                 )):
                     with redirect_stdout(stdout), redirect_stderr(stderr):
                         result = self.setup.main([])

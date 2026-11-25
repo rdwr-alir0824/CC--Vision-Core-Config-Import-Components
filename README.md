@@ -91,6 +91,22 @@ Full Supported includes all six;
 existing explicit domain lists keep their previous scope. Other selections fail clearly.
 Backup from JSON loads an existing non-secret profile and uses the same engine.
 
+Menu options 1/2 finish with a readable six-module summary: status, collected
+count and its meaning, redactions, limitations, run directory and overall status.
+Tree counts are top-level JSON records, not hierarchy-node totals. Controller/
+access redactions describe their source detail responses; controller inventory
+redactions are not included in that terminal total, and access is not an
+access-only redaction count. Unreported redactions are shown as such, not zero.
+No raw device data or secret-bearing fields are displayed.
+
+The full `summary.json` artifact is unchanged. `--config`, menu option 3 and
+`--non-interactive` retain the existing engine JSON output and exit status.
+Invalid/missing menu-mode engine output is reported explicitly without echoing
+it; a successful engine with an unavailable readable summary returns launcher
+status 3 (saved artifacts may still be valid). Existing nonzero engine statuses
+are preserved. See the [coverage report](docs/API_MATRIX.md#operator-backup-coverage---vision-549)
+for collected subsets, restoration gaps and unverified assumptions.
+
 Normal setup displays the supported Vision source, then asks for:
 
 1. Vision IP/HTTPS URL (an IP is normalized to an HTTPS origin).
