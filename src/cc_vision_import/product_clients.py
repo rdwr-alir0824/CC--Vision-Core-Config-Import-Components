@@ -1,6 +1,7 @@
 """Separate read-only product interfaces over caller-owned managed sessions."""
 
 from dataclasses import dataclass, field
+from ipaddress import ip_address
 from typing import ClassVar
 
 from ._contract_validation import ContractReader
@@ -165,6 +166,54 @@ class VisionBackupRead:
     issue_codes: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class VisionDiscoveryRead(VisionBackupRead):
+    device_ips: tuple[str, ...]
+    object_count: int
+
+
+def _discovery_nodes(payload: object, depth: int = 0) -> tuple[list[str], int, set[str]]:
+    if not isinstance(payload, list) or depth > 64:
+        raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+    addresses: list[str] = []
+    count = 0
+    codes: set[str] = set()
+    string_fields = (
+        "formFactor", "treeType", "deviceVersion", "type", "managementIp",
+        "ormId", "name", "parentOrmId", "status",
+    )
+    for value in payload:
+        row = _object(value)
+        if not row:
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        count += 1
+        for key in (*string_fields, "supportTemplate", "deleted"):
+            if key not in row:
+                continue
+            item = row[key]
+            if item is None:
+                codes.add("unverified_nullability")
+            elif key in string_fields and not isinstance(item, str) or key not in string_fields and type(item) is not bool:
+                raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        address = row.get("managementIp")
+        if isinstance(address, str) and address:
+            try:
+                ip_address(address)
+            except ValueError:
+                codes.add("invalid_discovered_ip")
+            else:
+                addresses.append(address)
+        children = row.get("children", [])
+        if children is None:
+            codes.add("unverified_nullability")
+        else:
+            nested, total, issues = _discovery_nodes(children, depth + 1)
+            addresses.extend(nested)
+            count += total
+            codes.update(issues)
+    return addresses, count, codes
+
+
 def _redact_credentials(value: object, depth: int = 0) -> tuple[object, int]:
     if depth > 64:
         raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
@@ -212,6 +261,34 @@ class VisionBackupClient:
         if snapshot.product != "vision" or snapshot.version != "5.4.9":
             raise ProductClientError(ClientErrorCategory.SESSION_MISMATCH)
         self._manager = manager
+
+    def discover(self, *, collected_at: str) -> VisionDiscoveryRead:
+        evidence = operation_evidence("vision", "5.4.9", "DOC-V549", "VISION-MANAGED-DEVICES")
+        assert evidence.path is not None
+        response = self._manager.request(
+            SessionRole.SOURCE, HttpMethod.GET, tuple(evidence.path.strip("/").split("/")), expect_json=True,
+        )
+        if response.status != 200:
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        try:
+            payload = load_json(response.body.decode("utf-8"))
+        except (ValueError, UnicodeError, RecursionError):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE) from None
+        addresses, count, codes = _discovery_nodes(payload)
+        redacted, removed = _redact_credentials(payload)
+        if removed:
+            codes.add("credential_fields_redacted")
+        artifact = parse_artifact({
+            "schema_version": 1, "domain": "api-schema-evidence",
+            "source": {"product": "vision", "version": "5.4.9"},
+            "metadata": {"exported_at": collected_at, "exporter": "vision-read-only-backup"},
+            "objects": redacted,
+            "validation": {"scope": "offline-contract", "status": "valid", "issue_codes": []},
+        })
+        return VisionDiscoveryRead(
+            evidence, artifact.objects, removed, tuple(sorted(codes)),
+            tuple(dict.fromkeys(addresses)), count,
+        )
 
     def read(self, operation: LookupCapability, value: str, *, collected_at: str) -> VisionBackupRead:
         segments = vision_backup_segments(operation, value)

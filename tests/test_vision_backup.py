@@ -59,7 +59,7 @@ class VisionBackupTests(OfflineTestCase):
     def login(self, **overrides):
         return self.connection({"status": "ok", "jsessionid": "session-secret-marker", **overrides})
 
-    def invoke(self, *connections, arguments=None):
+    def invoke(self, *connections, arguments=None, warning_expected=False):
         self.profile_path.write_text(json.dumps(self.profile), encoding="utf-8")
         factory = Mock(side_effect=connections)
         stdout, stderr = io.StringIO(), io.StringIO()
@@ -76,7 +76,7 @@ class VisionBackupTests(OfflineTestCase):
             with self.assertRaises(SystemExit) as caught:
                 runpy.run_path(str(Path(__file__).parent.parent / "master.py"), run_name="__main__")
             status = caught.exception.code
-        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), self.backup.LAB_TLS_WARNING + "\n" if warning_expected else "")
         return status, json.loads(stdout.getvalue()), factory
 
     def assert_secret_free(self, value):
@@ -116,16 +116,16 @@ class VisionBackupTests(OfflineTestCase):
             self.assertEqual(context.verify_mode, importlib.import_module("ssl").CERT_REQUIRED)
             self.assertLessEqual(call.kwargs["timeout"], 10)
         directory = self.output / report["run_directory"]
-        device = json.loads((directory / "device-by-ip-003.json").read_text())
+        self.assertEqual(report["device_details_collected"], 1)
+        device = json.loads((directory / "controller-objects" / "device-by-ip-003.json").read_text())
         self.assertIsNone(device["objects"][0]["deviceSetup"]["deviceAccess"]["cliPassword"])
         self.assertEqual(device["redacted_fields"], 2)
-        site = json.loads((directory / "site-by-name-001.json").read_text())
+        site = json.loads((directory / "controller-objects" / "site-by-name-001.json").read_text())
         self.assertEqual(site["objects"][0]["future"], self.site["future"])
         self.assertEqual(site["evidence"]["pdf_pages"], [141])
         self.assert_secret_free([report, device, site, json.loads((directory / "summary.json").read_text())])
 
     def test_failed_target_and_unsupported_domain_remain_explicitly_incomplete(self):
-        self.profile["domains"].append("scheduler")
         status, report, factory = self.invoke(
             self.login(), self.connection(self.site), self.connection({"status": "error", "message": "device-secret-marker"}),
             self.connection(self.device),
@@ -133,9 +133,9 @@ class VisionBackupTests(OfflineTestCase):
         self.assertEqual(status, 1)
         self.assertEqual(report["collected_objects"], 2)
         self.assertEqual(report["failed_targets"], 1)
-        self.assertEqual(report["skipped_domains"], [{"domain": "scheduler", "reason": "unsupported_domain"}])
+        self.assertIn("scheduler", report["unsupported_modules"])
         self.assertEqual(factory.call_count, 4)
-        self.assertEqual(len(list((self.output / report["run_directory"]).glob("site-by-id-*.json"))), 0)
+        self.assertEqual(len(list((self.output / report["run_directory"] / "controller-objects").glob("site-by-id-*.json"))), 0)
         self.assert_secret_free(report)
 
     def test_login_failure_or_missing_session_id_never_dispatches_reads(self):
@@ -252,3 +252,121 @@ class VisionBackupTests(OfflineTestCase):
             reports.append(report)
         self.assertNotEqual(reports[0]["run_directory"], reports[1]["run_directory"])
         self.assertTrue(all((self.output / report["run_directory"] / "summary.json").is_file() for report in reports))
+
+    def test_default_system_trust_and_explicit_warned_lab_tls_reach_every_request(self):
+        for tls, lab_only in (({}, False), ({"verify": True}, False), ({"verify": False}, True)):
+            with self.subTest(tls=tls):
+                self.profile["tls"] = tls
+                connections = [self.login(), self.connection(self.site), self.connection(self.site), self.connection(self.device)]
+                arguments = [
+                    "--operation", "backup-vision", "--backup-profile", str(self.profile_path),
+                    "--credentials-file", str(self.credentials),
+                ]
+                if lab_only:
+                    arguments.append("--lab-only")
+                status, report, factory = self.invoke(
+                    *connections, arguments=arguments, warning_expected=lab_only,
+                )
+                self.assertEqual(status, 0)
+                self.assertEqual(report["tls"]["verify"], not lab_only)
+                for call in factory.call_args_list:
+                    context = call.kwargs["context"]
+                    self.assertEqual(context.check_hostname, not lab_only)
+                    self.assertEqual(context.verify_mode, ssl.CERT_NONE if lab_only else ssl.CERT_REQUIRED)
+                self.assertFalse(report["configuration_writes_authorized"])
+        for invalid in ("false", 0, None):
+            self.profile["tls"] = {"verify": invalid}
+            status, report, factory = self.invoke()
+            self.assertEqual(status, 4)
+            factory.assert_not_called()
+        with self.assertRaises(ValueError):
+            self.transport.TransportConfig(
+                base_url="https://vision.invalid", connect_timeout=10, read_timeout=30, verify_tls=False,
+            )
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+            self.cli.main(["--operation", "operations", "--lab-only"])
+        self.assertEqual(caught.exception.code, 2)
+
+    def test_automatic_inventory_preserves_native_ids_and_deduplicates_device_reads(self):
+        self.profile["controller_objects"] = {"discovery": True}
+        inventory = [{"ormId": "site-native", "name": "Site", "children": [
+            {"ormId": "device-native", "managementIp": "192.0.2.10", "name": "Device"},
+            {"ormId": "duplicate-address", "managementIp": "192.0.2.10"},
+        ]}]
+        connections = [self.login(), self.connection(inventory), self.connection(self.device)]
+        status, report, factory = self.invoke(*connections)
+        self.assertEqual(status, 0)
+        self.assertEqual(factory.call_count, 3)
+        self.assertEqual(report["inventory"]["object_count"], 3)
+        self.assertEqual(report["device_details_collected"], 1)
+        self.assertFalse(report["scope"]["complete_inventory"])
+        self.assertEqual(connections[1].requests[0][:2], ("GET", "/mgmt/system/config/itemlist/alldevices"))
+        self.assertEqual(connections[2].requests[0][:2], ("GET", "/mgmt/system/config/tree/device/byip/192.0.2.10"))
+        saved = json.loads((self.output / report["run_directory"] / "controller-objects" / "inventory.json").read_text())
+        self.assertEqual(saved["objects"], inventory)
+        self.assertNotIn("ormID", saved["objects"][0])
+        self.assert_secret_free(saved)
+
+    def test_discovery_empty_response_and_errors_never_invent_full_backup(self):
+        self.profile["controller_objects"] = {"discovery": True}
+        for payload, expected in (
+            ([], 0), ({"status": "error"}, 1), ([{}], 1),
+            ([{"managementIp": "bad-address"}], 1), ([{"children": {}}], 1),
+        ):
+            with self.subTest(payload=payload):
+                status, report, factory = self.invoke(self.login(), self.connection(payload))
+                self.assertEqual(status, expected)
+                self.assertEqual(factory.call_count, 2)
+                self.assertFalse(report["scope"]["complete_configuration_backup"])
+                self.assertEqual(report["device_details_collected"], 0)
+
+    def test_module_selection_device_access_redaction_and_ams_rejection(self):
+        self.profile.pop("domains")
+        self.profile["backup_mode"] = "full-supported"
+        self.profile["controller_objects"] = {"discovery": True}
+        status, report, factory = self.invoke(
+            self.login(), self.connection([{"managementIp": "192.0.2.10"}]), self.connection(self.device),
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(report["completed_modules"], ["controller-objects", "device-access"])
+        saved = json.loads((self.output / report["run_directory"] / "device-access" / "device-by-ip-001.json").read_text())
+        self.assertIsNone(saved["objects"][0]["deviceAccess"]["cliPassword"])
+        self.assertEqual(report["device_access_objects"], 1)
+        self.assert_secret_free(saved)
+        self.profile["backup_mode"] = "selected"
+        for domain in ("AMS-alerts", "AMS_alerts", "AMS Alerts", "AMSAlert", "AMSAlerts", "scheduler", "physical-tree"):
+            self.profile["domains"] = [domain]
+            status, report, factory = self.invoke()
+            self.assertEqual(status, 4)
+            factory.assert_not_called()
+            self.assertIn(report["errors"][0]["code"], ("excluded_backup_domain", "unsupported_backup_domain"))
+
+    def test_access_only_and_missing_access_report_independent_module_results(self):
+        self.profile["domains"] = ["device-access"]
+        self.profile["controller_objects"] = {"discovery": True}
+        status, report, _ = self.invoke(
+            self.login(), self.connection([{"managementIp": "192.0.2.10"}]), self.connection(self.device),
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(report["completed_modules"], ["device-access"])
+        directory = self.output / report["run_directory"]
+        self.assertFalse((directory / "controller-objects").exists())
+        self.assertFalse((directory / "device-access" / "inventory.json").exists())
+        self.assertTrue((directory / "device-access" / "device-by-ip-001.json").is_file())
+        self.profile.pop("domains")
+        self.profile["backup_mode"] = "full-supported"
+        status, report, _ = self.invoke(
+            self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
+            self.connection({"ormID": "device-1", "name": "device"}),
+        )
+        self.assertEqual(status, 1)
+        self.assertEqual(report["completed_modules"], ["controller-objects"])
+        self.assertEqual(report["failed_modules"], ["device-access"])
+        self.assertEqual(report["overall_status"], "partial_collection")
+        self.assertEqual(report["results"][0]["device_access_issue_codes"], ["device_access_unavailable"])
+        self.profile["controller_objects"] = {"device_ips": ["192.0.2.10"]}
+        with patch.object(self.backup.SessionManager, "is_authenticated", return_value=False):
+            status, report, _ = self.invoke(self.login())
+        self.assertEqual(status, 1)
+        self.assertEqual(report["completed_modules"], [])
+        self.assertEqual(report["failed_modules"], ["controller-objects", "device-access"])

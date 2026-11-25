@@ -79,6 +79,13 @@ def operation_evidence(
     document = require_document(product, version, reference)
     _reader.text(record, "$.operation")
     original_record = record
+    if record == "VISION-MANAGED-DEVICES":
+        if product != "vision":
+            _reader.fail("product_mismatch", "$.operation", "Discovery evidence is bound only to Vision.")
+        return OperationEvidence(
+            document, record, "GET", "/mgmt/system/config/itemlist/alldevices",
+            "documented", (119, 120, 263),
+        )
     if record in ("API-01-V", "API-01-C"):
         expected = "vision" if record == "API-01-V" else "cyber-controller"
         if product != expected:

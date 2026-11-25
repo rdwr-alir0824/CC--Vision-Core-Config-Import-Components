@@ -1,8 +1,10 @@
-"""Explicit, targeted Vision 5.4.9 collection; never a migration execution path."""
+"""Explicit Vision 5.4.9 discovery/read collection; never a migration execution path."""
 
 import json
 import os
 import stat
+import ssl
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
@@ -16,6 +18,7 @@ from .authentication import (
     DocumentedVisionAuthenticationStrategy, ResolvedCredentials, SessionRole,
 )
 from .capabilities import LookupCapability, ProductClientError
+from .backup_policy import LAB_TLS_WARNING, BackupPolicyError, UNSUPPORTED_DOMAINS, backup_domains
 from .contracts import ContractValidationError, ExitStatus
 from .http_backend import DestinationAuthorization, StdlibHttpBackend
 from .offline_inputs import OfflineInputs, local_path, write_local_export
@@ -32,6 +35,27 @@ _SCOPE = {
 }
 
 
+@dataclass(frozen=True, kw_only=True)
+class _LabVisionTransportConfig(TransportConfig):
+    lab_only: bool = False
+
+    def _validate_tls(self) -> None:
+        if self.lab_only is not True or self.verify_tls is not False:
+            _reader.fail("unsafe_tls", "$.tls", "Unverified TLS requires explicit lab-only Vision backup mode.")
+        if self.trusted_ca is not None:
+            _reader.fail("invalid_ca", "$.tls", "Custom CA trust cannot be combined with verify=false.")
+
+    def tls_context(self) -> ssl.SSLContext:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        return context
+
+    @property
+    def lab_insecure_tls(self) -> bool:
+        return True
+
+
 @dataclass(frozen=True)
 class VisionBackupProfile:
     source: SourceProfile
@@ -39,42 +63,56 @@ class VisionBackupProfile:
     domains: tuple[str, ...]
     targets: tuple[tuple[LookupCapability, str], ...]
     output_directory: Path
+    discovery: bool = False
 
     @classmethod
-    def read(cls, path_value: str) -> "VisionBackupProfile":
+    def read(cls, path_value: str, *, lab_only: bool = False) -> "VisionBackupProfile":
+        if type(lab_only) is not bool:
+            _reader.fail("unsafe_tls", "$", "Lab-only selection must be explicit.")
         path = local_path(path_value, Path.cwd()).absolute()
         data = _reader.mapping(
             OfflineInputs(path).read(str(path), None), "$",
-            {"source", "tls", "domains", "controller_objects", "output_directory"},
+            {"source", "tls", "domains", "backup_mode", "controller_objects", "output_directory"},
         )
         source = SourceProfile.from_dict(_reader.required(data, "source", "$"))
         if source.product != "vision" or source.version != "5.4.9":
             _reader.fail("unsupported_backup_source", "$.source", "Live backup supports Vision 5.4.9 only.")
         if source.secret_ref is not None:
             _reader.fail("unexpected_credential_reference", "$.source", "Supply credentials through --credentials-file only.")
-        tls = _reader.mapping(_reader.required(data, "tls", "$"), "$.tls", {"verify", "trusted_ca"})
-        if _reader.required(tls, "verify", "$.tls") is not True:
-            _reader.fail("unsafe_tls", "$.tls.verify", "TLS verification must remain enabled.")
+        tls = _reader.mapping(data.get("tls", {}), "$.tls", {"verify", "trusted_ca"})
+        verify = tls.get("verify", True)
+        if type(verify) is not bool:
+            _reader.fail("invalid_type", "$.tls.verify", "Use true or false, not text or numbers.")
+        if verify is False and not lab_only:
+            _reader.fail("unsafe_tls", "$.tls.verify", "verify=false requires explicit --lab-only.")
         ca = tls.get("trusted_ca")
         trusted_ca = None if ca is None else str(local_path(_reader.text(ca, "$.tls.trusted_ca"), path.parent))
-        transport = TransportConfig(
+        options = dict(
             base_url=source.base_url.rstrip("/"), trusted_ca=trusted_ca,
             connect_timeout=10, read_timeout=30, operation_timeout=60, read_retries=0,
         )
-        domains = _reader.references(_reader.required(data, "domains", "$"), "$.domains")
-        if not domains:
-            _reader.fail("empty_selection", "$.domains", "Select at least one backup domain.")
-        selection = _reader.mapping(
-            _reader.required(data, "controller_objects", "$"), "$.controller_objects",
-            {"site_names", "site_ids", "device_ips"},
+        transport = (
+            TransportConfig(**options) if verify
+            else _LabVisionTransportConfig(**options, verify_tls=False, lab_only=lab_only)
         )
+        try:
+            domains = backup_domains(data)
+        except BackupPolicyError as error:
+            _reader.fail(error.code, "$.domains", str(error))
+        selection = _reader.mapping(
+            data.get("controller_objects", {"discovery": True}), "$.controller_objects",
+            {"discovery", "site_names", "site_ids", "device_ips"},
+        )
+        discovery = selection.get("discovery", False)
+        if type(discovery) is not bool:
+            _reader.fail("invalid_type", "$.controller_objects.discovery", "Discovery selection must be boolean.")
         targets: list[tuple[LookupCapability, str]] = []
         for key, operation in (
             ("site_names", LookupCapability.SITE_BY_NAME),
             ("site_ids", LookupCapability.SITE_BY_ID),
             ("device_ips", LookupCapability.DEVICE_BY_IP),
         ):
-            values = _reader.required(selection, key, "$.controller_objects")
+            values = selection.get(key, [])
             if not isinstance(values, list):
                 _reader.fail("invalid_type", "$.controller_objects", "Target selections must be arrays.")
             for item in values:
@@ -88,14 +126,18 @@ class VisionBackupProfile:
                 targets.append((operation, value))
         if len(targets) > 100 or len(targets) != len(set(targets)):
             _reader.fail("invalid_target_selection", "$.controller_objects", "Use at most 100 unique operation/target pairs.")
-        if "controller-objects" in domains and not targets:
+        if discovery and targets:
+            _reader.fail("invalid_target_selection", "$.controller_objects", "Discovery and targeted lookup lists are separate modes.")
+        if not targets and not discovery:
             _reader.fail("empty_selection", "$.controller_objects", "Controller object collection needs explicit targets.")
-        if "controller-objects" not in domains and targets:
-            _reader.fail("unselected_targets", "$.controller_objects", "Do not supply targets for an unselected domain.")
+        if "device-access" in domains and not discovery and not any(
+            operation == LookupCapability.DEVICE_BY_IP for operation, _ in targets
+        ):
+            _reader.fail("empty_selection", "$.controller_objects", "Device-access collection requires discovery or device IP targets.")
         output = local_path(
             _reader.text(_reader.required(data, "output_directory", "$"), "$.output_directory"), path.parent,
         )
-        return cls(source, transport, domains, tuple(targets), output)
+        return cls(source, transport, domains, tuple(targets), output, discovery)
 
 
 class _FileCredentials:
@@ -148,20 +190,30 @@ def _failure(error: AuthenticationError | TransportError | ProductClientError | 
 
 def _backend(profile: VisionBackupProfile) -> StdlibHttpBackend:
     operations = [(HttpMethod.POST, "/mgmt/system/user/login")]
+    if profile.discovery:
+        operations.append((HttpMethod.GET, "/mgmt/system/config/itemlist/alldevices"))
     operations.extend(
         (HttpMethod.GET, build_url(profile.transport.base_url, vision_backup_segments(operation, value))[
             len(profile.transport.base_url):
         ])
         for operation, value in profile.targets
     )
+    try:
+        authorization = DestinationAuthorization(profile.transport.base_url, tuple(operations))
+    except ValueError:
+        _reader.fail("invalid_target_authorization", "$", "A target is outside the exact supported read scope.")
     return StdlibHttpBackend(
-        allow_live=True, authorization=DestinationAuthorization(profile.transport.base_url, tuple(operations)),
-        max_response_bytes=16 * 1024 * 1024,
+        allow_live=True, authorization=authorization, max_response_bytes=16 * 1024 * 1024,
+        allow_insecure_lab=profile.transport.lab_insecure_tls,
     )
 
 
-def run_vision_backup(profile_path: str, credentials_path: str) -> tuple[dict[str, object], ExitStatus]:
-    profile = VisionBackupProfile.read(profile_path)
+def run_vision_backup(
+    profile_path: str, credentials_path: str, *, lab_only: bool = False,
+) -> tuple[dict[str, object], ExitStatus]:
+    profile = VisionBackupProfile.read(profile_path, lab_only=lab_only)
+    if not profile.transport.verify_tls:
+        print(LAB_TLS_WARNING, file=sys.stderr)
     resolver = _FileCredentials(credentials_path)
     if not profile.output_directory.is_dir():
         _reader.fail("output_unwritable", "$", "Output directory must already exist on the external mount.")
@@ -173,12 +225,24 @@ def run_vision_backup(profile_path: str, credentials_path: str) -> tuple[dict[st
         _reader.fail("output_unwritable", "$", "Cannot create a private run directory on the output mount.")
     results: list[dict[str, object]] = []
     failures: list[str] = []
-    skipped = [{"domain": domain, "reason": "unsupported_domain"} for domain in profile.domains if domain != "controller-objects"]
+    skipped: list[dict[str, object]] = []
     authenticated = False
     strategy = DocumentedVisionAuthenticationStrategy()
+    targets = list(profile.targets)
+    inventory: dict[str, object] = {"status": "not_requested", "object_count": 0}
+    scope = {**_SCOPE, "requested_targets_only": not profile.discovery}
+    module_failures: set[str] = set()
+    access_count = 0
+    module_directories = {domain: directory / domain for domain in profile.domains}
     try:
-        if profile.targets:
-            with SessionManager(lambda: _backend(profile), resolver) as manager:
+        for folder in module_directories.values():
+            folder.mkdir(mode=0o700)
+    except OSError:
+        _reader.fail("output_unwritable", "$", "Cannot create selected module output directories.")
+    try:
+        if targets or profile.discovery:
+            backend = _backend(profile)
+            with SessionManager(lambda: backend, resolver) as manager:
                 manager.initialize(
                     AuthenticationRequest(
                         SessionRole.SOURCE, "vision", "5.4.9", CredentialReference("vision-backup"),
@@ -187,10 +251,40 @@ def run_vision_backup(profile_path: str, credentials_path: str) -> tuple[dict[st
                 manager.authenticate(SessionRole.SOURCE)
                 authenticated = True
                 client = VisionBackupClient(manager)
-                for index, (operation, value) in enumerate(profile.targets, 1):
+                if profile.discovery:
+                    inventory["status"] = "failed"
+                    collected_at = datetime.now(timezone.utc).isoformat()
+                    discovered = client.discover(collected_at=collected_at)
+                    if "controller-objects" in module_directories:
+                        inventory_filename = str(Path("controller-objects") / "inventory.json")
+                        write_local_export(str(directory / inventory_filename), json.dumps({
+                            "schema_version": 1, "domain": "vision-managed-device-inventory",
+                            "source": {"product": "vision", "version": "5.4.9", "name": profile.source.name},
+                            "collected_at": collected_at,
+                            "request": {"method": "GET", "path": "/mgmt/system/config/itemlist/alldevices"},
+                            "scope": scope, "objects": list(discovered.objects),
+                            "redacted_fields": discovered.redacted_fields,
+                            "issue_codes": list(discovered.issue_codes),
+                            "evidence": {"document": "DOC-V549", "pdf_pages": list(discovered.evidence.pdf_pages)},
+                        }, indent=2, allow_nan=False))
+                        inventory["file"] = inventory_filename
+                    inventory.update(
+                        status="collected", object_count=discovered.object_count,
+                        issue_codes=list(discovered.issue_codes),
+                    )
+                    if "invalid_discovered_ip" in discovered.issue_codes:
+                        failures.append("invalid_discovered_ip")
+                    targets = [(LookupCapability.DEVICE_BY_IP, address) for address in discovered.device_ips]
+                    backend.authorize_get_targets(tuple(
+                        build_url(profile.transport.base_url, vision_backup_segments(operation, value))[
+                            len(profile.transport.base_url):
+                        ] for operation, value in targets
+                    ))
+                for index, (operation, value) in enumerate(targets, 1):
                     entry: dict[str, object] = {"index": index, "operation": operation.value}
                     if not manager.is_authenticated(SessionRole.SOURCE):
                         entry.update(status="skipped", issue_codes=["session_unavailable"])
+                        module_failures.update(profile.domains)
                         results.append(entry)
                         continue
                     try:
@@ -200,7 +294,7 @@ def run_vision_backup(profile_path: str, credentials_path: str) -> tuple[dict[st
                         payload = {
                             "schema_version": 1, "domain": "vision-controller-object-lookup",
                             "source": {"product": "vision", "version": "5.4.9", "name": profile.source.name},
-                            "collected_at": timestamp, "scope": _SCOPE,
+                            "collected_at": timestamp, "scope": scope,
                             "request": {"method": "GET", "path_template": result.evidence.path, "target": value},
                             "evidence": {
                                 "document": "DOC-V549", "pdf_pages": list(result.evidence.pdf_pages),
@@ -209,13 +303,35 @@ def run_vision_backup(profile_path: str, credentials_path: str) -> tuple[dict[st
                             "objects": list(result.objects), "redacted_fields": result.redacted_fields,
                             "issue_codes": list(result.issue_codes),
                         }
-                        write_local_export(str(directory / filename), json.dumps(payload, indent=2, allow_nan=False))
+                        written: list[str] = []
+                        if "controller-objects" in profile.domains:
+                            object_filename = str(Path("controller-objects") / filename)
+                            write_local_export(str(directory / object_filename), json.dumps(payload, indent=2, allow_nan=False))
+                            written.append(object_filename)
+                        if "device-access" in profile.domains and operation == LookupCapability.DEVICE_BY_IP:
+                            setup = result.objects[0].get("deviceSetup")
+                            access = setup.get("deviceAccess") if isinstance(setup, dict) else None
+                            if not isinstance(access, dict):
+                                module_failures.add("device-access")
+                                entry["device_access_issue_codes"] = ["device_access_unavailable"]
+                            else:
+                                access_filename = str(Path("device-access") / filename)
+                                access_payload = {
+                                    **payload, "domain": "vision-device-access",
+                                    "objects": [{"ormID": result.objects[0]["ormID"], "deviceAccess": access}],
+                                }
+                                write_local_export(
+                                    str(directory / access_filename), json.dumps(access_payload, indent=2, allow_nan=False),
+                                )
+                                written.append(access_filename)
+                                access_count += 1
                         entry.update(
-                            status="collected", file=filename, object_count=len(result.objects),
+                            status="collected", files=written, object_count=len(result.objects),
                             redacted_fields=result.redacted_fields, issue_codes=list(result.issue_codes),
                         )
                     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
                         entry.update(status="failed", issue_codes=_failure(error))
+                        module_failures.update(profile.domains)
                     results.append(entry)
     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
         failures.extend(_failure(error))
@@ -223,19 +339,40 @@ def run_vision_backup(profile_path: str, credentials_path: str) -> tuple[dict[st
         strategy.clear()
     collected = sum(entry["status"] == "collected" for entry in results)
     failed = sum(entry["status"] == "failed" for entry in results)
-    successful = collected == len(profile.targets) and bool(profile.targets) and not failures and not skipped
+    successful = (
+        collected == len(targets) and (bool(targets) or inventory["status"] == "collected")
+        and not failures and not skipped and not module_failures
+    )
+    if failures:
+        module_failures.update(profile.domains)
     report: dict[str, object] = {
         "operation": "backup-vision", "status": "collected" if successful else "incomplete",
         "offline_only": False, "read_only": True, "live_read_selected": True,
         "execution_authorized": False, "configuration_writes_authorized": False,
-        "tls_verification_required": True, "authenticated": authenticated,
+        "tls_verification_required": profile.transport.verify_tls, "authenticated": authenticated,
+        "tls": {"verify": profile.transport.verify_tls, "lab_only": lab_only},
         "session_closed_locally": "local_cleanup_failure" not in failures,
-        "scope": _SCOPE, "run_directory": run_id,
-        "requested_targets": len(profile.targets), "collected_objects": collected,
-        "failed_targets": failed, "uncollected_targets": len(profile.targets) - collected,
+        "scope": scope, "run_directory": run_id, "inventory": inventory,
+        "overall_status": "supported_collection_succeeded" if successful else (
+            "partial_collection" if collected or inventory["status"] == "collected" else "failed_collection"
+        ),
+        "discovery_completeness": "partial-unverified" if profile.discovery else "targeted-only",
+        "requested_targets": len(targets), "collected_objects": inventory["object_count"] if profile.discovery else collected,
+        "device_details_collected": sum(
+            entry["status"] == "collected" and entry["operation"] == LookupCapability.DEVICE_BY_IP.value
+            for entry in results
+        ),
+        "device_access_objects": access_count,
+        "requested_modules": list(profile.domains),
+        "completed_modules": [domain for domain in profile.domains if domain not in module_failures and not failures],
+        "failed_modules": sorted(module_failures),
+        "unsupported_modules": UNSUPPORTED_DOMAINS,
+        "excluded_modules": {"ams-alerts": "Explicitly excluded - out of scope"},
+        "failed_targets": failed, "uncollected_targets": len(targets) - collected,
         "skipped_domains": skipped, "results": results, "failure_codes": failures,
         "limitations": [
-            "targeted_reads_not_inventory_discovery", "credential_fields_redacted",
+            "inventory_completeness_unverified" if profile.discovery else "targeted_reads_not_inventory_discovery",
+            "empty_sites_and_other_trees_not_proven_complete", "credential_fields_redacted",
             "live_compatibility_unverified", "no_remote_logout",
             "dns_and_whole_run_not_hard_deadline_bounded",
         ],

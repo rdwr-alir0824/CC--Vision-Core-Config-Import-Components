@@ -6,36 +6,42 @@ coverage for authentication and three reads; owner-provided vendor PDF evidence
 for selected exact method/path pairs; E-036 synthetic offline subset regressions.
 Runtime compatibility remains unverified.
 
-## Targeted Vision read-only backup - 2026-11-24
+## Vision supported read-only backup - 2026-11-24
 
 Current implementation overlay; historical evidence/acceptance below is unchanged.
-The owner authorized `backup-vision` and explicitly selected profile-listed
-sites/devices instead of unsupported automatic full-tree discovery. No live
+The owner authorized `backup-vision`, then documented managed-device discovery
+and selected supported modules; advanced profile-listed targets remain supported. No live
 controller access or deployment is authorized by this implementation record.
 
 | Operation | Existing evidence | Current implementation | Verification |
 | --- | --- | --- | --- |
 | POST `/mgmt/system/user/login` | API-01-V; Vision PDF 156-158; legacy LDAP login | Existing login JSON/session strategy plus required `status: ok` and validated `jsessionid` sent as `Cookie: JSESSIONID=...` | Mock tested; not live tested |
+| GET `/mgmt/system/config/itemlist/alldevices` | Separate `VISION-MANAGED-DEVICES` evidence; Vision PDF 119-120, recursive ThinSiteTransformerDTO 263 | Preserve native `ormId`/`parentOrmId` and unknown fields, deduplicate valid management IPs for detail reads; optional strings/booleans/children validated | Mock tested; pagination, empty sites/all trees and complete inventory unverified |
 | GET `/mgmt/system/config/tree/site/byname/{name}` | API-04; Vision PDF 141; SitePojo 255 | Explicit profile site names only; matching response name; documented model subset, unknown fields retained | Mock tested; not live tested |
 | GET `/mgmt/system/config/tree/site/byid/{id}` | API-05; Vision PDF 146; SitePojo 255 | Explicit native source IDs only; matching response `ormID` | Mock tested; not live tested |
-| GET `/mgmt/system/config/tree/device/byip/{ip}` | API-06; Vision PDF 143-144; Device 219-220, DeviceSetup 224 | Explicit managed-device IPs only; minimum local identity and documented model-subset checks; credential fields redacted | Mock tested; query binding and live compatibility unverified |
+| GET `/mgmt/system/config/tree/device/byip/{ip}` | API-06; Vision PDF 143-144; Device 219-220, DeviceSetup 224, DeviceAccess 220-222 | Discovered or explicit managed-device IPs; identity/document subset checks; optional separate device-access artifacts; credentials redacted | Mock tested; query binding, access completeness/portability and live compatibility unverified |
 
 Implementation: [backup orchestration](../src/cc_vision_import/vision_backup.py),
 [document-bound client](../src/cc_vision_import/product_clients.py), existing
 authentication/session/HTTP components, and [master selector](../src/cc_vision_import/master_cli.py).
 No `VERIFIED_CAPABILITIES` entries were added; default clients remain mock-only.
 Only the selected workflow creates a live-opt-in backend with an exact origin,
-login POST and finite selected GET allowlist. Owner-approved transport limitation:
+login POST and finite selected/discovered GET allowlist. System trust verification
+defaults true; optional custom CA. Unverified TLS requires an isolated Vision
+lab transport plus explicit backend/request permission and warning; unrelated
+operations remain strictly verified. Owner-approved transport limitation:
 existing socket timeouts/checked per-request deadlines do not hard-bound DNS or
 whole-run execution. Default backend dispatch remains blocked.
 
-Output is explicitly targeted, credential-redacted, incomplete inventory and
-not a complete configuration backup or migration input. No full tree
+Output is explicitly supported-scope, credential-redacted, completeness-unverified
+inventory and not a complete configuration backup or migration input. No full tree
 enumeration, LDAP/Scheduler API binding, configuration write, import, delete,
 async follow-up, retry, authentication renewal or remote logout was added.
 Login session state is cleared locally; server expiry is not verified.
-Evidence: 170 targeted offline guarded tests passed (eight focused backup tests
-plus existing client/session/backend/workflow tests); zero guarded network
+AMS-alerts naming variants are explicitly excluded, never backlog modules.
+Unsupported module selections fail before access. Evidence: 238 targeted offline
+guarded tests passed across launcher, backup and directly related existing
+client/session/backend/transport/workflow/schema modules; zero guarded network
 attempts. Linux permissions, live RBAC/cookie behavior, installed-build
 compatibility, and the updated Docker image remain unverified.
 

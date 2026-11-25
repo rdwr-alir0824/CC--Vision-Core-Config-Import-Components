@@ -321,9 +321,12 @@ class StdlibHttpBackend:
         authorization: DestinationAuthorization | None = None,
         max_response_bytes: int | None = None,
         allow_live: bool = False,
+        allow_insecure_lab: bool = False,
     ) -> None:
         if type(allow_live) is not bool or allow_live and connection_factory is not None:
             raise ValueError("Live dispatch must use the built-in HTTPS connection.")
+        if type(allow_insecure_lab) is not bool:
+            raise ValueError("Lab TLS selection must be explicit.")
         if authorization is not None:
             if not isinstance(authorization, DestinationAuthorization):
                 raise ValueError("Invalid destination authorization.")
@@ -334,12 +337,21 @@ class StdlibHttpBackend:
             raise ValueError("A positive finite byte budget is required.")
         self._factory = connection_factory
         self._allow_live = allow_live
+        self._allow_insecure_lab = allow_insecure_lab
         self._authorization = authorization
         self._max_response_bytes = max_response_bytes
         self._cookies = _StrictCookieJar()
         self._origin: tuple[str, int] | None = None
         self._pending: list[_Closable] = []
         self._closed = False
+
+    def authorize_get_targets(self, targets: tuple[str, ...]) -> None:
+        if self._closed or self._authorization is None or not isinstance(targets, tuple):
+            raise BackendFailure(ErrorCategory.SAFETY_POLICY)
+        operations = tuple(dict.fromkeys((
+            *self._authorization.operations, *((HttpMethod.GET, target) for target in targets),
+        )))
+        self._authorization = DestinationAuthorization(self._authorization.origin, operations)
 
     def send(self, request: BackendRequest) -> HttpResponse:
         outcome = self._attempt(request)
@@ -367,11 +379,21 @@ class StdlibHttpBackend:
                     not isinstance(request.body, bytes) or request.method == HttpMethod.GET
                 )
                 or not isinstance(request.tls_context, ssl.SSLContext)
-                or request.tls_context.verify_mode != ssl.CERT_REQUIRED
-                or request.tls_context.check_hostname is not True
                 or request.tls_context.keylog_filename is not None
+                or type(request.lab_insecure_tls) is not bool
             ):
                 raise ValueError("Unsafe backend request.")
+            verified = (
+                request.tls_context.verify_mode == ssl.CERT_REQUIRED
+                and request.tls_context.check_hostname is True
+            )
+            lab_tls = (
+                self._allow_insecure_lab and request.lab_insecure_tls
+                and request.tls_context.verify_mode == ssl.CERT_NONE
+                and request.tls_context.check_hostname is False
+            )
+            if not verified and not lab_tls:
+                raise ValueError("Unverified TLS is not authorized.")
             _timeouts(request.connect_timeout, request.read_timeout)
             if (
                 self._authorization is None or self._max_response_bytes is None
@@ -388,6 +410,11 @@ class StdlibHttpBackend:
             target = parts.path or "/"
             if "?" in request.url:
                 target += "?" + parts.query
+            if lab_tls and not (
+                request.method == HttpMethod.GET
+                or request.method == HttpMethod.POST and target == "/mgmt/system/user/login"
+            ):
+                raise BackendFailure(ErrorCategory.SAFETY_POLICY)
             if (
                 parts.fragment or "#" in request.url or target.startswith("//")
                 or "\\" in target or any(not 33 <= ord(c) <= 126 for c in target)

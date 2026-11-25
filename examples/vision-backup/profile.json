@@ -7,14 +7,11 @@
     "base_url": "https://vision.example.invalid"
   },
   "tls": {
-    "verify": true,
-    "trusted_ca": "/run/config/vision-ca.pem"
+    "verify": true
   },
-  "domains": ["controller-objects"],
+  "backup_mode": "full-supported",
   "controller_objects": {
-    "site_names": ["Default"],
-    "site_ids": [],
-    "device_ips": ["192.0.2.10"]
+    "discovery": true
   },
-  "output_directory": "/data"
+  "output_directory": "/srv/cc-vision-backups"
 }

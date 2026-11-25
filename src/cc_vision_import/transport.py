@@ -162,14 +162,24 @@ class TransportConfig:
 
     def __post_init__(self) -> None:
         _origin(self.base_url)
-        if self.verify_tls is not True:
-            _reader.fail("unsafe_tls", "$.verify_tls", "TLS verification is mandatory.")
+        self._validate_tls()
         _timeouts(self.connect_timeout, self.read_timeout)
         if self.operation_timeout is not None:
             _timeout(self.operation_timeout, "operation_timeout")
         if type(self.read_retries) is not int or not 0 <= self.read_retries <= 3:
             _reader.fail("invalid_retry_policy", "$.read_retries", "GET retries must be an integer from zero through three.")
-        _tls_context(self.trusted_ca)
+        self.tls_context()
+
+    def _validate_tls(self) -> None:
+        if self.verify_tls is not True:
+            _reader.fail("unsafe_tls", "$.verify_tls", "TLS verification is mandatory.")
+
+    def tls_context(self) -> ssl.SSLContext:
+        return _tls_context(self.trusted_ca)
+
+    @property
+    def lab_insecure_tls(self) -> bool:
+        return False
 
 
 def build_url(
@@ -232,6 +242,7 @@ class BackendRequest:
     tls_context: ssl.SSLContext = field(repr=False)
     follow_redirects: bool = False
     deadline: OperationDeadline | None = None
+    lab_insecure_tls: bool = False
 
 
 @dataclass(frozen=True)
@@ -297,8 +308,9 @@ class HttpTransport:
             method, build_url(self._config.base_url, segments, query),
             _headers({} if headers is None else headers), body,
             self._config.connect_timeout, self._config.read_timeout,
-            _tls_context(self._config.trusted_ca),
+            self._config.tls_context(),
             deadline=deadline,
+            lab_insecure_tls=self._config.lab_insecure_tls,
         )
         limit = 1 + (self._config.read_retries if method == HttpMethod.GET else 0)
         for attempt in range(1, limit + 1):
