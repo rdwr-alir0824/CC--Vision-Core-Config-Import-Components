@@ -172,6 +172,14 @@ class VisionDiscoveryRead(VisionBackupRead):
     object_count: int
 
 
+@dataclass(frozen=True)
+class VisionTreeRead:
+    tree: dict[str, object] | list[object] = field(repr=False)
+    record_count: int
+    redacted_fields: int
+    issue_codes: tuple[str, ...]
+
+
 def _discovery_nodes(payload: object, depth: int = 0) -> tuple[list[str], int, set[str]]:
     if not isinstance(payload, list) or depth > 64:
         raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
@@ -259,6 +267,17 @@ def vision_ldap_segments() -> tuple[str, ...]:
     return tuple(evidence.path.strip("/").split("/"))
 
 
+_VISION_TREE_RECORDS = {"physical-tree": "API-02", "organization-tree": "API-03"}
+
+
+def vision_tree_segments(domain: str) -> tuple[str, ...]:
+    if domain not in _VISION_TREE_RECORDS:
+        raise ProductClientError(ClientErrorCategory.UNSUPPORTED_CAPABILITY)
+    evidence = operation_evidence("vision", "5.4.9", "DOC-V549", _VISION_TREE_RECORDS[domain])
+    assert evidence.path is not None
+    return tuple(evidence.path.strip("/").split("/"))
+
+
 class VisionBackupClient:
     """Evidence-bound read-only collections, separate from migration capability activation."""
 
@@ -268,6 +287,30 @@ class VisionBackupClient:
             raise ProductClientError(ClientErrorCategory.SESSION_MISMATCH)
         self._manager = manager
         self._device_queries: dict[str, str] = {}
+
+    def read_tree(self, domain: str) -> VisionTreeRead:
+        response = self._manager.request(
+            SessionRole.SOURCE, HttpMethod.GET, vision_tree_segments(domain), expect_json=True,
+        )
+        if response.status != 200:
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        try:
+            payload = load_json(response.body.decode("utf-8"))
+        except (ValueError, UnicodeError, RecursionError):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE) from None
+        if not isinstance(payload, (dict, list)) or isinstance(payload, dict) and payload.get("status") == "error":
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        redacted, removed = _redact_credentials(payload)
+        assert isinstance(redacted, (dict, list))
+        codes = {
+            "tree_schema_completeness_unverified", "tree_enumeration_completeness_unverified",
+            "tree_identity_binding_unverified",
+        }
+        if removed:
+            codes.add("credential_fields_redacted")
+        return VisionTreeRead(
+            redacted, len(payload) if isinstance(payload, list) else 1, removed, tuple(sorted(codes)),
+        )
 
     def list_ldap_permissions(self, *, collected_at: str) -> VisionBackupRead:
         evidence = operation_evidence("vision", "5.4.9", "DOC-V549", "API-10")

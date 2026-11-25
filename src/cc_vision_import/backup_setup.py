@@ -184,10 +184,13 @@ def main(argv: list[str] | None = None) -> int:
             elif menu in ("1", "2"):
                 mode: dict[str, object] = {"backup_mode": "full-supported"}
                 if menu == "2":
-                    print("Available backup components:\n\n1. Controller Objects\n2. Device Access\n3. LDAP Permissions")
+                    print(
+                        "Available backup components:\n\n1. Controller Objects\n2. Device Access\n"
+                        "3. LDAP Permissions\n4. Physical Tree\n5. Organization Tree"
+                    )
                     selected = (input("Select components [1,2]: ").strip() or "1,2").split(",")
-                    if any(item.strip() not in ("1", "2", "3") for item in selected):
-                        raise SetupError("Select only supported component numbers 1, 2 and 3.")
+                    if any(item.strip() not in ("1", "2", "3", "4", "5") for item in selected):
+                        raise SetupError("Select only supported component numbers 1 through 5.")
                     mode = {"backup_mode": "selected", "domains": [SUPPORTED_DOMAINS[int(item.strip()) - 1] for item in selected]}
                 print("Source: APSolute Vision 5.4.9")
                 payload, credentials = _interactive_profile(mode)

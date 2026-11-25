@@ -377,9 +377,12 @@ class VisionBackupTests(OfflineTestCase):
         status, report, factory = self.invoke(
             self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
             self.connection(self.device), self.connection([]),
+            self.connection({"children": []}), self.connection({"children": []}),
         )
         self.assertEqual(status, 0)
-        self.assertEqual(report["completed_modules"], ["controller-objects", "device-access", "ldap-permissions"])
+        self.assertEqual(report["completed_modules"], [
+            "controller-objects", "device-access", "ldap-permissions", "physical-tree", "organization-tree",
+        ])
         saved = json.loads((self.output / report["run_directory"] / "device-access" / "device-by-ip-001.json").read_text())
         self.assertIsNone(saved["objects"][0]["deviceAccess"]["cliPassword"])
         self.assertEqual(report["device_access_objects"], 1)
@@ -387,7 +390,7 @@ class VisionBackupTests(OfflineTestCase):
         self.assertNotIn("ams", json.dumps(report).casefold())
         self.assert_secret_free(saved)
         self.profile["backup_mode"] = "selected"
-        for domain in ("AMS-alerts", "AMS_alerts", "AMS Alerts", "AMSAlert", "AMSAlerts", "scheduler", "physical-tree"):
+        for domain in ("AMS-alerts", "AMS_alerts", "AMS Alerts", "AMSAlert", "AMSAlerts", "scheduler"):
             self.profile["domains"] = [domain]
             status, report, factory = self.invoke()
             self.assertEqual(status, 4)
@@ -580,8 +583,141 @@ class VisionBackupTests(OfflineTestCase):
         self.profile["controller_objects"] = {"discovery": True}
         status, report, _ = self.invoke(
             self.login(), self.connection({"status": "error"}), self.connection([]),
+            self.connection({"children": []}), self.connection({"children": []}),
         )
         self.assertEqual(status, 1)
-        self.assertEqual(report["completed_modules"], ["ldap-permissions"])
+        self.assertEqual(report["completed_modules"], ["ldap-permissions", "physical-tree", "organization-tree"])
         self.assertEqual(report["failed_modules"], ["controller-objects", "device-access"])
         self.assertEqual(report["ldap_permissions"]["status"], "collected")
+
+    def test_native_tree_json_is_preserved_redacted_and_counted_without_schema_assumptions(self):
+        self.profile["domains"] = ["physical-tree", "organization-tree"]
+        physical = {
+            "meIdentifier": {"managedElementID": 17, "managedElementClass": "unqualified"},
+            "children": [
+                {"name": "native-node", "parentOrmID": None, "children": None,
+                 "future": {"cliPassword": "device-secret-marker", "opaque": [True, 7, None]}},
+            ],
+            "unknown": {"children": "opaque-not-a-qualified-node-array"},
+        }
+        organization = [{"native": {"identifier": None}}, {"children": [], "snmpV2ReadCommunity": "community-secret-marker"}]
+        expected_physical, expected_organization = copy.deepcopy(physical), copy.deepcopy(organization)
+        expected_physical["children"][0]["future"]["cliPassword"] = None
+        expected_organization[1]["snmpV2ReadCommunity"] = None
+        for verify in (True, False):
+            self.profile["tls"] = {"verify": verify}
+            connections = [self.login(), self.connection(physical), self.connection(organization)]
+            status, report, factory = self.invoke(*connections, warning_expected=not verify)
+            self.assertEqual(status, 0)
+            self.assertEqual(factory.call_count, 3)
+            self.assertEqual(report["requested_targets"], 0)
+            self.assertEqual(report["completed_modules"], self.profile["domains"])
+            self.assertFalse(report["scope"]["complete_configuration_backup"])
+            directory = self.output / report["run_directory"]
+            self.assertFalse((directory / "controller-objects").exists())
+            self.assertEqual(report["ldap_permissions"]["status"], "not_requested")
+            for index, (domain, native, count, suffix) in enumerate((
+                ("physical-tree", expected_physical, 1, "Physical"),
+                ("organization-tree", expected_organization, 2, "Organization"),
+            ), 1):
+                saved = json.loads((directory / domain / "tree.json").read_text())
+                self.assertEqual(saved["tree"], native)
+                self.assertEqual(saved["record_count"], count)
+                self.assertEqual(report["trees"][domain]["record_count"], count)
+                self.assertEqual(saved["record_count_basis"], "top_level_json_records")
+                self.assertFalse(saved["scope"]["enumeration_completeness_verified"])
+                self.assertFalse(saved["scope"]["schema_completeness_verified"])
+                self.assertFalse(saved["evidence"]["master_live_tested"])
+                self.assertTrue(saved["evidence"]["operator_live_read_verified"])
+                self.assertFalse(saved["evidence"]["officially_documented"])
+                self.assertEqual(saved["redacted_fields"], 1)
+                request = connections[index].requests[0]
+                self.assertEqual(request[:2], ("GET", "/mgmt/system/config/tree/" + suffix))
+                self.assertIsNone(request[2])
+                self.assertIn("JSESSIONID=session-secret-marker", request[3]["Cookie"])
+                self.assert_secret_free([saved, report])
+            for call in factory.call_args_list:
+                self.assertEqual(call.kwargs["context"].verify_mode, ssl.CERT_REQUIRED if verify else ssl.CERT_NONE)
+
+    def test_tree_failures_are_independent_and_never_saved_as_empty_success(self):
+        self.profile["domains"] = ["physical-tree", "organization-tree"]
+        malformed_json = MemoryConnection(MemoryResponse(
+            200, b'{"broken":', [("Content-Type", "application/json")],
+        ))
+        for bad in (
+            self.connection(None), self.connection("not a tree"),
+            self.connection({"status": "error", "message": "device-secret-marker"}),
+            self.connection({}, status=500), malformed_json,
+        ):
+            status, report, _ = self.invoke(self.login(), bad, self.connection([]))
+            self.assertEqual(status, 1)
+            self.assertEqual(report["overall_status"], "partial_collection")
+            self.assertEqual(report["completed_modules"], ["organization-tree"])
+            self.assertEqual(report["failed_modules"], ["physical-tree"])
+            self.assertEqual(report["trees"]["physical-tree"]["status"], "failed")
+            self.assertEqual(report["trees"]["organization-tree"]["status"], "collected")
+            self.assertEqual(report["trees"]["organization-tree"]["record_count"], 0)
+            self.assertTrue(report["failure_codes"])
+            directory = self.output / report["run_directory"]
+            self.assertFalse((directory / "physical-tree" / "tree.json").exists())
+            self.assertEqual(json.loads((directory / "organization-tree" / "tree.json").read_text())["tree"], [])
+            self.assert_secret_free(report)
+        status, report, _ = self.invoke(self.login(), self.connection({}), self.connection(None))
+        self.assertEqual(status, 1)
+        self.assertEqual(report["completed_modules"], ["physical-tree"])
+        self.assertEqual(report["failed_modules"], ["organization-tree"])
+
+    def test_tree_authorization_is_exact_and_failed_login_skips_both_reads(self):
+        self.profile["domains"] = ["physical-tree"]
+        status, report, _ = self.invoke(self.login(), self.connection({}))
+        self.assertEqual(status, 0)
+        profile = self.backup.VisionBackupProfile.read(str(self.profile_path))
+        backend = self.backup._backend(profile)
+        self.addCleanup(backend.close)
+        path = "/mgmt/system/config/tree/Physical"
+        for method in self.transport.HttpMethod:
+            self.assertEqual(
+                backend._authorization.permits(method, "https://vision.invalid", path),
+                method == self.transport.HttpMethod.GET,
+            )
+        for unselected in (
+            "/mgmt/system/config/tree/Organization", "/mgmt/system/config/tree/Physical/extra",
+            "/mgmt/system/config/itemlist/alldevices",
+        ):
+            self.assertFalse(backend._authorization.permits(
+                self.transport.HttpMethod.GET, "https://vision.invalid", unselected,
+            ))
+        self.assertEqual(report["trees"]["organization-tree"]["status"], "not_requested")
+        self.profile["domains"] = ["physical-tree", "organization-tree"]
+        status, report, factory = self.invoke(self.login(status="error"))
+        self.assertEqual(status, 1)
+        self.assertEqual(factory.call_count, 1)
+        self.assertEqual(report["failed_modules"], ["organization-tree", "physical-tree"])
+        for result in report["trees"].values():
+            self.assertEqual(result["status"], "skipped")
+            self.assertEqual(result["record_count"], 0)
+            self.assertEqual(result["issue_codes"], ["session_unavailable"])
+
+    def test_tree_failure_preserves_successful_device_and_ldap_exports(self):
+        self.profile.pop("domains")
+        self.profile["backup_mode"] = "full-supported"
+        self.profile["controller_objects"] = {"discovery": True}
+        status, report, _ = self.invoke(
+            self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
+            self.connection(self.device), self.connection([{"attributeValue": "synthetic-group"}]),
+            self.connection(None), self.connection({"children": []}),
+        )
+        self.assertEqual(status, 1)
+        self.assertEqual(report["failed_modules"], ["physical-tree"])
+        self.assertEqual(report["completed_modules"], [
+            "controller-objects", "device-access", "ldap-permissions", "organization-tree",
+        ])
+        self.assertEqual(report["device_details_collected"], 1)
+        self.assertEqual(report["device_access_objects"], 1)
+        self.assertEqual(report["ldap_permission_records"], 1)
+        directory = self.output / report["run_directory"]
+        for filename in (
+            "controller-objects/device-by-ip-001.json", "device-access/device-by-ip-001.json",
+            "ldap-permissions/permissions.json", "organization-tree/tree.json",
+        ):
+            self.assertTrue(directory.joinpath(*filename.split("/")).is_file())

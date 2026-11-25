@@ -83,11 +83,11 @@ sudo ./run-vision-backup.sh
 ```
 
 Full Supported Backup selects every currently supported module.
-Select Backup Components offers **Controller Objects**, **Device Access** and
-**LDAP Permissions**; enter component numbers `1`, `2`, `3` or a comma-separated
-selection. Blank still selects `1,2`, preserving the previous selected-mode
-default. Full Supported now includes LDAP; existing explicit controller/access
-domain lists keep their previous scope. Other selections fail clearly.
+Select Backup Components offers **Controller Objects**, **Device Access**,
+**LDAP Permissions**, **Physical Tree** and **Organization Tree**; enter component
+numbers `1` through `5` or a comma-separated selection. Blank still selects `1,2`,
+preserving the previous selected-mode default. Full Supported includes all five;
+existing explicit domain lists keep their previous scope. Other selections fail clearly.
 Backup from JSON loads an existing non-secret profile and uses the same engine.
 
 Normal setup displays the supported Vision source, then asks for:
@@ -255,11 +255,15 @@ contract, but are not the normal workflow or complete inventory exports.
       device-by-ip-001.json
     ldap-permissions/
       permissions.json
+    physical-tree/
+      tree.json
+    organization-tree/
+      tree.json
     summary.json
 ```
 
 Only selected module directories appear. Artifacts include source name/version,
-timestamp, native identifiers and document evidence. Access object example:
+timestamp, native identifiers where present and scoped API evidence. Access object example:
 `{"ormID": "device-1", "deviceAccess": {"cliPassword": null}}`.
 Redaction counts describe processing of the underlying response.
 
@@ -294,6 +298,42 @@ says legacy-source-observed, not officially documented/live-tested. Exact
 version-wide LDAP schema, pagination/enumeration completeness, restoration and
 Vision-to-CC permission mapping are not qualified; this is not a full or
 restorable LDAP configuration backup.
+
+### Physical and Organization tree scope
+
+The owner confirmed HTTP 200 and valid tree JSON from both exact GETs on the
+authorized Vision 5.4.9 lab:
+
+- `/mgmt/system/config/tree/Physical`
+- `/mgmt/system/config/tree/Organization`
+
+Each module reuses the existing authenticated session/TLS settings and runs
+after device/LDAP collection. Select components `4,5`, or use a non-secret
+profile with `"backup_mode": "selected"` and
+`"domains": ["physical-tree", "organization-tree"]`. Tree-only selection needs
+no device inputs and performs no device discovery or LDAP query.
+
+Each separate `tree.json` envelope stores the redacted native JSON response in
+`tree`, preserving the root object/array, ordering, unknown fields, identifiers
+and parent relationships exactly as received apart from sensitive-field
+redaction. No flattening, ID conversion, guessed parents or schema defaults.
+JSON containers are retained without requiring undocumented node field types;
+invalid JSON, scalar/null roots, explicit error responses and failed reads
+produce module failures, not empty success artifacts.
+
+Summary `trees["physical-tree"]` and `trees["organization-tree"]` report their
+own status, record_count, file, issue codes and qualification limits. Counts
+use `record_count_basis: "top_level_json_records"`: an object root counts as
+one JSON record, an array counts its elements (an empty array counts as zero).
+These are **not hierarchy-node counts**. A failure in one module preserves
+already saved device/LDAP files and the other tree where the session remains usable.
+
+Exact tree schemas, tree identity binding and enumeration/pagination completeness
+remain unverified. Artifact evidence distinguishes owner-confirmed endpoint
+reads from the new master implementation, which is offline-tested only; neither
+exact endpoint is found in the reviewed Vision PDF. This is a native response
+export, not a certified complete or restorable configuration backup. Existing
+16 MiB response and recursive redaction limits still apply.
 
 Example summary fields (synthetic, not live acceptance):
 

@@ -218,6 +218,28 @@ class BackupSetupTests(OfflineTestCase):
         prompts.assert_not_called()
         self.assertEqual(snapshots[0]["domains"], ["ldap-permissions"])
 
+    def test_trees_are_selectable_in_interactive_and_unattended_modes(self):
+        for selection, domains in (
+            ("4", ["physical-tree"]), ("5", ["organization-tree"]),
+            ("4,5", ["physical-tree", "organization-tree"]),
+        ):
+            with self.subTest(selection=selection):
+                result, _, _, snapshots, stdout, _ = self.invoke(
+                    [], ["2", selection, "192.0.2.1", self.credentials["username"], "",
+                         str(self.output), "n", "y"],
+                )
+                self.assertEqual(result, 0)
+                self.assertIn("4. Physical Tree", stdout)
+                self.assertIn("5. Organization Tree", stdout)
+                self.assertEqual(snapshots[0]["domains"], domains)
+                self.payload["domains"] = domains
+                result, _, prompts, snapshots, _, _ = self.invoke([
+                    "--config", str(self.config), "--non-interactive", "--credentials-file", "private.json",
+                ])
+                self.assertEqual(result, 0)
+                prompts.assert_not_called()
+                self.assertEqual(snapshots[0]["domains"], domains)
+
     def test_interactive_tls_warning_precedes_confirmation_and_is_not_repeated(self):
         inputs = ["1", "192.0.2.1", self.credentials["username"], "n", str(self.output), "n", "y"]
         stdout, stderr = io.StringIO(), io.StringIO()

@@ -22,7 +22,7 @@ from .backup_policy import TLS_WARNING, BackupPolicyError, UNSUPPORTED_DOMAINS, 
 from .contracts import ContractValidationError, ExitStatus
 from .http_backend import DestinationAuthorization, StdlibHttpBackend
 from .offline_inputs import OfflineInputs, local_path, write_local_export
-from .product_clients import VisionBackupClient, vision_backup_segments, vision_ldap_segments
+from .product_clients import VisionBackupClient, vision_backup_segments, vision_ldap_segments, vision_tree_segments
 from .profiles import SourceProfile
 from .sessions import SessionManager
 from .transport import HttpMethod, TransportConfig, TransportError, build_url
@@ -33,6 +33,7 @@ _SCOPE = {
     "requested_targets_only": True, "complete_inventory": False,
     "complete_configuration_backup": False, "migration_input": False,
 }
+_TREE_DOMAINS = ("physical-tree", "organization-tree")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -193,6 +194,10 @@ def _backend(profile: VisionBackupProfile) -> StdlibHttpBackend:
     if "ldap-permissions" in profile.domains:
         operations.append((HttpMethod.GET, "/" + "/".join(vision_ldap_segments())))
     operations.extend(
+        (HttpMethod.GET, "/" + "/".join(vision_tree_segments(domain)))
+        for domain in _TREE_DOMAINS if domain in profile.domains
+    )
+    operations.extend(
         (HttpMethod.GET, build_url(profile.transport.base_url, vision_backup_segments(operation, value))[
             len(profile.transport.base_url):
         ])
@@ -239,6 +244,15 @@ def run_vision_backup(
     if "ldap-permissions" in profile.domains:
         ldap["status"] = "skipped"
         ldap["issue_codes"] = ["session_unavailable"]
+    trees: dict[str, dict[str, object]] = {
+        domain: {
+            "status": "skipped" if domain in profile.domains else "not_requested",
+            "record_count": 0, "record_count_basis": "top_level_json_records",
+            "schema_completeness_verified": False, "enumeration_completeness_verified": False,
+            "issue_codes": ["session_unavailable"] if domain in profile.domains else [],
+        } for domain in _TREE_DOMAINS
+    }
+    tree_failures: list[str] = []
     module_directories = {domain: directory / domain for domain in profile.domains}
     try:
         for folder in module_directories.values():
@@ -246,7 +260,7 @@ def run_vision_backup(
     except OSError:
         _reader.fail("output_unwritable", "$", "Cannot create selected module output directories.")
     try:
-        if targets or profile.discovery or "ldap-permissions" in profile.domains:
+        if profile.domains:
             backend = _backend(profile)
             with SessionManager(lambda: backend, resolver) as manager:
                 manager.initialize(
@@ -294,7 +308,9 @@ def run_vision_backup(
                     entry: dict[str, object] = {"index": index, "operation": operation.value}
                     if not manager.is_authenticated(SessionRole.SOURCE):
                         entry.update(status="skipped", issue_codes=["session_unavailable"])
-                        module_failures.update(domain for domain in profile.domains if domain != "ldap-permissions")
+                        module_failures.update(
+                            domain for domain in profile.domains if domain in ("controller-objects", "device-access")
+                        )
                         results.append(entry)
                         continue
                     try:
@@ -343,7 +359,9 @@ def run_vision_backup(
                         )
                     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
                         entry.update(status="failed", issue_codes=_failure(error))
-                        module_failures.update(domain for domain in profile.domains if domain != "ldap-permissions")
+                        module_failures.update(
+                            domain for domain in profile.domains if domain in ("controller-objects", "device-access")
+                        )
                     results.append(entry)
                 if "ldap-permissions" in profile.domains:
                     if not manager.is_authenticated(SessionRole.SOURCE):
@@ -381,6 +399,43 @@ def run_vision_backup(
                             ldap_failures = _failure(error)
                             ldap.update(status="failed", issue_codes=ldap_failures)
                             module_failures.add("ldap-permissions")
+                for domain in _TREE_DOMAINS:
+                    if domain not in profile.domains:
+                        continue
+                    if not manager.is_authenticated(SessionRole.SOURCE):
+                        module_failures.add(domain)
+                        continue
+                    try:
+                        tree = client.read_tree(domain)
+                        filename = str(Path(domain) / "tree.json")
+                        write_local_export(str(directory / filename), json.dumps({
+                            "schema_version": 1, "domain": "vision-" + domain,
+                            "source": {"product": "vision", "version": "5.4.9", "name": profile.source.name},
+                            "collected_at": datetime.now(timezone.utc).isoformat(),
+                            "request": {"method": "GET", "path": "/" + "/".join(vision_tree_segments(domain))},
+                            "scope": {
+                                "complete_configuration_backup": False,
+                                "schema_completeness_verified": False,
+                                "enumeration_completeness_verified": False, "migration_input": False,
+                            },
+                            "evidence": {
+                                "request_verification": "owner-reported-vision-5.4.9-live-get",
+                                "officially_documented": False, "operator_live_read_verified": True,
+                                "master_live_tested": False, "response_contract": "opaque-json-container",
+                            },
+                            "tree": tree.tree, "record_count": tree.record_count,
+                            "record_count_basis": "top_level_json_records",
+                            "redacted_fields": tree.redacted_fields, "issue_codes": list(tree.issue_codes),
+                        }, indent=2, allow_nan=False))
+                        trees[domain].update(
+                            status="collected", record_count=tree.record_count, file=filename,
+                            redacted_fields=tree.redacted_fields, issue_codes=list(tree.issue_codes),
+                        )
+                    except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
+                        codes = _failure(error)
+                        tree_failures.extend(codes)
+                        trees[domain].update(status="failed", issue_codes=codes)
+                        module_failures.add(domain)
     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
         if (
             isinstance(error, AuthenticationError) and error.failure.transport_reason is None
@@ -392,13 +447,20 @@ def run_vision_backup(
         strategy.clear()
     collected = sum(entry["status"] == "collected" for entry in results)
     failed = sum(entry["status"] == "failed" for entry in results)
+    trees_collected = any(tree["status"] == "collected" for tree in trees.values())
     successful = (
-        collected == len(targets) and (bool(targets) or inventory["status"] == "collected" or ldap["status"] == "collected")
+        collected == len(targets) and (
+            bool(targets) or inventory["status"] == "collected" or ldap["status"] == "collected" or trees_collected
+        )
         and not failures and not skipped and not module_failures
     )
     if failures:
         module_failures.update(
-            domain for domain in profile.domains if domain != "ldap-permissions" or ldap["status"] != "collected"
+            domain for domain in profile.domains
+            if not (
+                domain == "ldap-permissions" and ldap["status"] == "collected"
+                or domain in trees and trees[domain]["status"] == "collected"
+            )
         )
     report: dict[str, object] = {
         "operation": "backup-vision", "status": "collected" if successful else "incomplete",
@@ -409,7 +471,7 @@ def run_vision_backup(
         "session_closed_locally": "local_cleanup_failure" not in failures,
         "scope": scope, "run_directory": run_id, "inventory": inventory,
         "overall_status": "supported_collection_succeeded" if successful else (
-            "partial_collection" if collected or inventory["status"] == "collected" or ldap["status"] == "collected" else "failed_collection"
+            "partial_collection" if collected or inventory["status"] == "collected" or ldap["status"] == "collected" or trees_collected else "failed_collection"
         ),
         "discovery_completeness": "partial-unverified" if profile.discovery else "targeted-only",
         "requested_targets": len(targets), "collected_objects": inventory["object_count"] if profile.discovery else collected,
@@ -420,12 +482,13 @@ def run_vision_backup(
         "device_access_objects": access_count,
         "ldap_permissions": ldap,
         "ldap_permission_records": ldap["record_count"],
+        "trees": trees,
         "requested_modules": list(profile.domains),
         "completed_modules": [domain for domain in profile.domains if domain not in module_failures],
         "failed_modules": sorted(module_failures),
         "unsupported_modules": UNSUPPORTED_DOMAINS,
         "failed_targets": failed, "uncollected_targets": len(targets) - collected,
-        "skipped_domains": skipped, "results": results, "failure_codes": [*failures, *ldap_failures],
+        "skipped_domains": skipped, "results": results, "failure_codes": [*failures, *ldap_failures, *tree_failures],
         "limitations": [
             "inventory_completeness_unverified" if profile.discovery else "targeted_reads_not_inventory_discovery",
             "empty_sites_and_other_trees_not_proven_complete", "credential_fields_redacted",
