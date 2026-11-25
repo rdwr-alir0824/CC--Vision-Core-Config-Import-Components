@@ -22,7 +22,7 @@ from .backup_policy import TLS_WARNING, BackupPolicyError, UNSUPPORTED_DOMAINS, 
 from .contracts import ContractValidationError, ExitStatus
 from .http_backend import DestinationAuthorization, StdlibHttpBackend
 from .offline_inputs import OfflineInputs, local_path, write_local_export
-from .product_clients import VisionBackupClient, vision_backup_segments
+from .product_clients import VisionBackupClient, vision_backup_segments, vision_ldap_segments
 from .profiles import SourceProfile
 from .sessions import SessionManager
 from .transport import HttpMethod, TransportConfig, TransportError, build_url
@@ -113,7 +113,7 @@ class VisionBackupProfile:
                 value = _reader.text(item, "$.controller_objects")
                 if operation == LookupCapability.DEVICE_BY_IP:
                     try:
-                        ip_address(value)
+                        value = str(ip_address(value))
                     except ValueError:
                         _reader.fail("invalid_device_ip", "$.controller_objects", "Device targets must be IP addresses.")
                 build_url(transport.base_url, vision_backup_segments(operation, value))
@@ -122,7 +122,11 @@ class VisionBackupProfile:
             _reader.fail("invalid_target_selection", "$.controller_objects", "Use at most 100 unique operation/target pairs.")
         if discovery and targets:
             _reader.fail("invalid_target_selection", "$.controller_objects", "Discovery and targeted lookup lists are separate modes.")
-        if not targets and not discovery:
+        controller_selected = any(domain in ("controller-objects", "device-access") for domain in domains)
+        if not controller_selected:
+            targets = []
+            discovery = False
+        if controller_selected and not targets and not discovery:
             _reader.fail("empty_selection", "$.controller_objects", "Controller object collection needs explicit targets.")
         if "device-access" in domains and not discovery and not any(
             operation == LookupCapability.DEVICE_BY_IP for operation, _ in targets
@@ -186,6 +190,8 @@ def _backend(profile: VisionBackupProfile) -> StdlibHttpBackend:
     operations = [(HttpMethod.POST, "/mgmt/system/user/login")]
     if profile.discovery:
         operations.append((HttpMethod.GET, "/mgmt/system/config/itemlist/alldevices"))
+    if "ldap-permissions" in profile.domains:
+        operations.append((HttpMethod.GET, "/" + "/".join(vision_ldap_segments())))
     operations.extend(
         (HttpMethod.GET, build_url(profile.transport.base_url, vision_backup_segments(operation, value))[
             len(profile.transport.base_url):
@@ -228,6 +234,11 @@ def run_vision_backup(
     scope = {**_SCOPE, "requested_targets_only": not profile.discovery}
     module_failures: set[str] = set()
     access_count = 0
+    ldap: dict[str, object] = {"status": "not_requested", "record_count": 0}
+    ldap_failures: list[str] = []
+    if "ldap-permissions" in profile.domains:
+        ldap["status"] = "skipped"
+        ldap["issue_codes"] = ["session_unavailable"]
     module_directories = {domain: directory / domain for domain in profile.domains}
     try:
         for folder in module_directories.values():
@@ -235,7 +246,7 @@ def run_vision_backup(
     except OSError:
         _reader.fail("output_unwritable", "$", "Cannot create selected module output directories.")
     try:
-        if targets or profile.discovery:
+        if targets or profile.discovery or "ldap-permissions" in profile.domains:
             backend = _backend(profile)
             with SessionManager(lambda: backend, resolver) as manager:
                 manager.initialize(
@@ -248,38 +259,42 @@ def run_vision_backup(
                 client = VisionBackupClient(manager)
                 if profile.discovery:
                     inventory["status"] = "failed"
-                    collected_at = datetime.now(timezone.utc).isoformat()
-                    discovered = client.discover(collected_at=collected_at)
-                    if "controller-objects" in module_directories:
-                        inventory_filename = str(Path("controller-objects") / "inventory.json")
-                        write_local_export(str(directory / inventory_filename), json.dumps({
-                            "schema_version": 1, "domain": "vision-managed-device-inventory",
-                            "source": {"product": "vision", "version": "5.4.9", "name": profile.source.name},
-                            "collected_at": collected_at,
-                            "request": {"method": "GET", "path": "/mgmt/system/config/itemlist/alldevices"},
-                            "scope": scope, "objects": list(discovered.objects),
-                            "redacted_fields": discovered.redacted_fields,
-                            "issue_codes": list(discovered.issue_codes),
-                            "evidence": {"document": "DOC-V549", "pdf_pages": list(discovered.evidence.pdf_pages)},
-                        }, indent=2, allow_nan=False))
-                        inventory["file"] = inventory_filename
-                    inventory.update(
-                        status="collected", object_count=discovered.object_count,
-                        issue_codes=list(discovered.issue_codes),
-                    )
-                    if "invalid_discovered_ip" in discovered.issue_codes:
-                        failures.append("invalid_discovered_ip")
-                    targets = [(LookupCapability.DEVICE_BY_IP, address) for address in discovered.device_ips]
-                    backend.authorize_get_targets(tuple(
-                        build_url(profile.transport.base_url, vision_backup_segments(operation, value))[
-                            len(profile.transport.base_url):
-                        ] for operation, value in targets
-                    ))
+                    try:
+                        collected_at = datetime.now(timezone.utc).isoformat()
+                        discovered = client.discover(collected_at=collected_at)
+                        if "controller-objects" in module_directories:
+                            inventory_filename = str(Path("controller-objects") / "inventory.json")
+                            write_local_export(str(directory / inventory_filename), json.dumps({
+                                "schema_version": 1, "domain": "vision-managed-device-inventory",
+                                "source": {"product": "vision", "version": "5.4.9", "name": profile.source.name},
+                                "collected_at": collected_at,
+                                "request": {"method": "GET", "path": "/mgmt/system/config/itemlist/alldevices"},
+                                "scope": scope, "objects": list(discovered.objects),
+                                "redacted_fields": discovered.redacted_fields,
+                                "issue_codes": list(discovered.issue_codes),
+                                "evidence": {"document": "DOC-V549", "pdf_pages": list(discovered.evidence.pdf_pages)},
+                            }, indent=2, allow_nan=False))
+                            inventory["file"] = inventory_filename
+                        inventory.update(
+                            status="collected", object_count=discovered.object_count,
+                            issue_codes=list(discovered.issue_codes),
+                        )
+                        if "invalid_discovered_ip" in discovered.issue_codes:
+                            failures.append("invalid_discovered_ip")
+                        targets = [(LookupCapability.DEVICE_BY_IP, address) for address in discovered.device_ips]
+                        backend.authorize_get_targets(tuple(
+                            build_url(profile.transport.base_url, vision_backup_segments(operation, value))[
+                                len(profile.transport.base_url):
+                            ] for operation, value in targets
+                        ))
+                    except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
+                        failures.extend(_failure(error))
+                        targets = []
                 for index, (operation, value) in enumerate(targets, 1):
                     entry: dict[str, object] = {"index": index, "operation": operation.value}
                     if not manager.is_authenticated(SessionRole.SOURCE):
                         entry.update(status="skipped", issue_codes=["session_unavailable"])
-                        module_failures.update(profile.domains)
+                        module_failures.update(domain for domain in profile.domains if domain != "ldap-permissions")
                         results.append(entry)
                         continue
                     try:
@@ -298,6 +313,8 @@ def run_vision_backup(
                             "objects": list(result.objects), "redacted_fields": result.redacted_fields,
                             "issue_codes": list(result.issue_codes),
                         }
+                        if operation == LookupCapability.DEVICE_BY_IP:
+                            payload["identity_binding"] = "queried_management_ip_and_unique_response_id"
                         written: list[str] = []
                         if "controller-objects" in profile.domains:
                             object_filename = str(Path("controller-objects") / filename)
@@ -326,8 +343,44 @@ def run_vision_backup(
                         )
                     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
                         entry.update(status="failed", issue_codes=_failure(error))
-                        module_failures.update(profile.domains)
+                        module_failures.update(domain for domain in profile.domains if domain != "ldap-permissions")
                     results.append(entry)
+                if "ldap-permissions" in profile.domains:
+                    if not manager.is_authenticated(SessionRole.SOURCE):
+                        module_failures.add("ldap-permissions")
+                    else:
+                        try:
+                            collected_at = datetime.now(timezone.utc).isoformat()
+                            permissions = client.list_ldap_permissions(collected_at=collected_at)
+                            filename = str(Path("ldap-permissions") / "permissions.json")
+                            write_local_export(str(directory / filename), json.dumps({
+                                "schema_version": 1, "domain": "vision-ldap-permissions",
+                                "source": {"product": "vision", "version": "5.4.9", "name": profile.source.name},
+                                "collected_at": collected_at,
+                                "request": {"method": "GET", "path": permissions.evidence.path},
+                                "scope": {
+                                    "complete_configuration_backup": False,
+                                    "schema_completeness_verified": False,
+                                    "enumeration_completeness_verified": False,
+                                    "migration_input": False,
+                                },
+                                "evidence": {
+                                    "api_record": "API-10", "request_verification": "legacy-source-observed",
+                                    "response_contract": "legacy-array-object-subset",
+                                    "officially_documented": False, "live_tested": False,
+                                },
+                                "objects": list(permissions.objects),
+                                "redacted_fields": permissions.redacted_fields,
+                                "issue_codes": list(permissions.issue_codes),
+                            }, indent=2, allow_nan=False))
+                            ldap.update(
+                                status="collected", record_count=len(permissions.objects), file=filename,
+                                redacted_fields=permissions.redacted_fields, issue_codes=list(permissions.issue_codes),
+                            )
+                        except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
+                            ldap_failures = _failure(error)
+                            ldap.update(status="failed", issue_codes=ldap_failures)
+                            module_failures.add("ldap-permissions")
     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
         if (
             isinstance(error, AuthenticationError) and error.failure.transport_reason is None
@@ -340,11 +393,13 @@ def run_vision_backup(
     collected = sum(entry["status"] == "collected" for entry in results)
     failed = sum(entry["status"] == "failed" for entry in results)
     successful = (
-        collected == len(targets) and (bool(targets) or inventory["status"] == "collected")
+        collected == len(targets) and (bool(targets) or inventory["status"] == "collected" or ldap["status"] == "collected")
         and not failures and not skipped and not module_failures
     )
     if failures:
-        module_failures.update(profile.domains)
+        module_failures.update(
+            domain for domain in profile.domains if domain != "ldap-permissions" or ldap["status"] != "collected"
+        )
     report: dict[str, object] = {
         "operation": "backup-vision", "status": "collected" if successful else "incomplete",
         "offline_only": False, "read_only": True, "live_read_selected": True,
@@ -354,7 +409,7 @@ def run_vision_backup(
         "session_closed_locally": "local_cleanup_failure" not in failures,
         "scope": scope, "run_directory": run_id, "inventory": inventory,
         "overall_status": "supported_collection_succeeded" if successful else (
-            "partial_collection" if collected or inventory["status"] == "collected" else "failed_collection"
+            "partial_collection" if collected or inventory["status"] == "collected" or ldap["status"] == "collected" else "failed_collection"
         ),
         "discovery_completeness": "partial-unverified" if profile.discovery else "targeted-only",
         "requested_targets": len(targets), "collected_objects": inventory["object_count"] if profile.discovery else collected,
@@ -363,12 +418,14 @@ def run_vision_backup(
             for entry in results
         ),
         "device_access_objects": access_count,
+        "ldap_permissions": ldap,
+        "ldap_permission_records": ldap["record_count"],
         "requested_modules": list(profile.domains),
-        "completed_modules": [domain for domain in profile.domains if domain not in module_failures and not failures],
+        "completed_modules": [domain for domain in profile.domains if domain not in module_failures],
         "failed_modules": sorted(module_failures),
         "unsupported_modules": UNSUPPORTED_DOMAINS,
         "failed_targets": failed, "uncollected_targets": len(targets) - collected,
-        "skipped_domains": skipped, "results": results, "failure_codes": failures,
+        "skipped_domains": skipped, "results": results, "failure_codes": [*failures, *ldap_failures],
         "limitations": [
             "inventory_completeness_unverified" if profile.discovery else "targeted_reads_not_inventory_discovery",
             "empty_sites_and_other_trees_not_proven_complete", "credential_fields_redacted",

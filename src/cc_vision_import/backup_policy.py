@@ -6,12 +6,11 @@ import re
 
 
 TLS_WARNING = "WARNING: HTTPS certificate verification is disabled."
-SUPPORTED_DOMAINS = ("controller-objects", "device-access")
+SUPPORTED_DOMAINS = ("controller-objects", "device-access", "ldap-permissions")
 UNSUPPORTED_DOMAINS = {
     "physical-tree": "Vision Physical tree GET/enumeration contract is not documented.",
     "organization-tree": "Vision Organization tree GET/enumeration contract is not documented.",
     "credential-configuration": "Credential backup/portability is not qualified; sensitive fields are redacted.",
-    "ldap-permissions": "Legacy Vision read is source-observed; its exact-version response contract is unverified.",
     "scheduler": "Legacy API.scheduler_endpoint binding/configuration is missing.",
 }
 

@@ -188,6 +188,7 @@ class BackupSetupTests(OfflineTestCase):
         with patch.dict(os.environ, {"CC_VISION_IMAGE": "cc-vision-master:0.4"}):
             result, runner, _, _, _, _ = self.invoke(arguments)
         self.assertEqual(result, 0)
+
         self.assertEqual(runner.call_args_list[0].args[0], ["docker", "image", "inspect", "cc-vision-master:0.4"])
         self.assertIn("cc-vision-master:0.4", runner.call_args_list[1].args[0])
         with patch.dict(os.environ, {"CC_VISION_IMAGE": "cc-vision-master:missing"}):
@@ -201,6 +202,21 @@ class BackupSetupTests(OfflineTestCase):
                 result, runner, _, _, _, _ = self.invoke(arguments)
             self.assertEqual(result, 2)
             runner.assert_not_called()
+
+    def test_ldap_is_selectable_in_interactive_and_unattended_modes(self):
+        result, _, _, snapshots, stdout, _ = self.invoke(
+            [], ["2", "3", "192.0.2.1", self.credentials["username"], "", str(self.output), "n", "y"],
+        )
+        self.assertEqual(result, 0)
+        self.assertIn("3. LDAP Permissions", stdout)
+        self.assertEqual(snapshots[0]["domains"], ["ldap-permissions"])
+        self.payload["domains"] = ["ldap-permissions"]
+        result, _, prompts, snapshots, _, _ = self.invoke([
+            "--config", str(self.config), "--non-interactive", "--credentials-file", "private.json",
+        ])
+        self.assertEqual(result, 0)
+        prompts.assert_not_called()
+        self.assertEqual(snapshots[0]["domains"], ["ldap-permissions"])
 
     def test_interactive_tls_warning_precedes_confirmation_and_is_not_repeated(self):
         inputs = ["1", "192.0.2.1", self.credentials["username"], "n", str(self.output), "n", "y"]

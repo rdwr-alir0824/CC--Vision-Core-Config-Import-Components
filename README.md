@@ -13,9 +13,14 @@ The detailed capability/legacy mapping is maintained in the
 | --- | --- |
 | Controller Objects | Vision 5.4.9 managed-device inventory and supported device details |
 | Device Access | Documented nested device-access data, with credentials redacted |
+| LDAP Permissions | Legacy-observed read-only list export; validated/redacted record subset, completeness unverified |
 
-Both are **implemented and mock-tested, not live-verified**. Full Supported
-Backup selects both; it does not mean every possible controller configuration
+The owner reports a successful Vision 5.4.9 run: 36 devices, 36 controller-object
+exports, 36 device-access exports, 73 valid module JSON files and zero failures.
+That confirms the prior deployed path, not the new identity guards or LDAP
+collector. These changes are offline-tested; LDAP master collection still needs
+authorized live validation. Full Supported Backup selects all three modules;
+it does not mean every possible controller configuration
 item or a restorable credential backup. Imports, updates and deletes remain
 unavailable. Other Vision versions and Cyber Controller live backup are not
 qualified. Existing offline commands remain available.
@@ -78,8 +83,11 @@ sudo ./run-vision-backup.sh
 ```
 
 Full Supported Backup selects every currently supported module.
-Select Backup Components offers **Controller Objects** and **Device Access**;
-enter `1`, `2`, or `1,2` (blank selects both). Other selections fail clearly.
+Select Backup Components offers **Controller Objects**, **Device Access** and
+**LDAP Permissions**; enter component numbers `1`, `2`, `3` or a comma-separated
+selection. Blank still selects `1,2`, preserving the previous selected-mode
+default. Full Supported now includes LDAP; existing explicit controller/access
+domain lists keep their previous scope. Other selections fail clearly.
 Backup from JSON loads an existing non-secret profile and uses the same engine.
 
 Normal setup displays the supported Vision source, then asks for:
@@ -222,6 +230,12 @@ Normal discovery preserves the recursive thin graph and native
 `ormId`/`parentOrmId`; these are not aliased to lookup `ormID`.
 Unique valid management IPs receive device-detail GETs. Unknown nonsecret fields
 are preserved; passwords, usernames, communities and tokens are null/redacted.
+Device detail `deviceSetup.deviceAccess.managementIp` must match the queried
+IP after canonical normalization. A response `ormID` cannot be reused for a
+different device IP in the same run. Missing identity, mismatched IP or repeated
+response IDs fail the target before either controller/access file is written.
+Error codes contain no device addresses or identities. Native discovery-ID to
+lookup-ID equivalence is still not assumed.
 
 There is no established pagination/full-tree guarantee. Empty sites, all tree
 placements and full configuration completeness remain unverified. Malformed
@@ -239,6 +253,8 @@ contract, but are not the normal workflow or complete inventory exports.
       device-by-ip-001.json
     device-access/
       device-by-ip-001.json
+    ldap-permissions/
+      permissions.json
     summary.json
 ```
 
@@ -246,6 +262,38 @@ Only selected module directories appear. Artifacts include source name/version,
 timestamp, native identifiers and document evidence. Access object example:
 `{"ormID": "device-1", "deviceAccess": {"cliPassword": null}}`.
 Redaction counts describe processing of the underlying response.
+
+### LDAP permissions scope
+
+LDAP uses the legacy-observed GET
+`/mgmt/system/config/itemlist/ldapobjectpermission` through the existing session,
+TLS and credentials. It runs after controller/device collection, without
+manual object input. An LDAP failure does not discard successful device files;
+modules report their own results. LDAP-only selection does not query devices.
+
+The supported response subset is a JSON array of objects with nonempty string
+`attributeValue`. Present `objectClassName`/`attributeName` must be nonempty
+strings; present `roleGroupPairList` must contain objects with string
+`groupName`/`roleName`. Unknown fields and network policies are preserved,
+without permission/locking changes. Shared recursive credential redaction also
+redacts credential-valued LDAP attributes. Invalid records fail the collection,
+not silently become an empty list. A genuinely empty list produces a valid
+zero-record artifact.
+
+Select only LDAP in a non-secret profile using:
+
+```json
+"backup_mode": "selected",
+"domains": ["ldap-permissions"]
+```
+
+Keep the normal source/TLS/output settings; no controller object selection is
+needed. The summary adds `ldap_permissions` (status, record_count, issues and
+file when collected) and `ldap_permission_records`. Export evidence explicitly
+says legacy-source-observed, not officially documented/live-tested. Exact
+version-wide LDAP schema, pagination/enumeration completeness, restoration and
+Vision-to-CC permission mapping are not qualified; this is not a full or
+restorable LDAP configuration backup.
 
 Example summary fields (synthetic, not live acceptance):
 
@@ -388,7 +436,7 @@ offline-tested compatibility work, not proof of the original live root cause
 or successful lab authentication.
 
 Unsupported: complete Physical/Organization tree enumeration, restorable
-credential backup, LDAP and Scheduler collection, live CC backup, appliance
+credential backup, complete LDAP configuration/schema qualification, Scheduler collection, live CC backup, appliance
 configuration downloads and all configuration writes. Evidence gaps remain
 documented internally rather than advertised as working modules.
 Authentication is cleared locally; remote logout/renewal is not implemented.
@@ -405,8 +453,8 @@ performed during implementation.
 ## Owner-reviewed publication commands
 
 Instructions only; review branch, all staged content, sensitive tracked files
-and history before committing. The following is the exact eight-file HTTP
-compatibility change list.
+and history before committing. The following is the exact ten-file device
+qualification/LDAP change list.
 Wrapper, root master, Dockerfile, original legacy scripts and containment
 documentation are unchanged.
 
@@ -417,13 +465,15 @@ test "$(git branch --show-current)" = feature/ccv-010c-http-safety || exit 1
 git ls-files -- '*.pdf' '*.PDF' '*.tar' '*.ini' '*.pem'
 # Stop for approved cleanup if sensitive/vendor files are tracked.
 git add -- README.md docs/API_MATRIX.md docs/PROGRESS.md \
-  src/cc_vision_import/authentication.py \
+  src/cc_vision_import/capabilities.py \
+  src/cc_vision_import/product_clients.py \
+  src/cc_vision_import/backup_policy.py \
+  src/cc_vision_import/backup_setup.py \
   src/cc_vision_import/vision_backup.py \
-  src/cc_vision_import/http_backend.py \
-  tests/test_http_backend.py tests/test_vision_backup.py
+  tests/test_backup_setup.py tests/test_vision_backup.py
 git --no-pager diff --cached --check
 git --no-pager diff --cached
-git commit -m "Support bounded gzip and safe Vision HTTP failure diagnostics" \
+git commit -m "Validate device query identity and add read-only LDAP subset backup" \
   -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 git push origin HEAD:feature/ccv-010c-http-safety
 ```

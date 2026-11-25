@@ -23,6 +23,9 @@ class ClientErrorCategory(StrEnum):
     MOCK_BACKEND_REQUIRED = "mock_backend_required"
     SESSION_MISMATCH = "session_declaration_mismatch"
     MALFORMED_RESPONSE = "malformed_api_response"
+    DEVICE_IDENTITY_MISSING = "device_identity_missing"
+    DEVICE_IDENTITY_MISMATCH = "device_identity_mismatch"
+    DUPLICATE_DEVICE_RESPONSE = "duplicate_device_response"
 
 
 class ProductClientError(Exception):

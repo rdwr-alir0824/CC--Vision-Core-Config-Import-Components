@@ -202,7 +202,7 @@ def _discovery_nodes(payload: object, depth: int = 0) -> tuple[list[str], int, s
             except ValueError:
                 codes.add("invalid_discovered_ip")
             else:
-                addresses.append(address)
+                addresses.append(str(ip_address(address)))
         children = row.get("children", [])
         if children is None:
             codes.add("unverified_nullability")
@@ -253,14 +253,72 @@ def vision_backup_segments(operation: LookupCapability, value: str) -> tuple[str
     return (*evidence.path.strip("/").split("/")[:-1], value)
 
 
+def vision_ldap_segments() -> tuple[str, ...]:
+    evidence = operation_evidence("vision", "5.4.9", "DOC-V549", "API-10")
+    assert evidence.path is not None
+    return tuple(evidence.path.strip("/").split("/"))
+
+
 class VisionBackupClient:
-    """Document-bound targeted reads, separate from migration capability activation."""
+    """Evidence-bound read-only collections, separate from migration capability activation."""
 
     def __init__(self, manager: SessionManager) -> None:
         snapshot = manager.snapshot(SessionRole.SOURCE)
         if snapshot.product != "vision" or snapshot.version != "5.4.9":
             raise ProductClientError(ClientErrorCategory.SESSION_MISMATCH)
         self._manager = manager
+        self._device_queries: dict[str, str] = {}
+
+    def list_ldap_permissions(self, *, collected_at: str) -> VisionBackupRead:
+        evidence = operation_evidence("vision", "5.4.9", "DOC-V549", "API-10")
+        response = self._manager.request(
+            SessionRole.SOURCE, HttpMethod.GET, vision_ldap_segments(),
+            headers={"Content-Type": "application/json"}, expect_json=True,
+        )
+        if response.status != 200:
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        try:
+            payload = load_json(response.body.decode("utf-8"))
+        except (ValueError, UnicodeError, RecursionError):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE) from None
+        if not isinstance(payload, list):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        rows: list[dict[str, object]] = []
+        descriptor_redactions = 0
+        for item in payload:
+            row = _object(item)
+            attribute_value = row.get("attributeValue")
+            if row.get("status") == "error" or not isinstance(attribute_value, str) or not attribute_value.strip():
+                raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+            for key in ("objectClassName", "attributeName"):
+                if key in row and (not isinstance(row[key], str) or not row[key].strip()):
+                    raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+            if "roleGroupPairList" in row:
+                pairs = row["roleGroupPairList"]
+                if not isinstance(pairs, list):
+                    raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+                for pair in pairs:
+                    mapping = _object(pair)
+                    if any(not isinstance(mapping.get(key), str) or not mapping[key].strip() for key in ("groupName", "roleName")):
+                        raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+            attribute = row.get("attributeName")
+            if isinstance(attribute, str) and is_controller_credential_field(attribute):
+                row["attributeValue"] = None
+                descriptor_redactions += 1
+            rows.append(row)
+        redacted, removed = _redact_credentials(rows)
+        removed += descriptor_redactions
+        artifact = parse_artifact({
+            "schema_version": 1, "domain": "ldap-permissions",
+            "source": {"product": "vision", "version": "5.4.9"},
+            "metadata": {"exported_at": collected_at, "exporter": "vision-read-only-backup"},
+            "objects": redacted,
+            "validation": {"scope": "offline-contract", "status": "valid", "issue_codes": []},
+        })
+        codes = {"ldap_schema_completeness_unverified", "ldap_enumeration_completeness_unverified"}
+        if removed:
+            codes.add("credential_fields_redacted")
+        return VisionBackupRead(evidence, artifact.objects, removed, tuple(sorted(codes)))
 
     def discover(self, *, collected_at: str) -> VisionDiscoveryRead:
         evidence = operation_evidence("vision", "5.4.9", "DOC-V549", "VISION-MANAGED-DEVICES")
@@ -291,6 +349,11 @@ class VisionBackupClient:
         )
 
     def read(self, operation: LookupCapability, value: str, *, collected_at: str) -> VisionBackupRead:
+        if operation == LookupCapability.DEVICE_BY_IP:
+            try:
+                value = str(ip_address(value))
+            except ValueError:
+                raise ProductClientError(ClientErrorCategory.DEVICE_IDENTITY_MISMATCH) from None
         segments = vision_backup_segments(operation, value)
         record = _VISION_BACKUP_RECORDS[operation]
         evidence = operation_evidence("vision", "5.4.9", "DOC-V549", record)
@@ -304,6 +367,24 @@ class VisionBackupClient:
         except (ValueError, UnicodeError, RecursionError):
             raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE) from None
         row = _object(payload)
+        identity = row.get("ormID")
+        if operation == LookupCapability.DEVICE_BY_IP:
+            if not isinstance(identity, str) or not identity.strip():
+                raise ProductClientError(ClientErrorCategory.DEVICE_IDENTITY_MISSING)
+            requested_ip = str(ip_address(value))
+            if identity in self._device_queries and self._device_queries[identity] != requested_ip:
+                raise ProductClientError(ClientErrorCategory.DUPLICATE_DEVICE_RESPONSE)
+            setup = row.get("deviceSetup")
+            access = setup.get("deviceAccess") if isinstance(setup, dict) else None
+            address = access.get("managementIp") if isinstance(access, dict) else None
+            if not isinstance(address, str) or not address.strip():
+                raise ProductClientError(ClientErrorCategory.DEVICE_IDENTITY_MISSING)
+            try:
+                response_ip = str(ip_address(address))
+            except ValueError:
+                raise ProductClientError(ClientErrorCategory.DEVICE_IDENTITY_MISMATCH) from None
+            if response_ip != requested_ip:
+                raise ProductClientError(ClientErrorCategory.DEVICE_IDENTITY_MISMATCH)
         if row.get("status") == "error" or any(
             not isinstance(item, str) or not item.strip()
             for item in (row.get("ormID"), row.get("name"))
@@ -327,5 +408,6 @@ class VisionBackupClient:
         if count:
             codes.add("credential_fields_redacted")
         if operation == LookupCapability.DEVICE_BY_IP:
-            codes.add("device_query_binding_unverified")
+            assert isinstance(identity, str)
+            self._device_queries[identity] = str(ip_address(value))
         return VisionBackupRead(evidence, qualified.artifact.objects, count, tuple(sorted(codes)))

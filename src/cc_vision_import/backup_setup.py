@@ -184,10 +184,10 @@ def main(argv: list[str] | None = None) -> int:
             elif menu in ("1", "2"):
                 mode: dict[str, object] = {"backup_mode": "full-supported"}
                 if menu == "2":
-                    print("Available backup components:\n\n1. Controller Objects\n2. Device Access")
+                    print("Available backup components:\n\n1. Controller Objects\n2. Device Access\n3. LDAP Permissions")
                     selected = (input("Select components [1,2]: ").strip() or "1,2").split(",")
-                    if any(item.strip() not in ("1", "2") for item in selected):
-                        raise SetupError("Select only supported component numbers 1 and 2.")
+                    if any(item.strip() not in ("1", "2", "3") for item in selected):
+                        raise SetupError("Select only supported component numbers 1, 2 and 3.")
                     mode = {"backup_mode": "selected", "domains": [SUPPORTED_DOMAINS[int(item.strip()) - 1] for item in selected]}
                 print("Source: APSolute Vision 5.4.9")
                 payload, credentials = _interactive_profile(mode)
@@ -206,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
             with Path(filename).open("x", encoding="utf-8") as stream:
                 json.dump(profile, stream, indent=2)
             print("Non-secret settings saved; credentials were not saved.")
-        print("Discovery uses the documented managed-device list; full configuration completeness is unverified.")
+        print("Selected modules use read-only queries; full configuration completeness is unverified.")
         if not args.non_interactive and not _answer("Start read-only Vision backup? [y/N]: ", False):
             print("Cancelled; no controller connection attempted.")
             return 0

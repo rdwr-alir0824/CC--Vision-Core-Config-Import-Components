@@ -1,4 +1,5 @@
 import importlib
+import copy
 import gzip
 import io
 import json
@@ -94,6 +95,7 @@ class VisionBackupTests(OfflineTestCase):
         for marker in (
             "synthetic-user-marker", "synthetic-password-marker", "session-secret-marker",
             "device-secret-marker", "community-secret-marker",
+            "ldap-secret-marker", "ldap-value-secret-marker",
         ):
             self.assertNotIn(marker, serialized)
 
@@ -373,10 +375,11 @@ class VisionBackupTests(OfflineTestCase):
         self.profile["backup_mode"] = "full-supported"
         self.profile["controller_objects"] = {"discovery": True}
         status, report, factory = self.invoke(
-            self.login(), self.connection([{"managementIp": "192.0.2.10"}]), self.connection(self.device),
+            self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
+            self.connection(self.device), self.connection([]),
         )
         self.assertEqual(status, 0)
-        self.assertEqual(report["completed_modules"], ["controller-objects", "device-access"])
+        self.assertEqual(report["completed_modules"], ["controller-objects", "device-access", "ldap-permissions"])
         saved = json.loads((self.output / report["run_directory"] / "device-access" / "device-by-ip-001.json").read_text())
         self.assertIsNone(saved["objects"][0]["deviceAccess"]["cliPassword"])
         self.assertEqual(report["device_access_objects"], 1)
@@ -404,20 +407,181 @@ class VisionBackupTests(OfflineTestCase):
         self.assertFalse((directory / "controller-objects").exists())
         self.assertFalse((directory / "device-access" / "inventory.json").exists())
         self.assertTrue((directory / "device-access" / "device-by-ip-001.json").is_file())
-        self.profile.pop("domains")
-        self.profile["backup_mode"] = "full-supported"
+        self.profile["domains"] = ["controller-objects", "device-access"]
         status, report, _ = self.invoke(
             self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
             self.connection({"ormID": "device-1", "name": "device"}),
         )
         self.assertEqual(status, 1)
-        self.assertEqual(report["completed_modules"], ["controller-objects"])
-        self.assertEqual(report["failed_modules"], ["device-access"])
+        self.assertEqual(report["completed_modules"], [])
+        self.assertEqual(report["failed_modules"], ["controller-objects", "device-access"])
         self.assertEqual(report["overall_status"], "partial_collection")
-        self.assertEqual(report["results"][0]["device_access_issue_codes"], ["device_access_unavailable"])
+        self.assertEqual(report["results"][0]["issue_codes"], ["device_identity_missing"])
         self.profile["controller_objects"] = {"device_ips": ["192.0.2.10"]}
         with patch.object(self.backup.SessionManager, "is_authenticated", return_value=False):
             status, report, _ = self.invoke(self.login())
         self.assertEqual(status, 1)
         self.assertEqual(report["completed_modules"], [])
         self.assertEqual(report["failed_modules"], ["controller-objects", "device-access"])
+
+    def test_device_identity_mismatch_or_missing_fields_never_saves_wrong_response(self):
+        self.profile["domains"] = ["controller-objects", "device-access"]
+        self.profile["controller_objects"] = {"device_ips": ["192.0.2.10"]}
+        wrong_address = copy.deepcopy(self.device)
+        wrong_address["deviceSetup"]["deviceAccess"]["managementIp"] = "192.0.2.11"
+        missing_id = copy.deepcopy(self.device)
+        missing_id.pop("ormID")
+        missing_address = copy.deepcopy(self.device)
+        missing_address["deviceSetup"]["deviceAccess"].pop("managementIp")
+        missing_name = copy.deepcopy(self.device)
+        missing_name.pop("name")
+        for payload, code in (
+            (wrong_address, "device_identity_mismatch"),
+            (missing_id, "device_identity_missing"),
+            (missing_address, "device_identity_missing"),
+            (missing_name, "malformed_api_response"),
+        ):
+            with self.subTest(code=code):
+                status, report, factory = self.invoke(self.login(), self.connection(payload))
+                self.assertEqual(status, 1)
+                self.assertEqual(factory.call_count, 2)
+                self.assertEqual(report["device_details_collected"], 0)
+                self.assertEqual(report["device_access_objects"], 0)
+                self.assertEqual(report["results"][0]["issue_codes"], [code])
+                directory = self.output / report["run_directory"]
+                for module in self.profile["domains"]:
+                    self.assertEqual(list((directory / module).glob("*.json")), [])
+                self.assertNotIn("192.0.2.", json.dumps([report, self.diagnostics]))
+                self.assert_secret_free(report)
+
+    def test_duplicate_device_responses_for_distinct_queries_are_not_exported_twice(self):
+        self.profile["domains"] = ["controller-objects", "device-access"]
+        self.profile["controller_objects"] = {"device_ips": ["192.0.2.10", "192.0.2.11"]}
+        for changed_address in (False, True):
+            duplicate = copy.deepcopy(self.device)
+            if changed_address:
+                duplicate["deviceSetup"]["deviceAccess"]["managementIp"] = "192.0.2.11"
+            status, report, _ = self.invoke(
+                self.login(), self.connection(self.device), self.connection(duplicate),
+            )
+            self.assertEqual(status, 1)
+            self.assertEqual(report["device_details_collected"], 1)
+            self.assertEqual(report["device_access_objects"], 1)
+            self.assertEqual(report["results"][1]["issue_codes"], ["duplicate_device_response"])
+            directory = self.output / report["run_directory"]
+            for module in self.profile["domains"]:
+                self.assertEqual(len(list((directory / module).glob("device-by-ip-*.json"))), 1)
+            self.assertNotIn("192.0.2.", json.dumps([report, self.diagnostics]))
+            self.assert_secret_free(report)
+
+    def test_equivalent_ipv6_addresses_bind_and_discovery_deduplicates_queries(self):
+        self.profile["controller_objects"] = {"discovery": True}
+        device = copy.deepcopy(self.device)
+        device["deviceSetup"]["deviceAccess"]["managementIp"] = "2001:0db8:0:0::1"
+        status, report, factory = self.invoke(
+            self.login(), self.connection([
+                {"ormId": "native-one", "managementIp": "2001:db8:0::1"},
+                {"ormId": "native-two", "managementIp": "2001:db8::1"},
+            ]), self.connection(device),
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(factory.call_count, 3)
+        self.assertEqual(report["device_details_collected"], 1)
+        self.assertNotIn("2001:", json.dumps([report, self.diagnostics]))
+        self.profile["controller_objects"] = {"device_ips": ["2001:db8:0::1", "2001:db8::1"]}
+        status, report, factory = self.invoke()
+        self.assertEqual(status, 4)
+        factory.assert_not_called()
+        self.assertEqual(report["errors"][0]["code"], "invalid_target_selection")
+
+    def test_ldap_only_reuses_session_tls_and_exports_redacted_source_subset(self):
+        self.profile["domains"] = ["ldap-permissions"]
+        self.profile.pop("controller_objects")
+        records = [{
+            "objectClassName": "LdapObjectPermission", "attributeName": "memberOf",
+            "attributeValue": "synthetic-group",
+            "roleGroupPairList": [{"groupName": "synthetic-scope", "roleName": "ReadOnly"}],
+            "networkPolicies": [{"opaque-policy": True}],
+            "unknown": {"bindPassword": "ldap-secret-marker", "future": [1, None]},
+        }, {"attributeName": "bindPassword", "attributeValue": "ldap-value-secret-marker"}]
+        for verify in (True, False):
+            self.profile["tls"]["verify"] = verify
+            connections = [self.login(), self.connection(records)]
+            status, report, factory = self.invoke(*connections, warning_expected=not verify)
+            self.assertEqual(status, 0)
+            self.assertEqual(factory.call_count, 2)
+            self.assertEqual(report["completed_modules"], ["ldap-permissions"])
+            self.assertEqual(report["inventory"]["status"], "not_requested")
+            self.assertEqual(report["device_details_collected"], 0)
+            self.assertEqual(report["ldap_permission_records"], 2)
+            request = connections[1].requests[0]
+            self.assertEqual(request[:2], ("GET", "/mgmt/system/config/itemlist/ldapobjectpermission"))
+            self.assertIsNone(request[2])
+            self.assertIn("JSESSIONID=session-secret-marker", request[3]["Cookie"])
+            self.assertEqual(request[3]["Content-type"], "application/json")
+            directory = self.output / report["run_directory"]
+            self.assertFalse((directory / "controller-objects").exists())
+            saved = json.loads((directory / "ldap-permissions" / "permissions.json").read_text())
+            self.assertEqual(saved["objects"][0]["roleGroupPairList"], records[0]["roleGroupPairList"])
+            self.assertEqual(saved["objects"][0]["networkPolicies"], records[0]["networkPolicies"])
+            self.assertIsNone(saved["objects"][0]["unknown"]["bindPassword"])
+            self.assertIsNone(saved["objects"][1]["attributeValue"])
+            self.assertEqual(saved["redacted_fields"], 2)
+            self.assertFalse(saved["scope"]["enumeration_completeness_verified"])
+            self.assertFalse(saved["evidence"]["officially_documented"])
+            self.assertFalse(saved["evidence"]["live_tested"])
+            self.assert_secret_free([saved, report])
+            profile = self.backup.VisionBackupProfile.read(str(self.profile_path))
+            backend = self.backup._backend(profile)
+            self.addCleanup(backend.close)
+            self.assertTrue(backend._authorization.permits(
+                self.transport.HttpMethod.GET, "https://vision.invalid", "/mgmt/system/config/itemlist/ldapobjectpermission",
+            ))
+            self.assertFalse(backend._authorization.permits(
+                self.transport.HttpMethod.POST, "https://vision.invalid", "/mgmt/system/config/itemlist/ldapobjectpermission",
+            ))
+            self.assertFalse(backend._authorization.permits(
+                self.transport.HttpMethod.GET, "https://vision.invalid", "/mgmt/system/config/itemlist/alldevices",
+            ))
+
+    def test_invalid_ldap_records_fail_only_ldap_without_hiding_device_exports(self):
+        self.profile["domains"] = ["controller-objects", "device-access", "ldap-permissions"]
+        self.profile["controller_objects"] = {"device_ips": ["192.0.2.10"]}
+        for payload, http_status in (
+            ({"status": "error", "message": "ldap-secret-marker"}, 200), ([None], 200),
+            ([{}], 200), ([{"attributeValue": 1}], 200),
+            ([{"attributeValue": "synthetic-group", "roleGroupPairList": [{"roleName": "ReadOnly"}]}], 200),
+            ({"status": "error"}, 401),
+        ):
+            status, report, _ = self.invoke(
+                self.login(), self.connection(self.device), self.connection(payload, http_status),
+            )
+            self.assertEqual(status, 1)
+            self.assertEqual(report["completed_modules"], ["controller-objects", "device-access"])
+            self.assertEqual(report["failed_modules"], ["ldap-permissions"])
+            self.assertEqual(report["ldap_permissions"]["status"], "failed")
+            self.assertEqual(report["ldap_permission_records"], 0)
+            self.assertEqual(report["device_details_collected"], 1)
+            self.assertEqual(report["device_access_objects"], 1)
+            self.assertTrue(report["failure_codes"])
+            if http_status == 200:
+                self.assertIn("malformed_api_response", report["failure_codes"])
+            self.assertFalse((self.output / report["run_directory"] / "ldap-permissions" / "permissions.json").exists())
+            self.assert_secret_free(report)
+
+    def test_empty_ldap_is_valid_and_device_discovery_failure_keeps_ldap_result(self):
+        self.profile["domains"] = ["ldap-permissions"]
+        status, report, _ = self.invoke(self.login(), self.connection([]))
+        self.assertEqual(status, 0)
+        self.assertEqual(report["ldap_permission_records"], 0)
+        self.assertEqual(report["ldap_permissions"]["status"], "collected")
+        self.profile.pop("domains")
+        self.profile["backup_mode"] = "full-supported"
+        self.profile["controller_objects"] = {"discovery": True}
+        status, report, _ = self.invoke(
+            self.login(), self.connection({"status": "error"}), self.connection([]),
+        )
+        self.assertEqual(status, 1)
+        self.assertEqual(report["completed_modules"], ["ldap-permissions"])
+        self.assertEqual(report["failed_modules"], ["controller-objects", "device-access"])
+        self.assertEqual(report["ldap_permissions"]["status"], "collected")
