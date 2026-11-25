@@ -2,7 +2,52 @@
 
 Last updated: 2026-11-25
 
-## Current task: PORTABLE-COMPOSE-DEPLOYMENT - independent on-demand roles
+## Current task: UNIFIED-DEPLOYMENT-RUNBOOK - standard operator procedure
+
+- Objective/priority: high; one repeatable Compose deployment for source Vision
+  and destination CC, with execution and mandatory backup transfer separate.
+- Dependencies: actual compose.yaml mount/image settings, Dockerfile runtime,
+  compose_entrypoint backup/preflight behavior and existing offline CLI limits.
+- Approval: owner-authorized documentation-only consolidation. No Git operations,
+  live requests, controller deployment, code/configuration or collector changes.
+- Implementation status: completed; README has one "Standard Deployment" section
+  with Install, Source backup, full-folder transfer, Destination preflight,
+  Verification and Cleanup/update. Same application directory on both hosts:
+  /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components.
+- Deployment: first clone only when the application path is absent; existing
+  clones update in place with clean-tree/fast-forward checks, then rebuild through
+  the same Compose block. Same reviewed revision/image on both hosts. Removed
+  overlapping direct-Docker, host-launcher and historical publication procedures;
+  optional offline execution examples now use the same Compose deployment.
+- Transfer: entire six-module run folder plus summary.json, trusted checksum or
+  approved secure directory transfer, no direct inter-host connectivity required.
+  Verify archive integrity/content, refuse existing target overwrite, provision
+  only the selected new incoming folder's ownership/private permissions and
+  review source module counts/status before preflight. Transfer never triggers
+  restore or CC writes.
+- Path evidence: Compose defaults match ../ccv-runtime/source-backups and
+  ../ccv-runtime/destination-incoming, mounted as /backups and read-only /incoming.
+  No configuration correction required. Legacy /srv paths and launcher /data
+  are isolated in an existing-deployment note; shell/.env overrides remain explicit.
+- Verification status/test evidence: documentation structure and actual mounts,
+  shared image, Python base and entrypoint names checked; one standard section,
+  six ordered steps, one guarded clone/pull command, no obsolete deployment
+  commands. Bash parse-only syntax checks passed for all 15 sh command blocks.
+  Commands were not executed. No runtime tests needed for documentation-only
+  changes; no new image build/controller qualification claimed.
+- Owner-reported evidence: Compose deployed successfully on destination lab and
+  a complete Vision backup transferred before this task. This is not a new
+  agent-executed runtime test.
+- Files affected: README.md and docs/PROGRESS.md only.
+- Known limitations: preflight validates profiles only and does not inspect the
+  incoming package; separate Site artifact check remains migration-blocked.
+  No live CC connectivity/authentication/capacity preflight or full package
+  validator. Appliance deployment requires authorization; adjacent approved
+  Docker hosts follow the same procedure.
+- Next action: operator follows the consolidated runbook for approved install/
+  update and execution; retain transfer integrity and source summary evidence.
+
+## Previous task: PORTABLE-COMPOSE-DEPLOYMENT - independent on-demand roles
 
 - Objective/priority: high; supply the missing Compose configuration for source
   backup and destination offline validation/preflight on independent hosts.
