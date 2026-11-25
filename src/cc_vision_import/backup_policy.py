@@ -7,11 +7,10 @@ import re
 
 TLS_WARNING = "WARNING: HTTPS certificate verification is disabled."
 SUPPORTED_DOMAINS = (
-    "controller-objects", "device-access", "ldap-permissions", "physical-tree", "organization-tree",
+    "controller-objects", "device-access", "ldap-permissions", "physical-tree", "organization-tree", "scheduler",
 )
 UNSUPPORTED_DOMAINS = {
     "credential-configuration": "Credential backup/portability is not qualified; sensitive fields are redacted.",
-    "scheduler": "Legacy API.scheduler_endpoint binding/configuration is missing.",
 }
 
 

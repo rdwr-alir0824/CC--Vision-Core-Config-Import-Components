@@ -84,9 +84,10 @@ sudo ./run-vision-backup.sh
 
 Full Supported Backup selects every currently supported module.
 Select Backup Components offers **Controller Objects**, **Device Access**,
-**LDAP Permissions**, **Physical Tree** and **Organization Tree**; enter component
-numbers `1` through `5` or a comma-separated selection. Blank still selects `1,2`,
-preserving the previous selected-mode default. Full Supported includes all five;
+**LDAP Permissions**, **Physical Tree**, **Organization Tree** and **Scheduler**;
+enter component numbers `1` through `6` or a comma-separated selection.
+Blank still selects `1,2`, preserving the previous selected-mode default.
+Full Supported includes all six;
 existing explicit domain lists keep their previous scope. Other selections fail clearly.
 Backup from JSON loads an existing non-secret profile and uses the same engine.
 
@@ -259,6 +260,8 @@ contract, but are not the normal workflow or complete inventory exports.
       tree.json
     organization-tree/
       tree.json
+    scheduler/
+      tasks.json
     summary.json
 ```
 
@@ -334,6 +337,37 @@ reads from the new master implementation, which is offline-tested only; neither
 exact endpoint is found in the reviewed Vision PDF. This is a native response
 export, not a certified complete or restorable configuration backup. Existing
 16 MiB response and recursive redaction limits still apply.
+
+### Scheduler scope
+
+Component `6` uses GET `/mgmt/system/config/itemlist/scheduledtask`, the
+`API.scheduler_endpoint` value in both owner-supplied Scheduler INIs. The original
+downloader uses a session GET with no query parameters or body after the existing
+Vision login; the master retains its application headers and session cookies.
+The master binds this one fixed read path, not an operator-configurable API URL.
+It does not load the legacy INI or copy its credentials/controller settings.
+
+For Scheduler-only collection use `"backup_mode": "selected"` and
+`"domains": ["scheduler"]` with the normal source/TLS/output settings. It performs
+no device discovery, LDAP or tree reads. Full Supported collects Scheduler last,
+preserving already saved outputs from the five existing modules if Scheduler fails.
+
+The source-observed response subset is an array of task objects. Each object is
+preserved in `scheduler/tasks.json` under `tasks`, apart from existing sensitive-field
+redaction. No required task name/type is invented; native IDs, status fields and
+unknown fields are retained. Upload-only sanitization and name-based skipping are
+not used. An empty array is a valid zero-record result; malformed/wrapped/non-object
+records fail, never silently become empty success.
+
+Summary `scheduler` reports status, record_count (saved array elements), file,
+redactions and issue codes. Full schema, task types, timezone/reference semantics,
+enumeration/pagination completeness and the new master live behavior remain
+unverified. This is a source-observed export, not a certified full/restorable backup.
+Existing response/redaction bounds apply; no remote logout or task writes are added.
+
+Legacy naming caveat: both identical downloaders read `config.ini` relative to
+their working directory, not the supplied `scheduler_config.ini` by name. The
+supplied INIs establish the path reference; the master needs no rename/copy step.
 
 Example summary fields (synthetic, not live acceptance):
 
@@ -476,7 +510,7 @@ offline-tested compatibility work, not proof of the original live root cause
 or successful lab authentication.
 
 Unsupported: complete Physical/Organization tree enumeration, restorable
-credential backup, complete LDAP configuration/schema qualification, Scheduler collection, live CC backup, appliance
+credential backup, complete LDAP/Scheduler schema and enumeration qualification, live CC backup, appliance
 configuration downloads and all configuration writes. Evidence gaps remain
 documented internally rather than advertised as working modules.
 Authentication is cleared locally; remote logout/renewal is not implemented.

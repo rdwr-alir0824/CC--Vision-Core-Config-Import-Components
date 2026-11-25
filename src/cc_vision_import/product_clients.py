@@ -180,6 +180,13 @@ class VisionTreeRead:
     issue_codes: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class VisionSchedulerRead:
+    tasks: tuple[dict[str, JsonValue], ...] = field(repr=False)
+    redacted_fields: int
+    issue_codes: tuple[str, ...]
+
+
 def _discovery_nodes(payload: object, depth: int = 0) -> tuple[list[str], int, set[str]]:
     if not isinstance(payload, list) or depth > 64:
         raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
@@ -267,6 +274,10 @@ def vision_ldap_segments() -> tuple[str, ...]:
     return tuple(evidence.path.strip("/").split("/"))
 
 
+def vision_scheduler_segments() -> tuple[str, ...]:
+    return ("mgmt", "system", "config", "itemlist", "scheduledtask")
+
+
 _VISION_TREE_RECORDS = {"physical-tree": "API-02", "organization-tree": "API-03"}
 
 
@@ -287,6 +298,36 @@ class VisionBackupClient:
             raise ProductClientError(ClientErrorCategory.SESSION_MISMATCH)
         self._manager = manager
         self._device_queries: dict[str, str] = {}
+
+    def list_scheduler_tasks(self, *, collected_at: str) -> VisionSchedulerRead:
+        response = self._manager.request(
+            SessionRole.SOURCE, HttpMethod.GET, vision_scheduler_segments(),
+            headers={
+                "Accept": "application/json", "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+            }, expect_json=True,
+        )
+        if response.status != 200:
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        try:
+            payload = load_json(response.body.decode("utf-8"))
+        except (ValueError, UnicodeError, RecursionError):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE) from None
+        if not isinstance(payload, list):
+            raise ProductClientError(ClientErrorCategory.MALFORMED_RESPONSE)
+        rows = [_object(item) for item in payload]
+        redacted, removed = _redact_credentials(rows)
+        artifact = parse_artifact({
+            "schema_version": 1, "domain": "api-schema-evidence",
+            "source": {"product": "vision", "version": "5.4.9"},
+            "metadata": {"exported_at": collected_at, "exporter": "vision-read-only-backup"},
+            "objects": redacted,
+            "validation": {"scope": "offline-contract", "status": "valid", "issue_codes": []},
+        })
+        codes = {"scheduler_schema_completeness_unverified", "scheduler_enumeration_completeness_unverified"}
+        if removed:
+            codes.add("credential_fields_redacted")
+        return VisionSchedulerRead(artifact.objects, removed, tuple(sorted(codes)))
 
     def read_tree(self, domain: str) -> VisionTreeRead:
         response = self._manager.request(

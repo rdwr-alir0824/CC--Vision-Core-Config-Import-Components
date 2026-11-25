@@ -22,7 +22,9 @@ from .backup_policy import TLS_WARNING, BackupPolicyError, UNSUPPORTED_DOMAINS, 
 from .contracts import ContractValidationError, ExitStatus
 from .http_backend import DestinationAuthorization, StdlibHttpBackend
 from .offline_inputs import OfflineInputs, local_path, write_local_export
-from .product_clients import VisionBackupClient, vision_backup_segments, vision_ldap_segments, vision_tree_segments
+from .product_clients import (
+    VisionBackupClient, vision_backup_segments, vision_ldap_segments, vision_scheduler_segments, vision_tree_segments,
+)
 from .profiles import SourceProfile
 from .sessions import SessionManager
 from .transport import HttpMethod, TransportConfig, TransportError, build_url
@@ -193,6 +195,8 @@ def _backend(profile: VisionBackupProfile) -> StdlibHttpBackend:
         operations.append((HttpMethod.GET, "/mgmt/system/config/itemlist/alldevices"))
     if "ldap-permissions" in profile.domains:
         operations.append((HttpMethod.GET, "/" + "/".join(vision_ldap_segments())))
+    if "scheduler" in profile.domains:
+        operations.append((HttpMethod.GET, "/" + "/".join(vision_scheduler_segments())))
     operations.extend(
         (HttpMethod.GET, "/" + "/".join(vision_tree_segments(domain)))
         for domain in _TREE_DOMAINS if domain in profile.domains
@@ -253,6 +257,13 @@ def run_vision_backup(
         } for domain in _TREE_DOMAINS
     }
     tree_failures: list[str] = []
+    scheduler: dict[str, object] = {
+        "status": "skipped" if "scheduler" in profile.domains else "not_requested",
+        "record_count": 0, "schema_completeness_verified": False,
+        "enumeration_completeness_verified": False,
+        "issue_codes": ["session_unavailable"] if "scheduler" in profile.domains else [],
+    }
+    scheduler_failures: list[str] = []
     module_directories = {domain: directory / domain for domain in profile.domains}
     try:
         for folder in module_directories.values():
@@ -436,6 +447,41 @@ def run_vision_backup(
                         tree_failures.extend(codes)
                         trees[domain].update(status="failed", issue_codes=codes)
                         module_failures.add(domain)
+                if "scheduler" in profile.domains:
+                    if not manager.is_authenticated(SessionRole.SOURCE):
+                        module_failures.add("scheduler")
+                    else:
+                        try:
+                            collected_at = datetime.now(timezone.utc).isoformat()
+                            tasks = client.list_scheduler_tasks(collected_at=collected_at)
+                            filename = str(Path("scheduler") / "tasks.json")
+                            write_local_export(str(directory / filename), json.dumps({
+                                "schema_version": 1, "domain": "vision-scheduler",
+                                "source": {"product": "vision", "version": "5.4.9", "name": profile.source.name},
+                                "collected_at": collected_at,
+                                "request": {"method": "GET", "path": "/" + "/".join(vision_scheduler_segments())},
+                                "scope": {
+                                    "complete_configuration_backup": False,
+                                    "schema_completeness_verified": False,
+                                    "enumeration_completeness_verified": False, "migration_input": False,
+                                },
+                                "evidence": {
+                                    "request_verification": "legacy-source-and-ini-observed",
+                                    "source_config_key": "API.scheduler_endpoint",
+                                    "response_contract": "legacy-array-object-subset",
+                                    "vendor_contract_verified": False, "master_live_tested": False,
+                                },
+                                "tasks": list(tasks.tasks), "record_count": len(tasks.tasks),
+                                "redacted_fields": tasks.redacted_fields, "issue_codes": list(tasks.issue_codes),
+                            }, indent=2, allow_nan=False))
+                            scheduler.update(
+                                status="collected", record_count=len(tasks.tasks), file=filename,
+                                redacted_fields=tasks.redacted_fields, issue_codes=list(tasks.issue_codes),
+                            )
+                        except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
+                            scheduler_failures = _failure(error)
+                            scheduler.update(status="failed", issue_codes=scheduler_failures)
+                            module_failures.add("scheduler")
     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
         if (
             isinstance(error, AuthenticationError) and error.failure.transport_reason is None
@@ -448,9 +494,11 @@ def run_vision_backup(
     collected = sum(entry["status"] == "collected" for entry in results)
     failed = sum(entry["status"] == "failed" for entry in results)
     trees_collected = any(tree["status"] == "collected" for tree in trees.values())
+    scheduler_collected = scheduler["status"] == "collected"
     successful = (
         collected == len(targets) and (
-            bool(targets) or inventory["status"] == "collected" or ldap["status"] == "collected" or trees_collected
+            bool(targets) or inventory["status"] == "collected" or ldap["status"] == "collected"
+            or trees_collected or scheduler_collected
         )
         and not failures and not skipped and not module_failures
     )
@@ -460,6 +508,7 @@ def run_vision_backup(
             if not (
                 domain == "ldap-permissions" and ldap["status"] == "collected"
                 or domain in trees and trees[domain]["status"] == "collected"
+                or domain == "scheduler" and scheduler_collected
             )
         )
     report: dict[str, object] = {
@@ -471,7 +520,7 @@ def run_vision_backup(
         "session_closed_locally": "local_cleanup_failure" not in failures,
         "scope": scope, "run_directory": run_id, "inventory": inventory,
         "overall_status": "supported_collection_succeeded" if successful else (
-            "partial_collection" if collected or inventory["status"] == "collected" or ldap["status"] == "collected" or trees_collected else "failed_collection"
+            "partial_collection" if collected or inventory["status"] == "collected" or ldap["status"] == "collected" or trees_collected or scheduler_collected else "failed_collection"
         ),
         "discovery_completeness": "partial-unverified" if profile.discovery else "targeted-only",
         "requested_targets": len(targets), "collected_objects": inventory["object_count"] if profile.discovery else collected,
@@ -483,12 +532,14 @@ def run_vision_backup(
         "ldap_permissions": ldap,
         "ldap_permission_records": ldap["record_count"],
         "trees": trees,
+        "scheduler": scheduler,
         "requested_modules": list(profile.domains),
         "completed_modules": [domain for domain in profile.domains if domain not in module_failures],
         "failed_modules": sorted(module_failures),
         "unsupported_modules": UNSUPPORTED_DOMAINS,
         "failed_targets": failed, "uncollected_targets": len(targets) - collected,
-        "skipped_domains": skipped, "results": results, "failure_codes": [*failures, *ldap_failures, *tree_failures],
+        "skipped_domains": skipped, "results": results,
+        "failure_codes": [*failures, *ldap_failures, *tree_failures, *scheduler_failures],
         "limitations": [
             "inventory_completeness_unverified" if profile.discovery else "targeted_reads_not_inventory_discovery",
             "empty_sites_and_other_trees_not_proven_complete", "credential_fields_redacted",

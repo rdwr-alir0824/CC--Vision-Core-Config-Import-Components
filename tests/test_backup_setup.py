@@ -169,7 +169,7 @@ class BackupSetupTests(OfflineTestCase):
         self.assertEqual(result, 3)
         result, runner, _, _, _, _ = self.invoke(arguments, run_failure="cancel")
         self.assertEqual(result, 130)
-        for name in ("AMS Alerts", "AMS_alerts", "AMSAlert", "scheduler"):
+        for name in ("AMS Alerts", "AMS_alerts", "AMSAlert", "credential-configuration"):
             self.payload["backup_mode"] = "selected"
             self.payload["domains"] = [name]
             result, runner, _, _, _, stderr = self.invoke(arguments)
@@ -239,6 +239,21 @@ class BackupSetupTests(OfflineTestCase):
                 self.assertEqual(result, 0)
                 prompts.assert_not_called()
                 self.assertEqual(snapshots[0]["domains"], domains)
+
+    def test_scheduler_is_component_six_in_interactive_and_unattended_modes(self):
+        result, _, _, snapshots, stdout, _ = self.invoke(
+            [], ["2", "6", "192.0.2.1", self.credentials["username"], "", str(self.output), "n", "y"],
+        )
+        self.assertEqual(result, 0)
+        self.assertIn("6. Scheduler", stdout)
+        self.assertEqual(snapshots[0]["domains"], ["scheduler"])
+        self.payload["domains"] = ["scheduler"]
+        result, _, prompts, snapshots, _, _ = self.invoke([
+            "--config", str(self.config), "--non-interactive", "--credentials-file", "private.json",
+        ])
+        self.assertEqual(result, 0)
+        prompts.assert_not_called()
+        self.assertEqual(snapshots[0]["domains"], ["scheduler"])
 
     def test_interactive_tls_warning_precedes_confirmation_and_is_not_repeated(self):
         inputs = ["1", "192.0.2.1", self.credentials["username"], "n", str(self.output), "n", "y"]

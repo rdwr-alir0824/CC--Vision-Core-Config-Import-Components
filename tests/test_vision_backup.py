@@ -145,7 +145,7 @@ class VisionBackupTests(OfflineTestCase):
         self.assertEqual(status, 1)
         self.assertEqual(report["collected_objects"], 2)
         self.assertEqual(report["failed_targets"], 1)
-        self.assertIn("scheduler", report["unsupported_modules"])
+        self.assertIn("credential-configuration", report["unsupported_modules"])
         self.assertEqual(factory.call_count, 4)
         self.assertEqual(len(list((self.output / report["run_directory"] / "controller-objects").glob("site-by-id-*.json"))), 0)
         self.assert_secret_free(report)
@@ -378,10 +378,11 @@ class VisionBackupTests(OfflineTestCase):
             self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
             self.connection(self.device), self.connection([]),
             self.connection({"children": []}), self.connection({"children": []}),
+            self.connection([]),
         )
         self.assertEqual(status, 0)
         self.assertEqual(report["completed_modules"], [
-            "controller-objects", "device-access", "ldap-permissions", "physical-tree", "organization-tree",
+            "controller-objects", "device-access", "ldap-permissions", "physical-tree", "organization-tree", "scheduler",
         ])
         saved = json.loads((self.output / report["run_directory"] / "device-access" / "device-by-ip-001.json").read_text())
         self.assertIsNone(saved["objects"][0]["deviceAccess"]["cliPassword"])
@@ -390,7 +391,7 @@ class VisionBackupTests(OfflineTestCase):
         self.assertNotIn("ams", json.dumps(report).casefold())
         self.assert_secret_free(saved)
         self.profile["backup_mode"] = "selected"
-        for domain in ("AMS-alerts", "AMS_alerts", "AMS Alerts", "AMSAlert", "AMSAlerts", "scheduler"):
+        for domain in ("AMS-alerts", "AMS_alerts", "AMS Alerts", "AMSAlert", "AMSAlerts", "credential-configuration"):
             self.profile["domains"] = [domain]
             status, report, factory = self.invoke()
             self.assertEqual(status, 4)
@@ -584,9 +585,10 @@ class VisionBackupTests(OfflineTestCase):
         status, report, _ = self.invoke(
             self.login(), self.connection({"status": "error"}), self.connection([]),
             self.connection({"children": []}), self.connection({"children": []}),
+            self.connection([]),
         )
         self.assertEqual(status, 1)
-        self.assertEqual(report["completed_modules"], ["ldap-permissions", "physical-tree", "organization-tree"])
+        self.assertEqual(report["completed_modules"], ["ldap-permissions", "physical-tree", "organization-tree", "scheduler"])
         self.assertEqual(report["failed_modules"], ["controller-objects", "device-access"])
         self.assertEqual(report["ldap_permissions"]["status"], "collected")
 
@@ -706,11 +708,12 @@ class VisionBackupTests(OfflineTestCase):
             self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
             self.connection(self.device), self.connection([{"attributeValue": "synthetic-group"}]),
             self.connection(None), self.connection({"children": []}),
+            self.connection([]),
         )
         self.assertEqual(status, 1)
         self.assertEqual(report["failed_modules"], ["physical-tree"])
         self.assertEqual(report["completed_modules"], [
-            "controller-objects", "device-access", "ldap-permissions", "organization-tree",
+            "controller-objects", "device-access", "ldap-permissions", "organization-tree", "scheduler",
         ])
         self.assertEqual(report["device_details_collected"], 1)
         self.assertEqual(report["device_access_objects"], 1)
@@ -719,5 +722,123 @@ class VisionBackupTests(OfflineTestCase):
         for filename in (
             "controller-objects/device-by-ip-001.json", "device-access/device-by-ip-001.json",
             "ldap-permissions/permissions.json", "organization-tree/tree.json",
+            "scheduler/tasks.json",
         ):
             self.assertTrue(directory.joinpath(*filename.split("/")).is_file())
+
+    def test_scheduler_only_preserves_native_records_and_uses_legacy_get_headers(self):
+        self.profile["domains"] = ["scheduler"]
+        tasks = [
+            {"name": "native-task", "ormID": "task-1", "taskStatus": "Failed",
+             "jobstatus": None, "previousFeedMd5": "opaque-digest",
+             "future": {"cliPassword": "device-secret-marker", "nested": [True, None, 9]}},
+            {"unknown": {"opaque": []}},
+        ]
+        expected = copy.deepcopy(tasks)
+        expected[0]["future"]["cliPassword"] = None
+        for verify in (True, False):
+            self.profile["tls"] = {"verify": verify}
+            connections = [self.login(), self.connection(tasks)]
+            status, report, factory = self.invoke(*connections, warning_expected=not verify)
+            self.assertEqual(status, 0)
+            self.assertEqual(factory.call_count, 2)
+            self.assertEqual(report["requested_targets"], 0)
+            self.assertEqual(report["completed_modules"], ["scheduler"])
+            self.assertEqual(report["scheduler"]["record_count"], 2)
+            self.assertEqual(report["scheduler"]["status"], "collected")
+            request = connections[1].requests[0]
+            self.assertEqual(request[:2], ("GET", "/mgmt/system/config/itemlist/scheduledtask"))
+            self.assertIsNone(request[2])
+            headers = {key.lower(): value for key, value in request[3].items()}
+            for key, value in {
+                "Accept": "application/json", "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest", "Cookie": "JSESSIONID=session-secret-marker",
+            }.items():
+                self.assertEqual(headers[key.lower()], value)
+            directory = self.output / report["run_directory"]
+            self.assertFalse((directory / "controller-objects").exists())
+            saved = json.loads((directory / "scheduler" / "tasks.json").read_text())
+            self.assertEqual(saved["tasks"], expected)
+            self.assertEqual(saved["record_count"], 2)
+            self.assertEqual(saved["redacted_fields"], 1)
+            self.assertFalse(saved["scope"]["schema_completeness_verified"])
+            self.assertFalse(saved["scope"]["enumeration_completeness_verified"])
+            self.assertFalse(saved["evidence"]["master_live_tested"])
+            self.assertFalse(report["scope"]["complete_configuration_backup"])
+            self.assert_secret_free([saved, report])
+            for call in factory.call_args_list:
+                self.assertEqual(call.kwargs["context"].verify_mode, ssl.CERT_REQUIRED if verify else ssl.CERT_NONE)
+
+    def test_scheduler_empty_and_malformed_responses_and_failed_login_are_explicit(self):
+        self.profile["domains"] = ["scheduler"]
+        status, report, _ = self.invoke(self.login(), self.connection([]))
+        self.assertEqual(status, 0)
+        self.assertEqual(report["scheduler"]["record_count"], 0)
+        self.assertEqual(report["scheduler"]["status"], "collected")
+        for bad in (
+            self.connection(None), self.connection({"tasks": []}),
+            self.connection([None]), self.connection(["not-a-task"]),
+            self.connection({}, status=500),
+            MemoryConnection(MemoryResponse(200, b'{"broken":', [("Content-Type", "application/json")])),
+        ):
+            status, report, _ = self.invoke(self.login(), bad)
+            self.assertEqual(status, 1)
+            self.assertEqual(report["failed_modules"], ["scheduler"])
+            self.assertEqual(report["scheduler"]["status"], "failed")
+            self.assertTrue(report["scheduler"]["issue_codes"])
+            self.assertEqual(report["scheduler"]["record_count"], 0)
+            self.assertFalse((self.output / report["run_directory"] / "scheduler" / "tasks.json").exists())
+        status, report, factory = self.invoke(self.login(status="error"))
+        self.assertEqual(status, 1)
+        self.assertEqual(factory.call_count, 1)
+        self.assertEqual(report["failed_modules"], ["scheduler"])
+        self.assertEqual(report["scheduler"]["status"], "skipped")
+        self.assertEqual(report["scheduler"]["issue_codes"], ["session_unavailable"])
+
+    def test_scheduler_failure_preserves_all_five_successful_modules(self):
+        self.profile.pop("domains")
+        self.profile["backup_mode"] = "full-supported"
+        self.profile["controller_objects"] = {"discovery": True}
+        for http_status in (200, 401):
+            status, report, _ = self.invoke(
+                self.login(), self.connection([{"managementIp": "192.0.2.10"}]),
+                self.connection(self.device), self.connection([{"attributeValue": "synthetic-group"}]),
+                self.connection({"children": []}), self.connection({"children": []}),
+                self.connection({"status": "error", "message": "device-secret-marker"}, http_status),
+            )
+            self.assertEqual(status, 1)
+            self.assertEqual(report["failed_modules"], ["scheduler"])
+            self.assertEqual(report["completed_modules"], [
+                "controller-objects", "device-access", "ldap-permissions", "physical-tree", "organization-tree",
+            ])
+            self.assertEqual(report["overall_status"], "partial_collection")
+            self.assertEqual(report["device_details_collected"], 1)
+            self.assertEqual(report["device_access_objects"], 1)
+            self.assertEqual(report["ldap_permission_records"], 1)
+            self.assertEqual(report["scheduler"]["status"], "failed")
+            directory = self.output / report["run_directory"]
+            for domain in report["completed_modules"]:
+                self.assertTrue(any((directory / domain).glob("*.json")))
+            self.assert_secret_free(report)
+
+    def test_scheduler_get_scope_requires_explicit_selection(self):
+        self.profile["domains"] = ["scheduler"]
+        self.invoke(self.login(), self.connection([]))
+        profile = self.backup.VisionBackupProfile.read(str(self.profile_path))
+        backend = self.backup._backend(profile)
+        self.addCleanup(backend.close)
+        path = "/mgmt/system/config/itemlist/scheduledtask"
+        for method in self.transport.HttpMethod:
+            self.assertEqual(
+                backend._authorization.permits(method, "https://vision.invalid", path),
+                method == self.transport.HttpMethod.GET,
+            )
+        for other in (path + "/extra", path + "?page=2", "/mgmt/system/config/itemlist/alldevices"):
+            self.assertFalse(backend._authorization.permits(self.transport.HttpMethod.GET, "https://vision.invalid", other))
+        self.profile["domains"] = ["ldap-permissions"]
+        status, report, _ = self.invoke(self.login(), self.connection([]))
+        self.assertEqual(status, 0)
+        self.assertEqual(report["scheduler"]["status"], "not_requested")
+        backend = self.backup._backend(self.backup.VisionBackupProfile.read(str(self.profile_path)))
+        self.addCleanup(backend.close)
+        self.assertFalse(backend._authorization.permits(self.transport.HttpMethod.GET, "https://vision.invalid", path))
