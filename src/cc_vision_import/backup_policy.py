@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 
-TLS_WARNING = "WARNING: HTTPS certificate verification is disabled."
+TLS_WARNING = "WARNING: HTTPS certificate verification is disabled. HTTPS encryption remains enabled; controller identity is NOT VERIFIED."
 SUPPORTED_DOMAINS = (
     "controller-objects", "device-access", "ldap-permissions", "physical-tree", "organization-tree", "scheduler",
 )

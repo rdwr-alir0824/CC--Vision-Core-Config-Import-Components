@@ -41,7 +41,11 @@ an exact evidenced method/path, response schema and target applicability.
 `destination-discovery` uses only the two established login/Organization paths.
 Basic+JSON login also requires a successful JSON status and validated session
 identifier, using the existing session validator; HTTP 200 alone is rejected.
-TLS/hostname verification is mandatory, HTTPS port 443 only, no retries/redirects,
+TLS/hostname verification defaults TRUE. An explicit private administrator lab
+policy may disable verification only for its authorized HTTPS origin; encryption
+remains enabled, warnings and sanitized TLS status are recorded, and no automatic
+downgrade occurs. Generic transport remains verification-only.
+HTTPS port 443 only, no retries/redirects,
 bounded responses and exact application origin/method/path authorization.
 The optional Compose discovery bridge requires administrator-managed egress
 restrictions; it is not itself a firewall. Offline destination remains network-none.

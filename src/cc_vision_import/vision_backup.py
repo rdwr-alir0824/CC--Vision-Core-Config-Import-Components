@@ -27,7 +27,7 @@ from .product_clients import (
 )
 from .profiles import SourceProfile
 from .sessions import SessionManager
-from .transport import HttpMethod, TransportConfig, TransportError, build_url
+from .transport import HttpMethod, TransportConfig, TransportError, _unverified_tls_context, build_url
 
 
 _reader = ContractReader("vision-backup")
@@ -47,10 +47,7 @@ class _UnverifiedVisionBackupTransportConfig(TransportConfig):
             _reader.fail("invalid_ca", "$.tls", "Custom CA trust cannot be combined with verify=false.")
 
     def tls_context(self) -> ssl.SSLContext:
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        return context
+        return _unverified_tls_context()
 
     @property
     def unverified_vision_backup(self) -> bool:

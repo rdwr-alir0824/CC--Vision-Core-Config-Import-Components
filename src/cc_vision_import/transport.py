@@ -107,6 +107,13 @@ def _tls_context(trusted_ca: str | None) -> ssl.SSLContext:
     return context
 
 
+def _unverified_tls_context() -> ssl.SSLContext:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+
 def _timeout(value: float, name: str) -> None:
     if (
         type(value) not in (int, float)
@@ -181,6 +188,10 @@ class TransportConfig:
     def unverified_vision_backup(self) -> bool:
         return False
 
+    @property
+    def unverified_destination_discovery(self) -> bool:
+        return False
+
 
 def build_url(
     base_url: str, segments: tuple[str, ...],
@@ -243,6 +254,7 @@ class BackendRequest:
     follow_redirects: bool = False
     deadline: OperationDeadline | None = None
     unverified_vision_backup: bool = False
+    unverified_destination_discovery: bool = False
 
 
 @dataclass(frozen=True)
@@ -311,6 +323,7 @@ class HttpTransport:
             self._config.tls_context(),
             deadline=deadline,
             unverified_vision_backup=self._config.unverified_vision_backup,
+            unverified_destination_discovery=self._config.unverified_destination_discovery,
         )
         limit = 1 + (self._config.read_retries if method == HttpMethod.GET else 0)
         for attempt in range(1, limit + 1):

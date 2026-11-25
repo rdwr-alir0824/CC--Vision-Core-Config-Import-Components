@@ -13,6 +13,7 @@ from pathlib import Path
 from ._json import load_json
 from .backup_policy import SUPPORTED_DOMAINS
 from .backup_setup import SetupError, _credentials, _operator_summary
+from .tls_policy import TLSPolicyError, read_policy, warning
 
 
 def origin(value: str) -> str:
@@ -100,11 +101,25 @@ def settings(payload: object, selection: str) -> list[str]:
         if not isinstance(ca, str) or not ca.startswith(prefix) or not re.fullmatch(r"[A-Za-z0-9_-]+\.pem", ca[len(prefix):]):
             raise SetupError("Custom CA must be a PEM basename in the existing CA mount.")
         ca = ca[len(prefix):]
-    return [image, output, config, ca]
+    requested_tls = "-" if selection == "3" else service.get("environment", {}).get(
+        "CCV_TLS_VERIFY" if selection == "1" else "CCV_DESTINATION_TLS_VERIFY",
+    ) or "-"
+    if not isinstance(requested_tls, str) or requested_tls.lower() not in ("-", "true", "false"):
+        raise TLSPolicyError("TLS verification setting must be true or false.")
+    return [image, output, config, ca, requested_tls.lower()]
 
 
-def prepare(value: str, selection: str, directory: Path, admin: Path, requested: str = "-") -> str:
+def prepare(
+    value: str, selection: str, directory: Path, admin: Path,
+    requested: str = "-", requested_tls: str = "-",
+) -> tuple[str, bool]:
     result = origin(value)
+    policy = read_policy(admin / "tls-policy.json", result, requested_tls)
+    policy_path = directory / "tls-policy.json"
+    _private_file(policy_path)
+    policy_path.write_text(json.dumps(policy.to_dict()), encoding="utf-8")
+    if not policy.verify:
+        return result, False
     if requested != "-" and not re.fullmatch(r"[A-Za-z0-9_-]+\.pem", requested):
         raise SetupError("Custom CA must be a PEM basename.")
     destination = directory / "ca.pem"
@@ -125,7 +140,7 @@ def prepare(value: str, selection: str, directory: Path, admin: Path, requested:
     if not certificates:
         raise SetupError("No trusted CA certificates available.")
     destination.write_text("".join(ssl.DER_cert_to_PEM_cert(cert) for cert in certificates), encoding="ascii")
-    return result
+    return result, True
 
 
 def check_backup(folder: Path) -> None:
@@ -165,6 +180,18 @@ def check_backup(folder: Path) -> None:
 def summary(report: object, selection: str, status: int, output: str, filename: str) -> int:
     if not isinstance(report, dict):
         raise SetupError("Expected a structured application result.")
+    if selection != "3":
+        tls = report.get("tls")
+        if tls is not None:
+            if not isinstance(tls, dict) or type(tls.get("verify")) is not bool:
+                raise SetupError("Invalid TLS result.")
+            print(f"TLS certificate/hostname verification: {'TRUE' if tls['verify'] else 'FALSE'} (HTTPS).")
+            message = warning(tls["verify"])
+            if message is not None:
+                print(message)
+        codes = report.get("failure_codes", []) if selection == "1" else report.get("issue_codes", [])
+        if isinstance(codes, list) and "tls_certificate_failure" in codes:
+            print("TLS certificate verification failed: untrusted chain or hostname mismatch. No automatic downgrade; ask the administrator to correct trust/certificate or explicitly authorize lab policy.")
     if selection == "1":
         if status == 0 and report.get("overall_status") != "supported_collection_succeeded":
             raise SetupError("Incomplete source collection cannot have a successful launcher status.")
@@ -203,8 +230,6 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
                 if type(redactions) is not int or redactions < 0:
                     raise SetupError("Invalid redaction count.")
                 print(f"Redacted fields: {redactions} (full response before Site projection).")
-            if "tls_certificate_failure" in report.get("issue_codes", []):
-                print("TLS trust/hostname verification failed; ask the administrator to provision the correct CA/certificate.")
             folder = report.get("snapshot_directory")
             if folder is not None:
                 if not isinstance(folder, str) or not re.fullmatch(r"cc-destination-[A-Za-z0-9-]+", folder):
@@ -238,7 +263,10 @@ def main(argv=None) -> int:
         if args.action == "settings":
             print("\n".join(settings(load_json(_read()), args.values[0])))
         elif args.action == "prepare":
-            print(prepare(_read(), args.values[0], directory, Path("/run/admin"), args.values[1]))
+            result, verify = prepare(
+                _read(), args.values[0], directory, Path("/run/admin"), args.values[1], args.values[2],
+            )
+            print(result + "\n" + str(verify).lower())
         elif args.action == "credentials":
             parts = _read().split("\0")
             if len(parts) != 3 or parts[-1] != "":
@@ -259,6 +287,9 @@ def main(argv=None) -> int:
         else:
             return summary(load_json(_read()), args.values[0], int(args.values[1]), args.values[2], args.values[3])
         return 0
+    except TLSPolicyError as error:
+        print(str(error), file=sys.stderr)
+        return 3
     except (SetupError, OSError, ValueError, KeyError, IndexError, TypeError, RecursionError):
         print("Offline launcher helper failed: invalid input, permissions, incomplete backup or CA trust configuration; values withheld.", file=sys.stderr)
         return 3

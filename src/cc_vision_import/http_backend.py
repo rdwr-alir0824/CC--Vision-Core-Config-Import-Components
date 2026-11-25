@@ -365,12 +365,15 @@ class StdlibHttpBackend:
         max_response_bytes: int | None = None,
         allow_live: bool = False,
         allow_unverified_vision_backup: bool = False,
+        allow_unverified_destination_discovery: bool = False,
         diagnose_failures: bool = False,
     ) -> None:
         if type(allow_live) is not bool or allow_live and connection_factory is not None:
             raise ValueError("Live dispatch must use the built-in HTTPS connection.")
         if type(allow_unverified_vision_backup) is not bool:
             raise ValueError("Backup TLS selection must be explicit.")
+        if type(allow_unverified_destination_discovery) is not bool:
+            raise ValueError("Destination discovery TLS selection must be explicit.")
         if type(diagnose_failures) is not bool:
             raise ValueError("Failure diagnostics must be explicitly selected.")
         if authorization is not None:
@@ -384,6 +387,7 @@ class StdlibHttpBackend:
         self._factory = connection_factory
         self._allow_live = allow_live
         self._allow_unverified_vision_backup = allow_unverified_vision_backup
+        self._allow_unverified_destination_discovery = allow_unverified_destination_discovery
         self._diagnose_failures = diagnose_failures
         self._last_diagnostic: dict[str, object] | None = None
         self._authorization = authorization
@@ -475,6 +479,7 @@ class StdlibHttpBackend:
                 or not isinstance(request.tls_context, ssl.SSLContext)
                 or request.tls_context.keylog_filename is not None
                 or type(request.unverified_vision_backup) is not bool
+                or type(request.unverified_destination_discovery) is not bool
             ):
                 raise ValueError("Unsafe backend request.")
             verified = (
@@ -486,7 +491,17 @@ class StdlibHttpBackend:
                 and request.tls_context.verify_mode == ssl.CERT_NONE
                 and request.tls_context.check_hostname is False
             )
-            if not verified and not backup_tls:
+            discovery_tls = (
+                self._allow_unverified_destination_discovery and request.unverified_destination_discovery
+                and request.tls_context.verify_mode == ssl.CERT_NONE
+                and request.tls_context.check_hostname is False
+                and self._authorization is not None
+                and set(self._authorization.operations) == {
+                    (HttpMethod.POST, "/mgmt/system/user/login"),
+                    (HttpMethod.GET, "/mgmt/system/config/tree/Organization"),
+                }
+            )
+            if not verified and not backup_tls and not discovery_tls:
                 raise ValueError("Unverified TLS is not authorized.")
             _timeouts(request.connect_timeout, request.read_timeout)
             if (

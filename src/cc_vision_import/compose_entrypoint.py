@@ -9,6 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .master_cli import main as master_main
+from .tls_policy import TLSPolicyError, read_policy
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -34,15 +35,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(f"{name} must be set; connection values must not contain credentials.")
         return value
 
+    def tls(role: str, origin: str) -> dict[str, object]:
+        source = role == "source"
+        folder = Path("/run/config" if source else "/run/secrets")
+        variable = "CCV_TLS_VERIFY" if source else "CCV_DESTINATION_TLS_VERIFY"
+        requested = os.environ.get(variable, "").lower()
+        try:
+            policy = read_policy(folder / "tls-policy.json", origin, requested)
+        except TLSPolicyError as error:
+            parser.error(str(error))
+        ca = os.environ.get("CCV_TRUSTED_CA" if source else "CCV_DESTINATION_TRUSTED_CA", "")
+        fields = {"verify": policy.verify} if source else policy.to_dict()
+        if policy.verify and ca:
+            fields["trusted_ca"] = ca
+        return fields
+
     destination = None
     if args.role == "discovery":
-        ca = os.environ.get("CCV_DESTINATION_TRUSTED_CA", "")
+        origin = required("CCV_DESTINATION_URL")
         payload = {
             "destination": {
                 "name": os.environ.get("CCV_DESTINATION_NAME", "cyber-controller-destination"),
-                "base_url": required("CCV_DESTINATION_URL"),
+                "base_url": origin,
             },
-            "tls": {"verify": True, **({"trusted_ca": ca} if ca else {})},
+            "tls": tls("discovery", origin),
             "output_directory": "/reports",
         }
     else:
@@ -51,12 +67,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "product": "vision", "version": "5.4.9", "base_url": required("CCV_VISION_URL"),
         }
     if args.role == "source":
-        verify = os.environ.get("CCV_TLS_VERIFY", "true").lower()
-        if verify not in ("true", "false"):
-            parser.error("CCV_TLS_VERIFY must be true or false.")
-        ca = os.environ.get("CCV_TRUSTED_CA", "")
         payload = {
-            "source": payload, "tls": {"verify": verify == "true", **({"trusted_ca": ca} if ca else {})},
+            "source": payload, "tls": tls("source", required("CCV_VISION_URL")),
             "backup_mode": "full-supported", "controller_objects": {"discovery": True},
             "output_directory": "/backups",
         }

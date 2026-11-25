@@ -2,7 +2,59 @@
 
 Last updated: 2026-11-25
 
-## Current task: UNIFIED-PRODUCTION-LAUNCHER
+## Current task: CONFIGURABLE-TLS-POLICY
+
+- Objective/priority: high; independent administrator-provisioned source and
+  destination TLS verification without changing the three operator prompts.
+- Dependencies: existing shared image, Bash/Docker launcher, private runtime
+  directories, Compose roles and bounded HTTP/session infrastructure.
+- Approval: owner authorized explicit lab verification bypass, default TRUE,
+  mocked/offline tests only; no live requests, deployment, imports or Git.
+- Implementation status: implemented; focused offline regressions passed.
+  New image/runtime and actual lab certificate behavior remain unverified.
+- Policy: source-config/tls-policy.json and destination-secrets/tls-policy.json,
+  outside Git, regular mode-0600 UID/GID 10001 files. Missing file means TRUE.
+  FALSE requires JSON lab authorization and exact HTTPS origin. Invalid,
+  unreadable, conflicting or differently targeted policy fails explicitly.
+  Existing source CCV_TLS_VERIFY retained; destination has independent
+  CCV_DESTINATION_TLS_VERIFY. Environment values alone cannot authorize FALSE.
+- Behavior: HTTPS retained, explicit identity-not-verified warning and sanitized
+  tls.verify metadata. TRUE retains CA/hostname verification and clear sanitized
+  certificate failures; no automatic downgrade/retry. Generic transport still
+  rejects unverified TLS. Destination exception permits only login and existing
+  Organization GET. Source collector logic/formats, authentication, Site analysis,
+  offline destination networking and existing egress restrictions are preserved.
+- Launcher: same image handles policy preparation; temporary policy joins the
+  existing UID/GID 10001 mode-0600 credential/CA lifecycle and cleanup. No host
+  Python, new operator prompts, deployment system or production write capability.
+- Files affected: ccv.sh, compose.yaml, README.md, docs/API_MATRIX.md,
+  docs/PROGRESS.md; src/cc_vision_import/{tls_policy,backup_policy,transport,
+  http_backend,vision_backup,destination_discovery,compose_entrypoint,
+  launcher_helper}.py; tests/{test_tls_policy,test_destination_discovery,
+  test_compose_deployment,test_unified_launcher}.py.
+- Test evidence: focused policy/discovery/Compose/transport/source-backup run:
+  83 tests in 54.525s, 82 passed and one Docker-availability skip. Launcher,
+  setup, authentication, backend and Site-preview regression run: 151 tests
+  passed in 164.432s. Backend guard reported zero real network/dispatch attempts.
+  Final combined command with src/tests on PYTHONPATH: `python -S -B -m unittest
+  test_tls_policy test_destination_discovery test_compose_deployment
+  test_unified_launcher test_transport test_authentication test_http_backend
+  test_vision_backup test_backup_setup test_vision_tree_preview`: 234 tests in
+  222.363s, 233 passed and one Docker-availability skip. Zero real network/
+  dispatch attempts. Compose JSON, launcher syntax, eight runtime AST checks
+  and 21 README shell blocks passed. The AST command initially used Windows
+  default decoding and failed on existing UTF-8 content; explicit UTF-8 passed.
+  Pylance reported no error diagnostics for checked runtime modules (backend/
+  transport unused-symbol hints remain); the modified prepare signature's
+  resolved caller is compatible.
+- Known blockers: Docker unavailable locally; no image build, controller access,
+  actual certificate handshake or appliance deployment performed. Mocked
+  certificate results are not live certificate qualification.
+- Next action: administrator provisions
+  the appropriate private policy, rebuilds the same image and separately
+  authorizes README lab verification commands.
+
+## Previous task: UNIFIED-PRODUCTION-LAUNCHER
 
 - Objective/priority: high; one operator entry point for source backup,
   destination read-only Site discovery and offline transferred Site assessment.

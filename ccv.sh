@@ -43,7 +43,7 @@ cleanup() {
     fi
     if [[ -n "$temporary" ]]; then
         # Only known files in our uniquely created directory, never administrator secrets.
-        if ! rm -f -- "$temporary/credentials.json" "$temporary/ca.pem" \
+        if ! rm -f -- "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json" \
             "$temporary/stdout" "$temporary/stderr"; then
             printf 'Warning: temporary-file cleanup failed; administrator action required: %s\n' "$temporary" >&2
             cleanup_failed=1
@@ -109,11 +109,12 @@ settings="$(printf '%s' "$configuration" | offline settings "$selection" 2>"$tem
     fail "Image/configuration mismatch; rebuild the approved shared image and verify Compose settings."
 unset configuration
 mapfile -t paths <<< "$settings"
-[[ ${#paths[@]} -eq 4 && "${paths[0]}" == "$image" ]] ||
+[[ ${#paths[@]} -eq 5 && "${paths[0]}" == "$image" ]] ||
     fail "Configured Compose image differs from the inspected shared image; use the same CC_VISION_IMAGE on both hosts."
 output="${paths[1]}"
 config_directory="${paths[2]}"
 requested_ca="${paths[3]}"
+requested_tls="${paths[4]}"
 [[ -d "$output" ]] || fail "Required runtime directory is missing; administrator must provision: $output"
 
 run_operation() {
@@ -160,32 +161,40 @@ if [[ "$selection" == "3" ]]; then
 fi
 
 [[ -d "$config_directory" ]] || fail "Administrator CA directory is missing: $config_directory"
-touch "$temporary/credentials.json" "$temporary/ca.pem"
-chmod 0600 "$temporary/credentials.json" "$temporary/ca.pem"
+touch "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json"
+chmod 0600 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json"
 if [[ "$(id -u)" == "10001" && "$(id -g)" == "10001" ]]; then
     chmod 0700 "$temporary"
 else
     if [[ "$(id -u)" == "0" ]]; then
         chgrp 10001 "$temporary"
-        chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem"
+        chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json"
     else
         command -v sudo >/dev/null 2>&1 || fail "Approved sudo is required to provision UID/GID 10001 temporary files."
         sudo -v || fail "Sudo authorization was not granted; no credentials collected."
         sudo -n chgrp 10001 "$temporary" || fail "Cannot provision temporary directory group."
-        sudo -n chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem" ||
+        sudo -n chown 10001:10001 "$temporary/credentials.json" "$temporary/ca.pem" "$temporary/tls-policy.json" ||
             fail "Cannot provision temporary credential ownership."
     fi
     # Container group may traverse, not list/write; the operator can always unlink files.
     chmod 0710 "$temporary"
 fi
-printf 'Use only an authorized controller/account. TLS verification remains mandatory.\n'
+printf 'Use only an authorized controller/account. Administrator TLS policy applies; HTTPS remains enabled.\n'
 if [[ "$selection" == "2" ]]; then
     printf 'Administrator-restricted CC HTTPS egress is required; this launcher does not change firewall rules.\n'
 fi
 IFS= read -r -p 'Controller IP or hostname (not URL): ' controller || fail "Controller address is required."
 helper_mounts=(--mount "type=bind,source=$config_directory,target=/run/admin,readonly")
-origin="$(printf '%s' "$controller" | offline prepare "$selection" "$requested_ca" 2>"$temporary/stderr")" ||
-    fail "Invalid IP/hostname, unsafe temporary permissions, or missing/untrusted administrator CA. Ask the administrator to check TLS provisioning."
+prepared="$(printf '%s' "$controller" | offline prepare "$selection" "$requested_ca" "$requested_tls" 2>"$temporary/stderr")" ||
+    fail "Invalid address, private TLS policy (including lab-origin authorization), temporary permissions, or CA trust configuration; no credentials collected."
+mapfile -t connection <<< "$prepared"
+[[ ${#connection[@]} -eq 2 && "${connection[1]}" =~ ^(true|false)$ ]] ||
+    fail "Invalid TLS preparation result; rebuild the shared image."
+origin="${connection[0]}"
+verify="${connection[1]}"
+if [[ "$verify" == "false" ]]; then
+    printf 'WARNING: HTTPS encryption remains enabled, but the controller identity is NOT VERIFIED. Explicit origin-bound lab policy selected.\n' >&2
+fi
 unset controller
 unset ccv_username ccv_password
 IFS= read -r -p 'Username: ' ccv_username || fail "Username is required."
@@ -197,13 +206,14 @@ unset ccv_username ccv_password
 if [[ "$selection" == "1" ]]; then
     profile=source
     service=ccv-source
-    export CCV_VISION_URL="$origin" CCV_TLS_VERIFY=true CCV_SOURCE_SECRETS_DIR="$temporary"
-    export CCV_TRUSTED_CA=/run/secrets/ca.pem
+    export CCV_VISION_URL="$origin" CCV_TLS_VERIFY="$verify" CCV_SOURCE_SECRETS_DIR="$temporary"
+    if [[ "$verify" == "true" ]]; then export CCV_TRUSTED_CA=/run/secrets/ca.pem; else export CCV_TRUSTED_CA=""; fi
     run_operation backup
 else
     profile=destination-discovery
     service=ccv-destination-discovery
     export CCV_DESTINATION_URL="$origin" CCV_DESTINATION_SECRETS_DIR="$temporary"
-    export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem
+    export CCV_DESTINATION_TLS_VERIFY="$verify"
+    if [[ "$verify" == "true" ]]; then export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem; else export CCV_DESTINATION_TRUSTED_CA=""; fi
     run_operation discover-sites
 fi

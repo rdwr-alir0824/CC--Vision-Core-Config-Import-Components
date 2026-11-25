@@ -2,6 +2,8 @@
 
 import json
 import os
+import ssl
+import sys
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -24,7 +26,8 @@ from .http_backend import DestinationAuthorization, StdlibHttpBackend
 from .offline_inputs import OfflineInputs, local_path, write_local_export
 from .product_clients import _redact_credentials
 from .sessions import SessionManager
-from .transport import HttpMethod, HttpResponse, TransportConfig, TransportError
+from .tls_policy import TLSPolicy, TLSPolicyError, warning
+from .transport import HttpMethod, HttpResponse, TransportConfig, TransportError, _unverified_tls_context
 
 
 _reader = ContractReader("destination-discovery")
@@ -84,6 +87,30 @@ class _Credentials:
         return ResolvedCredentials(data["username"], data["password"])
 
 
+@dataclass(frozen=True, kw_only=True)
+class _LabDiscoveryTransportConfig(TransportConfig):
+    lab_authorized: bool
+    authorized_origin: str
+
+    def _validate_tls(self) -> None:
+        try:
+            TLSPolicy.from_dict({
+                "verify": self.verify_tls, "lab_authorized": self.lab_authorized,
+                "authorized_origin": self.authorized_origin,
+            }, self.base_url)
+        except TLSPolicyError:
+            _reader.fail("unsafe_tls", "$.tls", "Unverified discovery requires origin-bound lab authorization.")
+        if self.verify_tls is not False or self.trusted_ca is not None:
+            _reader.fail("unsafe_tls", "$.tls", "Lab discovery requires verify=false without a CA override.")
+
+    def tls_context(self) -> ssl.SSLContext:
+        return _unverified_tls_context()
+
+    @property
+    def unverified_destination_discovery(self) -> bool:
+        return True
+
+
 @dataclass(frozen=True)
 class DiscoveryProfile:
     name: str
@@ -105,17 +132,24 @@ class DiscoveryProfile:
         origin = _reader.base_url(_reader.required(destination, "base_url", "$"), "$.destination.base_url").rstrip("/")
         if urlsplit(origin).port not in (None, 443):
             _reader.fail("unsupported_destination_port", "$", "Discovery permits HTTPS port 443 only.")
-        tls = _reader.mapping(data.get("tls", {}), "$.tls", {"verify", "trusted_ca"})
-        if tls.get("verify", True) is not True:
-            _reader.fail("unsafe_tls", "$", "Destination discovery requires certificate and hostname verification.")
+        tls = _reader.mapping(data.get("tls", {}), "$.tls", {"verify", "trusted_ca", "lab_authorized", "authorized_origin"})
+        try:
+            policy = TLSPolicy.from_dict({key: value for key, value in tls.items() if key != "trusted_ca"}, origin)
+        except TLSPolicyError:
+            _reader.fail("unsafe_tls", "$.tls", "TLS verification defaults true; false requires origin-bound lab authorization.")
         ca = tls.get("trusted_ca")
         trusted_ca = None if ca is None else str(local_path(_reader.text(ca, "$.tls.trusted_ca"), path.parent))
+        options = dict(
+            base_url=origin, connect_timeout=10, read_timeout=30,
+            operation_timeout=60, read_retries=0, trusted_ca=trusted_ca,
+        )
+        transport = TransportConfig(**options) if policy.verify else _LabDiscoveryTransportConfig(
+            **options, verify_tls=False, lab_authorized=policy.lab_authorized,
+            authorized_origin=origin,
+        )
         return cls(
             name,
-            TransportConfig(
-                base_url=origin, connect_timeout=10, read_timeout=30,
-                operation_timeout=60, read_retries=0, trusted_ca=trusted_ca,
-            ),
+            transport,
             local_path(_reader.text(_reader.required(data, "output_directory", "$"), "$.output_directory"), path.parent),
         )
 
@@ -128,6 +162,7 @@ def _backend(profile: DiscoveryProfile) -> StdlibHttpBackend:
             (HttpMethod.GET, "/" + "/".join(_TREE)),
         )),
         max_response_bytes=16 * 1024 * 1024,
+        allow_unverified_destination_discovery=profile.transport.unverified_destination_discovery,
     )
 
 
@@ -274,6 +309,9 @@ def project_site_tree(payload: object) -> dict[str, object]:
 
 def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple[dict[str, object], ExitStatus]:
     profile = DiscoveryProfile.read(profile_path)
+    tls_warning = warning(profile.transport.verify_tls)
+    if tls_warning is not None:
+        print(tls_warning, file=sys.stderr)
     if not profile.output_directory.is_dir() or not os.access(profile.output_directory, os.W_OK | os.X_OK):
         _reader.fail("output_unwritable", "$", "Provision a private writable destination reports directory.")
     credentials = _Credentials(credentials_path)
@@ -298,7 +336,8 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
                 _reader.fail("invalid_discovery_json", "$", "Organization response must be strict JSON.")
             projection = project_site_tree(payload)
     except AuthenticationError as error:
-        failure = error.failure.category.value
+        reason = error.failure.transport_reason
+        failure = reason.value if reason is not None else error.failure.category.value
     except TransportError as error:
         failure = error.category.value
     finally:
@@ -309,6 +348,7 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
         "product_version": "unknown", "version_discovered": False,
         "version_verification": "unverified", "compatibility_verified": False,
         "migration_ready": False,
+        "tls": {"verify": profile.transport.verify_tls},
     }
     if failure is not None:
         return {**report, "status": "error", "issue_codes": [failure]}, ExitStatus.VALIDATION_FAILED
@@ -321,6 +361,7 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
         _reader.fail("output_unwritable", "$", "Provision a private writable destination reports directory.")
     snapshot = {
         "schema_version": 1, "domain": "cc-destination-organization-sites",
+        "tls": {"verify": profile.transport.verify_tls},
         "destination": {"product": "cyber-controller", "name": profile.name, "version": "unknown", "version_verification": "unverified"},
         "collected_at": datetime.now(timezone.utc).isoformat(),
         "request": {"method": "GET", "path": "/" + "/".join(_TREE)},

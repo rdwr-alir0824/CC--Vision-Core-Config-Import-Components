@@ -70,8 +70,14 @@ if args[0] == "run":
     elif action == "prepare":
         if mode == "tls-invalid":
             sys.exit(3)
-        print(helper.origin(raw))
-        (setup / "ca.pem").write_text("PUBLIC-CA")
+        current = helper.origin(raw)
+        admin = pathlib.Path(next(m.split("source=", 1)[1].split(",target=", 1)[0] for m in mounts if "target=/run/admin" in m))
+        with patch("cc_vision_import.tls_policy._private_file"):
+            policy = helper.read_policy(admin / "tls-policy.json", current, values[2])
+        (setup / "tls-policy.json").write_text(json.dumps(policy.to_dict()))
+        print(current + "\n" + str(policy.verify).lower())
+        if policy.verify:
+            (setup / "ca.pem").write_text("PUBLIC-CA")
     elif action == "credentials":
         parts = raw.split("\0")
         data = helper._credentials({"username": parts[0], "password": parts[1]})
@@ -100,6 +106,9 @@ if args[0] == "compose" and "run" in args:
         sys.exit(1)
     service = next(name for name in ("ccv-source", "ccv-destination", "ccv-destination-discovery") if name in args)
     report = json.loads((root / ("source.json" if service == "ccv-source" else "discovery.json" if service.endswith("discovery") else "readiness.json")).read_text())
+    if service != "ccv-destination":
+        variable = "CCV_TLS_VERIFY" if service == "ccv-source" else "CCV_DESTINATION_TLS_VERIFY"
+        report["tls"] = {"verify": os.environ[variable] == "true"}
     if service == "ccv-destination":
         output = args[args.index("--output") + 1]
         (root / "reports" / pathlib.Path(output).name).write_text(json.dumps({k: v for k, v in report.items() if k != "opaque"}))
@@ -110,7 +119,7 @@ if args[0] == "compose" and "run" in args:
     else:
         folder = root / "reports" / report["snapshot_directory"]
         folder.mkdir(exist_ok=True)
-        (folder / "organization-sites.json").write_text(json.dumps({"domain": "cc-destination-organization-sites", "migration_ready": False}))
+        (folder / "organization-sites.json").write_text(json.dumps({"domain": "cc-destination-organization-sites", "migration_ready": False, "tls": report["tls"]}))
     print(json.dumps(report))
     sys.exit(1 if service == "ccv-destination" else 0)
 sys.exit(2)
@@ -129,7 +138,8 @@ class UnifiedLauncherTests(OfflineTestCase):
         self.incoming = self.directory / "incoming"
         self.reports = self.directory / "reports"
         self.admin = self.directory / "admin"
-        for folder in (self.backups, self.incoming, self.reports, self.admin):
+        self.source_admin = self.directory / "source-admin"
+        for folder in (self.backups, self.incoming, self.reports, self.admin, self.source_admin):
             folder.mkdir()
         (self.admin / "credentials.json").write_text("ADMINISTRATOR-SECRET-UNCHANGED")
         compose = json.loads((ROOT / "compose.yaml").read_text())
@@ -139,7 +149,7 @@ class UnifiedLauncherTests(OfflineTestCase):
             for mount in service["volumes"]:
                 mount["source"] = str({
                     "/backups": self.backups, "/incoming": self.incoming, "/reports": self.reports,
-                    "/run/config": self.admin, "/run/secrets": self.admin,
+                    "/run/config": self.source_admin, "/run/secrets": self.admin,
                 }[mount["target"]]).replace("\\", "/")
         (self.directory / "compose.json").write_text(json.dumps(compose))
         self.source = {
@@ -152,6 +162,7 @@ class UnifiedLauncherTests(OfflineTestCase):
             "trees": {domain: {"status": "collected", "record_count": 1, "redacted_fields": 0}
                       for domain in ("physical-tree", "organization-tree")},
             "scheduler": {"status": "collected", "record_count": 23, "redacted_fields": 46},
+            "tls": {"verify": True},
         }
         (self.directory / "source.json").write_text(json.dumps(self.source))
         (self.directory / "discovery.json").write_text(json.dumps({
@@ -325,7 +336,7 @@ class UnifiedLauncherTests(OfflineTestCase):
         folders = list(self.runtime.iterdir())
         self.assertEqual(len(folders), 1)
         self.assertNotIn(str(self.admin), result.stderr)
-        for name in ("credentials.json", "ca.pem", "stdout", "stderr"):
+        for name in ("credentials.json", "ca.pem", "tls-policy.json", "stdout", "stderr"):
             (folders[0] / name).unlink()
         folders[0].rmdir()
 
@@ -339,6 +350,7 @@ class UnifiedLauncherTests(OfflineTestCase):
     def test_private_file_checks_exact_permissions_and_identity_and_required_ca_fails_closed(self):
         filename = self.directory / "ca.pem"
         filename.write_text("not a certificate")
+        (self.directory / "tls-policy.json").write_text('{"verify":true}')
         info = Mock(st_mode=stat.S_IFREG | 0o600, st_uid=10001, st_gid=10001)
         with patch.object(Path, "lstat", return_value=info):
             self.helper._private_file(filename)
@@ -360,6 +372,24 @@ class UnifiedLauncherTests(OfflineTestCase):
                 self.helper.prepare("cc.invalid", "2", self.directory, self.admin)
             self.assertIn("BEGIN CERTIFICATE", filename.read_text())
             self.assertNotIn("INVALID-CA", filename.read_text())
+
+    def test_lab_tls_policy_is_independent_warned_and_bound_before_credentials(self):
+            (self.admin / "tls-policy.json").write_text(json.dumps({
+                "verify": False, "lab_authorized": True, "authorized_origin": "https://controller.invalid",
+            }))
+            result, calls = self.launch()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("NOT VERIFIED", result.stderr)
+            self.assertIn("verification: FALSE", result.stdout)
+            snapshot = self.reports / "cc-destination-synthetic" / "organization-sites.json"
+            self.assertFalse(json.loads(snapshot.read_text())["tls"]["verify"])
+            result, calls = self.launch(selection="1")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("verification: TRUE", result.stdout)
+            result, calls = self.launch(inputs=f"2\nanother.invalid\n{USERNAME}\n{SECRET}\n")
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("lab-origin authorization", result.stderr)
+            self.assertNotIn("Password", result.stderr)
 
     def test_unsafe_compose_and_success_shaped_readiness_are_rejected(self):
             compose = json.loads((self.directory / "compose.json").read_text())

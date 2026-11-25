@@ -147,6 +147,64 @@ class DestinationDiscoveryTests(OfflineTestCase):
                 self.auth.ResolvedCredentials("private-username", "private-password"),
             ))
 
+    def test_explicit_origin_bound_lab_tls_remains_https_and_records_unverified_mode(self):
+        self.profile["tls"] = {
+            "verify": False, "lab_authorized": True,
+            "authorized_origin": self.profile["destination"]["base_url"],
+        }
+        status, report, factory = self.invoke(
+            self.connection({"status": "ok", "jsessionid": "private-session"}),
+            self.connection(self.tree),
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(report["tls"], {"verify": False})
+        for call in factory.call_args_list:
+            self.assertEqual(call.kwargs["context"].verify_mode, ssl.CERT_NONE)
+            self.assertFalse(call.kwargs["context"].check_hostname)
+        snapshot = json.loads((self.output / report["snapshot_directory"] / report["snapshot_file"]).read_text())
+        self.assertEqual(snapshot["tls"], {"verify": False})
+        self.assertFalse(snapshot["scope"]["configuration_writes_authorized"])
+
+    def test_certificate_failure_is_sanitized_and_never_retried_or_downgraded(self):
+        connection = MemoryConnection(failure=("connect", ssl.SSLCertVerificationError("private-certificate-marker")))
+        status, report, factory = self.invoke(connection)
+        self.assertEqual(status, 1)
+        self.assertEqual(report["issue_codes"], ["tls_certificate_failure"])
+        self.assertEqual(report["tls"], {"verify": True})
+        self.assertEqual(factory.call_count, 1)
+        self.assertEqual(connection.requests, [])
+        self.assertEqual(factory.call_args.kwargs["context"].verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(factory.call_args.kwargs["context"].check_hostname)
+        self.assertNotIn("snapshot_directory", report)
+
+    def test_lab_exception_cannot_authorize_generic_tls_or_configuration_writes(self):
+        error = importlib.import_module("cc_vision_import.contracts").ContractValidationError
+        with self.assertRaises(error):
+            self.transport.TransportConfig(
+                base_url="https://destination.invalid", connect_timeout=10, read_timeout=30, verify_tls=False,
+            )
+        authorization = self.http.DestinationAuthorization("https://destination.invalid", (
+            (self.transport.HttpMethod.POST, "/mgmt/system/user/login"),
+            (self.transport.HttpMethod.GET, "/mgmt/system/config/tree/Organization"),
+            (self.transport.HttpMethod.POST, "/mgmt/system/config/tree/site"),
+        ))
+        backend = self.http.StdlibHttpBackend(
+            allow_live=True, authorization=authorization, max_response_bytes=4096,
+            allow_unverified_destination_discovery=True,
+        )
+        config = self.module._LabDiscoveryTransportConfig(
+            base_url="https://destination.invalid", connect_timeout=10, read_timeout=30,
+            operation_timeout=60, verify_tls=False, lab_authorized=True,
+            authorized_origin="https://destination.invalid",
+        )
+        factory = Mock()
+        with patch.object(self.http.http.client, "HTTPSConnection", factory), self.assertRaises(self.transport.TransportError):
+            self.transport.HttpTransport(config, backend).request(
+                self.transport.HttpMethod.POST, ("mgmt", "system", "config", "tree", "site"),
+            )
+        factory.assert_not_called()
+        backend.close()
+
     def test_tree_rejection_and_malformed_shape_do_not_create_success_snapshots(self):
         for response, status_code in ((self.connection({"error": "private-marker"}, 403), 1), (self.connection({"status": "ok", "ormID": "private-marker"}), 4)):
             status, report, factory = self.invoke(

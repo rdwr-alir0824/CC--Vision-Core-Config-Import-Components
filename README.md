@@ -243,10 +243,11 @@ discovery permits only POST login and GET Organization tree at the chosen origin
 Host validation checks syntax only; it does not resolve DNS or prove controller
 identity. Actual TLS verification occurs in the existing selected operation.
 
-TLS certificate and hostname verification is mandatory, including when source
-settings previously disabled it. System CA trust from the application image is
-used unless an administrator PEM bundle is present. Provision an approved
-private CA before execution (omit the unneeded product's command):
+TLS certificate-chain and hostname verification defaults to **TRUE** independently
+for source and destination. No certificate error triggers a retry with verification
+disabled. System CA trust from the application image is used unless an
+administrator PEM bundle is present. Provision an approved private CA before
+execution (omit the unneeded product's command):
 
 ```sh
 sudo install -m 0600 -o 10001 -g 10001 /absolute/private/vision-ca.pem \
@@ -259,9 +260,71 @@ Use regular, readable CA bundles, not symlinks or private keys. Invalid bundles
 or explicitly configured missing bundles fail before credential collection.
 A missing private CA cannot be identified from hostname syntax alone: if only
 system trust is available, the actual operation must fail closed for an untrusted
-controller certificate. Never bypass verification. Existing administrator
+controller certificate. Production certificates need an appropriate SAN matching
+the entered hostname/IP; trusting a self-signed certificate does not fix a missing
+SAN. Existing administrator
 `CCV_*_DIR` and PEM-basename trust overrides are resolved through Compose;
 normal engineers do not configure them. Rebuild after updating image system trust.
+
+#### Administrator-only lab policy
+
+Persistent policies stay **outside Git** in the existing private runtime directories:
+
+- Source: `../ccv-runtime/source-config/tls-policy.json`
+- Destination: `../ccv-runtime/destination-secrets/tls-policy.json`
+
+A missing policy means TRUE. To provision production verification explicitly:
+
+```sh
+sudo -v
+sudo install -m 0600 -o 10001 -g 10001 /dev/stdin \
+  ../ccv-runtime/destination-secrets/tls-policy.json <<'JSON'
+{"verify":true}
+JSON
+```
+
+Only an administrator-authorized lab may use FALSE. Replace the placeholder with
+the exact approved HTTPS controller origin; no username, password or path:
+
+```sh
+sudo -v
+sudo install -m 0600 -o 10001 -g 10001 /dev/stdin \
+  ../ccv-runtime/destination-secrets/tls-policy.json <<'JSON'
+{"verify":false,"lab_authorized":true,"authorized_origin":"https://approved-lab.example.invalid"}
+JSON
+```
+
+Use the source policy path instead for a separately approved Vision lab. Files
+must be regular, mode **0600**, UID/GID **10001:10001**. Invalid/unreadable policies,
+missing lab authorization and a different controller origin fail before credential
+collection; settings are never guessed or copied automatically between roles.
+To restore production verification, provision `{"verify":true}` again.
+
+FALSE retains HTTPS encryption but **does not verify controller identity**.
+The launcher warns explicitly; sanitized source/discovery reports record
+`tls.verify`. CA bundles are used only with TRUE. Existing egress restrictions
+remain mandatory even in lab mode.
+
+The existing source setting `CCV_TLS_VERIFY` is retained; destination uses
+`CCV_DESTINATION_TLS_VERIFY`. No competing `CCV_SOURCE_TLS_VERIFY` alias is added.
+Leave these unset for the file/default policy; optional explicit `true`/`false`
+values must agree with the private policy and cannot independently authorize FALSE.
+Normal operators still enter only controller, username and hidden password.
+The same image performs offline policy preparation; no host Python is required.
+
+After an approved update, rebuild and validate configuration, then perform
+**separately authorized** lab validation (these commands do not provision policy):
+
+```sh
+docker compose --profile source build ccv-source
+docker compose --profile source --profile destination --profile destination-discovery config --quiet
+./ccv.sh
+```
+
+Select **2** for read-only destination discovery or **1** for source backup.
+Confirm the configured TLS mode/warning and saved report status. With TRUE,
+an invalid certificate must fail clearly without a downgrade; with an explicitly
+approved FALSE policy, discovery/backup remains read-only. No import is enabled.
 
 ### 5. Verification and troubleshooting
 
@@ -285,7 +348,7 @@ on both hosts against the same approved revision. Do not print credentials.
 | Sudo denied | Obtain approved ownership-provisioning permission; no controller credentials are collected |
 | Missing backup or wrong mount | Check the selected folder and `.env`/shell path overrides; `/incoming` is intentionally read-only |
 | Permission/SELinux failure | Check `sudo ls -ld` on the selected host paths, UID 10001 ownership/private modes, and administrator-approved labels; never use privileged/world-write workarounds |
-| TLS failure on source | Use an approved CA and matching certificate hostname; no silent downgrade |
+| TLS failure on source/destination | Check CA trust and certificate SAN; production stays TRUE. Lab FALSE requires a separate administrator-approved origin-bound policy; no silent downgrade |
 | Invalid preflight metadata | Supply HTTPS origins and actual installed CC version; this is not a network probe |
 | Partial backup/checksum mismatch | Stop; review source summary or repeat the approved transfer |
 | Readiness exit 1 / report exists | Readiness remains blocked; choose a new report name, never overwrite artifacts |
