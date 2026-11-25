@@ -78,6 +78,44 @@
           "bind": {"create_host_path": false}
         }
       ]
+    },
+    "ccv-destination-discovery": {
+      "profiles": ["destination-discovery"],
+      "image": "${CC_VISION_IMAGE:-cc-vision-master:0.3}",
+      "build": {"context": "."},
+      "pull_policy": "never",
+      "entrypoint": ["python", "-m", "cc_vision_import.compose_entrypoint", "discovery"],
+      "command": ["--help"],
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"],
+      "restart": "no",
+      "networks": ["destination-discovery"],
+      "environment": {
+        "CCV_DESTINATION_URL": "${CCV_DESTINATION_URL:-}",
+        "CCV_DESTINATION_NAME": "${CCV_DESTINATION_NAME:-cyber-controller-destination}",
+        "CCV_DESTINATION_TRUSTED_CA": "${CCV_DESTINATION_TRUSTED_CA:-}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${CCV_DESTINATION_SECRETS_DIR:-../ccv-runtime/destination-secrets}",
+          "target": "/run/secrets",
+          "read_only": true,
+          "bind": {"create_host_path": false}
+        },
+        {
+          "type": "bind",
+          "source": "${CCV_DESTINATION_REPORTS_DIR:-../ccv-runtime/destination-reports}",
+          "target": "/reports",
+          "bind": {"create_host_path": false}
+        }
+      ]
     }
+  },
+  "networks": {
+    "destination-discovery": {"driver": "bridge"}
   }
 }

@@ -201,7 +201,68 @@ valid profiles, and does not read the backup or contact either controller.
 The second command assesses source Sites from the transferred artifact; it
 exits **1** when inspected but migration-blocked. Reports must have new names.
 Neither command imports/restores anything. There is no live CC connectivity,
-authentication, TLS, license/capacity preflight or complete package validator.
+authentication, TLS, license/capacity preflight or complete package validator
+in this **offline role**. Do not fabricate an installed version if it is unknown;
+metadata preflight must wait for verified metadata. Optional discovery below
+does not require a declared version or successful metadata preflight.
+
+#### Optional: authorized read-only CC Site discovery
+
+This is a separate, explicitly selected execution role using the **same built
+image**. It never enables networking in `ccv-destination` or reads `/incoming`.
+Obtain authorization for the destination/account first. Have the administrator
+restrict this role's Docker egress to the approved CC address on TCP **443**
+(and approved DNS only if necessary). The dedicated bridge is isolation, **not
+an egress firewall**. Application requests are restricted to that HTTPS origin,
+POST `/mgmt/system/user/login` and GET
+`/mgmt/system/config/tree/Organization`; no configuration writes or version API.
+
+Provision separate, owner-private destination credentials containing exactly
+`username` and `password`; never copy source credentials or put passwords in
+environment variables, command arguments or Git:
+
+```sh
+sudo install -d -m 0700 -o 10001 -g 10001 ../ccv-runtime/destination-secrets
+sudo install -m 0600 -o 10001 -g 10001 /absolute/private/cc-credentials.json \
+  ../ccv-runtime/destination-secrets/credentials.json
+read -r -p 'Approved destination CC HTTPS origin (port 443): ' CCV_DESTINATION_URL
+export CCV_DESTINATION_URL
+docker compose --profile destination-discovery config --quiet
+docker compose --profile destination-discovery run --rm ccv-destination-discovery --help
+docker compose --profile destination-discovery run --rm ccv-destination-discovery discover-sites
+```
+
+TLS certificate/hostname verification is mandatory. For an approved private CA:
+
+```sh
+sudo install -m 0600 -o 10001 -g 10001 /absolute/private/cc-ca.pem \
+  ../ccv-runtime/destination-secrets/cc-ca.pem
+export CCV_DESTINATION_TRUSTED_CA=/run/secrets/cc-ca.pem
+```
+
+Set the CA before `discover-sites`; never disable verification. An origin must
+contain no credentials, path, query or fragment. `CCV_DESTINATION_VERSION` is
+not used by discovery: product release/build remains **unknown/unverified**.
+Legacy login/tree evidence is not target-release compatibility verification;
+the documentation's 10.10.7/10.10.6 conflict remains unresolved.
+
+The JSON console summary contains only counts, issue codes and the new report
+directory/filename. The snapshot is written under
+`../ccv-runtime/destination-reports/cc-destination-*/organization-sites.json`.
+It retains native root/Site names and identities **privately**, excludes Devices
+and unsupported field values, and reports redaction/structural limitations.
+Do not share the raw snapshot in logs or public reports. Parent semantics are
+legacy-nesting-inferred, not verified destination mappings. Unknown schema,
+duplicates and missing dependencies remain explicit. Exit **0** means
+collected-unqualified, **1** means partial/failed; neither means complete,
+migration-ready or executable. Other nonzero exits indicate input/runtime errors.
+Session credentials/cookies are cleared locally; no remote logout is attempted.
+`run --rm` removes the container; the private snapshot remains.
+To remove this optional role's unused Compose resources without deleting reports:
+
+```sh
+docker compose --profile destination-discovery down
+```
 
 ### 5. Verification and troubleshooting
 

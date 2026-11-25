@@ -7,6 +7,56 @@ for selected exact method/path pairs; E-036 synthetic offline subset regressions
 Runtime compatibility is scoped; current owner-reported evidence and remaining
 qualification limits are recorded below.
 
+## CC-DESTINATION-DISCOVERY - approved tree-only, version unknown
+
+Owner authorizes implementation of separately selected, read-only destination
+discovery, not live execution during development. Existing network-disabled
+destination service and six source collectors must remain unchanged.
+
+Established references:
+
+- API-01-C: POST `/mgmt/system/user/login`; observed original CC downloader
+  lines 53-96, independently documented CC PDF pages 156-158. Original Basic+
+  JSON and HTTP-200-only acceptance are not a fully qualified login/session
+  validator; new discovery must not silently treat them as such.
+- API-03: GET `/mgmt/system/config/tree/Organization`, observed downloader
+  lines 180-185/215-216 and uploader root read 143-150. Legacy traversal consumes
+  children and Site meIdentifier.managedElementID/name, but exact destination
+  release/schema applicability and enumeration completeness remain unqualified.
+  The reviewed CC PDF does not declare this exact tree GET.
+- API-04/API-05: Site-by-name/by-ID reads are documented, but do not independently
+  enumerate the root/hierarchy or establish product version.
+
+Current code/reference search found no concrete product-version discovery
+endpoint. A fresh offline scan of all 272 pages of the approved local CC PDF
+also found no product-release/build read contract. Page 12 "Version: 1.0" is
+API specification metadata, not installed CC version. The existing document
+cover/metadata 10.10.7-versus-10.10.6 provenance conflict is unchanged.
+
+Owner explicitly approved reduced tree-only discovery with destination release/
+build **unknown/unverified**. No environment-declared or specification version
+is treated as discovered. Product-version discovery remains blocked pending
+an exact evidenced method/path, response schema and target applicability.
+
+`destination-discovery` uses only the two established login/Organization paths.
+Basic+JSON login also requires a successful JSON status and validated session
+identifier, using the existing session validator; HTTP 200 alone is rejected.
+TLS/hostname verification is mandatory, HTTPS port 443 only, no retries/redirects,
+bounded responses and exact application origin/method/path authorization.
+The optional Compose discovery bridge requires administrator-managed egress
+restrictions; it is not itself a firewall. Offline destination remains network-none.
+
+Snapshot projection retains only native root/Site identity, name and explicit
+parent fields, plus observed containment references. Device records and unknown
+field values are excluded. Full-response recognized credential redaction counts
+are reported before projection; missing fields, duplicates, unknown classes and
+conflicting/ancestor dependencies remain explicit. Nesting/root semantics are
+legacy-inferred, enumeration completeness and target compatibility unverified.
+The distinct snapshot domain is rejected by the existing import-artifact parser.
+No version request, configuration write, live controller call, deployment or Git
+operation was performed during implementation. Mocked offline evidence is
+recorded in PROGRESS.md; it does not qualify the actual destination release.
+
 ## SITE-MIGRATION-READINESS - source Sites only
 
 Implemented `tree-readiness-preview --site-readiness` using the existing native

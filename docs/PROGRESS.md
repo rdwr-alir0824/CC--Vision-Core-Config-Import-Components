@@ -2,7 +2,70 @@
 
 Last updated: 2026-11-25
 
-## Current task: UNIFIED-DEPLOYMENT-RUNBOOK - standard operator procedure
+## Current task: CC-DESTINATION-DISCOVERY - approved tree-only implementation
+
+- Objective/priority: high; explicitly selected read-only Organization root/
+  Sites/native identities and private sanitized snapshot, preserving the offline
+  destination service and source collectors. Product version remains unknown.
+- Dependencies: legacy Organization read/schema evidence, documented CC login/
+  session requirements, shared HTTP/session infrastructure and Compose separation.
+- Approval: owner explicitly approved reduced tree-only scope with unknown/
+  unverified destination release/build, implementation and mocked tests only.
+  No live API requests, deployment, Git operations or configuration writes.
+- Implementation status: complete for approved reduced scope; offline acceptance
+  passed. Actual destination compatibility and Docker runtime remain unverified.
+- Evidence: legacy login and exact Organization GET established; Site-by-name/
+  ID documented. No product-version endpoint in current code/legacy references.
+  Fresh offline inspection of all 272 local CC PDF pages found specification
+  Version 1.0, not a product release/build discovery contract. PDF cover/metadata
+  10.10.7/10.10.6 provenance mismatch remains unresolved.
+- Implementation: explicit destination-discovery CLI and separate Compose
+  destination-discovery profile/service; default help never connects. Existing
+  ccv-destination stays network-none. The same built image is used, with separate
+  read-only destination credentials and writable reports, no incoming mount.
+  Standard installation, Dockerfile, source collectors, launcher, shared
+  authentication/transport modules and production version gates are unchanged.
+- API/security: only POST login and GET Organization on the approved HTTPS
+  origin/port 443, mandatory TLS/hostname verification, bounded timeouts/responses,
+  no retries/redirects. HTTP 200 alone is not authenticated; JSON success and
+  validated session identifier are required. Credentials/session cleared locally.
+  Dedicated bridge is not a firewall; administrator-approved egress restrictions
+  remain an execution prerequisite. No speculative version or logout API added.
+- Snapshot: private new directory, root/Site names/native identities and explicit
+  parent fields retained without destination replacements; Devices and unknown
+  field values excluded. Root/containment semantics legacy-inferred. Missing/
+  duplicate identities, unknown classes, explicit-parent conflicts and unresolved
+  ancestor dependencies flagged. Console JSON contains only aggregate counts,
+  issue codes and generated report path. Distinct domain is import-parser-rejected.
+  Collected-unqualified/partial never means complete or migration-ready.
+- Files affected: src/cc_vision_import/destination_discovery.py,
+  src/cc_vision_import/master_cli.py, src/cc_vision_import/compose_entrypoint.py,
+  compose.yaml, tests/test_destination_discovery.py,
+  tests/test_compose_deployment.py, README.md, docs/API_MATRIX.md,
+  docs/PROGRESS.md.
+- Verification status/test evidence: `python -S -B -m unittest
+  test_destination_discovery test_compose_deployment test_authentication
+  test_http_backend test_vision_backup test_backup_setup test_vision_tree_preview`
+  with src/tests on PYTHONPATH: 185 tests in 65.128s, 184 passed and one Docker
+  availability test skipped. Network guards observed zero real dispatches/
+  network attempts. Initial tests caught incorrect mock-close assertions, shared
+  redaction-limit error classification and root-class ancestor qualification;
+  corrected before the final passing run. Five modified Python files passed AST
+  syntax checks; discovery passed Pylance syntax and all three source files had
+  no Pylance diagnostics. Compose JSON structure passed; all 18 README shell
+  blocks passed Bash parse-only checks. No command blocks were deployed/executed.
+- Known blockers: Docker is unavailable locally, so actual Compose schema/image
+  build/container execution remain unverified. Exact destination release/build,
+  API/schema applicability and enumeration completeness require independent
+  evidence. Product-version discovery still lacks an evidenced read method/path/
+  sanitized response schema; environment input is not discovery. Temporary PDF
+  reader was removed without changing project dependencies.
+- Next action: administrator authorizes the destination/account and restrictive
+  egress, provisions private credentials/CA, then runs the documented discovery
+  command on the approved Docker host. Review the private snapshot and obtain
+  independent release/schema evidence before qualifying any Site mappings.
+
+## Previous task: UNIFIED-DEPLOYMENT-RUNBOOK - standard operator procedure
 
 - Objective/priority: high; one repeatable Compose deployment for source Vision
   and destination CC, with execution and mandatory backup transfer separate.

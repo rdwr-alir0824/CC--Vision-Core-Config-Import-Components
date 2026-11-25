@@ -144,4 +144,41 @@ class ComposeDeploymentTests(OfflineTestCase):
             cwd=ROOT, capture_output=True, text=True, check=False,
         )
         self.assertEqual(result.returncode, 0, "docker compose config failed; run it locally for configuration diagnostics.")
-        self.assertEqual(set(json.loads(result.stdout)["services"]), {"ccv-source", "ccv-destination"})
+        self.assertTrue({"ccv-source", "ccv-destination"} <= set(json.loads(result.stdout)["services"]))
+
+    def test_discovery_profile_is_separate_and_cannot_enable_offline_destination_networking(self):
+        services = json.loads((ROOT / "compose.yaml").read_text())["services"]
+        discovery = services["ccv-destination-discovery"]
+        self.assertEqual(services["ccv-destination"]["network_mode"], "none")
+        self.assertEqual(discovery["profiles"], ["destination-discovery"])
+        self.assertEqual(discovery["command"], ["--help"])
+        self.assertEqual(discovery["networks"], ["destination-discovery"])
+        self.assertNotIn("depends_on", discovery)
+        self.assertNotIn("ports", discovery)
+        self.assertNotIn("privileged", discovery)
+        self.assertNotIn("CCV_DESTINATION_VERSION", discovery["environment"])
+        self.assertEqual(discovery["image"], services["ccv-destination"]["image"])
+        self.assertEqual(discovery["user"], "10001:10001")
+        self.assertTrue(discovery["read_only"])
+        self.assertEqual(discovery["cap_drop"], ["ALL"])
+        self.assertEqual(discovery["security_opt"], ["no-new-privileges:true"])
+        self.assertEqual({mount["target"] for mount in discovery["volumes"]}, {"/run/secrets", "/reports"})
+        self.assertTrue(next(m for m in discovery["volumes"] if m["target"] == "/run/secrets")["read_only"])
+        captured = []
+
+        def inspect(arguments):
+            self.assertEqual(arguments[:2], ["--operation", "destination-discovery"])
+            path = Path(arguments[3])
+            captured.append(path)
+            profile = json.loads(path.read_text())
+            self.assertEqual(profile["tls"], {"verify": True})
+            self.assertEqual(profile["output_directory"], "/reports")
+            self.assertNotIn("version", profile["destination"])
+            return 0
+
+        with patch.dict(os.environ, {
+            "CCV_DESTINATION_URL": "https://destination.example.invalid",
+            "CCV_DESTINATION_VERSION": "10.10.7", "CCV_TLS_VERIFY": "false",
+        }, clear=True), patch.object(self.module, "master_main", side_effect=inspect):
+            self.assertEqual(self.module.main(["discovery", "discover-sites"]), 0)
+        self.assertFalse(captured[0].exists())

@@ -23,7 +23,7 @@ _LOOKUPS = {
 }
 _OPERATIONS = (
     "operations", "profiles", "export", "compare", "plan", "import-preview",
-    "authenticate", "import", "backup-vision", "tree-readiness-preview", *_LOOKUPS,
+    "authenticate", "import", "backup-vision", "destination-discovery", "tree-readiness-preview", *_LOOKUPS,
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -34,7 +34,7 @@ _DOMAIN_LIMITATIONS = {
 
 def _report(operation: str, status: str, **fields: object) -> dict[str, object]:
     return {
-        "operation": operation, "status": status, "offline_only": operation != "backup-vision",
+        "operation": operation, "status": status, "offline_only": operation not in ("backup-vision", "destination-discovery"),
         "execution_authorized": False, "tls_verification_required": True, **fields,
     }
 
@@ -148,8 +148,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--root", help="Explicit local root response required for flat export.")
     parser.add_argument("--exported-at", help="ISO-8601 timestamp for supplied export/lookup data.")
     parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
+    parser.add_argument("--discovery-profile", help="External JSON profile for explicitly selected CC tree-only discovery; version unknown.")
     parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
     args = parser.parse_args(argv)
+    destination_discovery = args.operation == "destination-discovery"
+    if destination_discovery:
+        if args.discovery_profile is None or args.credentials_file is None:
+            parser.error("destination-discovery requires --discovery-profile and --credentials-file.")
+        if args.module != "controller-objects" or any(value is not None for value in (
+            args.backup_profile, args.source_profile, args.destination_profile, args.request,
+            args.output, args.input, args.lookup_value, args.format, args.tree,
+            args.controller_id, args.root, args.exported_at,
+        )):
+            parser.error("destination-discovery uses only its discovery profile and credentials file.")
+    elif args.discovery_profile is not None:
+        parser.error("--discovery-profile requires destination-discovery.")
     tree_preview = args.operation == "tree-readiness-preview"
     if args.report_format is not None and not tree_preview:
         parser.error("--report-format is supported only for tree-readiness-preview.")
@@ -177,7 +190,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         ):
             parser.error("backup-vision uses only its backup profile and credentials file, not offline input options.")
-    elif args.backup_profile is not None or args.credentials_file is not None:
+    elif args.backup_profile is not None or (args.credentials_file is not None and not destination_discovery):
         parser.error("backup profile/credentials options require explicit --operation backup-vision.")
     lookup = args.operation in _LOOKUPS
     standalone_export = args.operation == "export" and args.input is not None
@@ -220,6 +233,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             report = _report("operations", "available", operations={
                 "profiles": "offline validation for Vision/CC source and CC destination",
                 "backup-vision": "explicit live read-only Vision 5.4.9 inventory discovery or targeted reads; completeness unverified",
+                "destination-discovery": "explicit CC Organization root/Site read; product version unknown, compatibility unverified; no writes",
                 "export": "CC 0.0-test supplied source inventory to local artifact",
                 **{operation: "CC 0.0-test request preview / supplied single-response inspection; not a complete export" for operation in _LOOKUPS},
                 "compare": "CC-to-CC offline comparison and candidate actions",
@@ -235,6 +249,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .vision_backup import run_vision_backup
 
             report, status = run_vision_backup(args.backup_profile, args.credentials_file)
+        elif destination_discovery:
+            from .destination_discovery import run_destination_discovery
+
+            report, status = run_destination_discovery(args.discovery_profile, args.credentials_file)
         elif tree_preview:
             from .vision_tree_preview import inspect_legacy_tree_compatibility, inspect_site_migration_readiness, inspect_vision_tree
 
