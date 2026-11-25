@@ -115,7 +115,7 @@ output="${paths[1]}"
 config_directory="${paths[2]}"
 requested_ca="${paths[3]}"
 allow_exceptions="${paths[4]}"
-[[ "$allow_exceptions" =~ ^(true|false)$ ]] || fail "Invalid administrator lab control; rebuild the shared image."
+[[ "$allow_exceptions" =~ ^(true|false)$ ]] || fail "Invalid administrator TLS restriction; rebuild the shared image."
 [[ -d "$output" ]] || fail "Required runtime directory is missing; administrator must provision: $output"
 
 run_operation() {
@@ -135,9 +135,9 @@ run_operation() {
         if [[ "$status" == "1" && "$summary_status" == "11" && "$exception_used" == "0" ]]; then
             [[ "$allow_exceptions" == "true" ]] ||
                 fail "Certificate verification failed. This deployment prohibits insecure exceptions; ask the administrator to correct CA trust/certificate SAN." 1
-            printf 'WARNING: Without certificate identity verification, an attacker can impersonate the controller and intercept credentials. HTTPS encryption alone does not establish identity. Continue only in an authorized lab.\n' >&2
+            printf 'WARNING: Controller identity cannot be authenticated; an attacker could impersonate the controller and intercept credentials. HTTPS encryption alone does not establish identity.\n' >&2
             answer=""
-            printf 'Continue without certificate identity verification for this execution? [y/N]: ' >&2
+            printf 'Untrusted/self-signed certificate. Continue without certificate verification for this session only? [y/N] ' >&2
             IFS= read -r answer || answer=""
             [[ "$answer" == "y" || "$answer" == "Y" || "$answer" == "yes" || "$answer" == "YES" ]] ||
                 fail "TLS exception declined; stopped without unverified authentication." 1

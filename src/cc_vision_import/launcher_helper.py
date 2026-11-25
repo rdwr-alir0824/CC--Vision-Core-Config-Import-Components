@@ -102,7 +102,7 @@ def settings(payload: object, selection: str) -> list[str]:
             raise SetupError("Custom CA must be a PEM basename in the existing CA mount.")
         ca = ca[len(prefix):]
     allowed = "false" if selection == "3" else service.get("environment", {}).get(
-        "CCV_ALLOW_INSECURE_TLS_EXCEPTION", "false",
+        "CCV_ALLOW_INSECURE_TLS_EXCEPTION", "true",
     )
     exceptions_allowed(allowed)
     return [image, output, config, ca, allowed]

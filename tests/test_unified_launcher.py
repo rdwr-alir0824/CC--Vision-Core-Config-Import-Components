@@ -180,8 +180,8 @@ class UnifiedLauncherTests(OfflineTestCase):
         for service in compose["services"].values():
             service["image"] = "cc-vision-master:test"
             service["environment"] = {
-                name: "false" if name == "CCV_ALLOW_INSECURE_TLS_EXCEPTION" else ""
-                for name in service.get("environment", {})
+                name: value.rsplit(":-", 1)[-1].removesuffix("}") if name == "CCV_ALLOW_INSECURE_TLS_EXCEPTION" else ""
+                for name, value in service.get("environment", {}).items()
             }
             for mount in service["volumes"]:
                 mount["source"] = str({
@@ -410,18 +410,17 @@ class UnifiedLauncherTests(OfflineTestCase):
             self.assertIn("BEGIN CERTIFICATE", filename.read_text())
             self.assertNotIn("INVALID-CA", filename.read_text())
 
-    def lab(self, allowed=True):
+    def production_lock(self):
         path = self.directory / "compose.json"
         config = json.loads(path.read_text())
         for name in ("ccv-source", "ccv-destination-discovery"):
-            config["services"][name]["environment"]["CCV_ALLOW_INSECURE_TLS_EXCEPTION"] = str(allowed).lower()
+            config["services"][name]["environment"]["CCV_ALLOW_INSECURE_TLS_EXCEPTION"] = "false"
         path.write_text(json.dumps(config))
 
     def operation_calls(self, calls):
         return [call for call in calls if call["args"][0] == "compose" and "run" in call["args"]]
 
     def test_trusted_certificate_in_lab_does_not_prompt_or_create_exception(self):
-        self.lab()
         (self.admin / "tls-policy.json").write_text('{"verify":false}')
         result, calls = self.launch()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -431,6 +430,7 @@ class UnifiedLauncherTests(OfflineTestCase):
         self.assertEqual((self.admin / "tls-policy.json").read_text(), '{"verify":false}')
 
     def test_production_certificate_failure_prohibits_prompt_and_retry(self):
+        self.production_lock()
         for selection in ("1", "2"):
             result, calls = self.launch(selection, mode="certificate-failure")
             self.assertEqual(result.returncode, 1, result.stderr)
@@ -441,7 +441,6 @@ class UnifiedLauncherTests(OfflineTestCase):
             (self.directory / "calls.jsonl").unlink()
 
     def test_lab_decline_default_no_and_eof_stop_without_unverified_authentication(self):
-        self.lab()
         for answer in ("n\n", "\n", ""):
             result, calls = self.launch(mode="certificate-failure", inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\n{answer}")
             self.assertEqual(result.returncode, 1, result.stderr)
@@ -453,7 +452,6 @@ class UnifiedLauncherTests(OfflineTestCase):
             (self.directory / "calls.jsonl").unlink()
 
     def test_lab_approval_retries_once_same_origin_after_approval_without_persistence(self):
-        self.lab()
         for selection, variable, address in (
             ("1", "CCV_TLS_VERIFY", "CCV_VISION_URL"),
             ("2", "CCV_DESTINATION_TLS_VERIFY", "CCV_DESTINATION_URL"),
@@ -461,6 +459,7 @@ class UnifiedLauncherTests(OfflineTestCase):
             result, calls = self.launch(selection, mode="certificate-failure", inputs=f"{selection}\ncontroller.invalid\n{USERNAME}\n{SECRET}\ny\n")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr.count("[y/N]"), 1)
+            self.assertIn("Untrusted/self-signed certificate. Continue without certificate verification for this session only? [y/N]", result.stderr)
             operations = self.operation_calls(calls)
             self.assertEqual(len(operations), 2)
             self.assertEqual([row["env"][variable] for row in operations], ["true", "false"])
@@ -483,14 +482,12 @@ class UnifiedLauncherTests(OfflineTestCase):
             (self.directory / "calls.jsonl").unlink()
 
     def test_certificate_failure_after_authentication_never_restarts_operation(self):
-        self.lab()
         result, calls = self.launch(mode="certificate-after-auth")
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertNotIn("[y/N]", result.stderr)
         self.assertEqual(len(self.operation_calls(calls)), 1)
 
     def test_approved_retry_failure_and_interruption_cleanup_without_second_prompt(self):
-        self.lab()
         for mode, expected in (("certificate-retry-failure", 1), ("certificate-interrupt", 143)):
             result, calls = self.launch(mode=mode, inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\ny\n")
             self.assertEqual(result.returncode, expected, result.stderr)

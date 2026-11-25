@@ -42,7 +42,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             policy = read_exception(
                 Path("/run/secrets/tls-exception.json"), origin, requested,
-                os.environ.get("CCV_ALLOW_INSECURE_TLS_EXCEPTION", "false"),
+                os.environ.get("CCV_ALLOW_INSECURE_TLS_EXCEPTION", "true"),
             )
         except TLSPolicyError as error:
             parser.error(str(error))

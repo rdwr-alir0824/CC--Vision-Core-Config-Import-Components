@@ -1,4 +1,4 @@
-"""Default-deny lab control and temporary, origin-bound TLS exceptions."""
+"""Temporary, origin-bound TLS exceptions with an optional production lock."""
 
 import os
 import stat
@@ -68,14 +68,14 @@ def _private_file(path: Path) -> None:
         raise TLSPolicyError("Temporary TLS exception must be a regular mode-0600 file owned by UID/GID 10001.")
 
 
-def exceptions_allowed(value: str = "false") -> bool:
+def exceptions_allowed(value: str = "true") -> bool:
     if value not in ("true", "false"):
         raise TLSPolicyError("CCV_ALLOW_INSECURE_TLS_EXCEPTION must be true or false.")
     return value == "true"
 
 
 def read_exception(
-    path: Path, origin: str, requested: str = "true", allow: str = "false",
+    path: Path, origin: str, requested: str = "true", allow: str = "true",
 ) -> TLSPolicy:
     allowed = exceptions_allowed(allow)
     if requested not in ("", "-", "true", "false"):
@@ -108,7 +108,7 @@ def require_execution_exception(origin: str, verify: bool, credentials_path: str
     if not verify:
         read_exception(
             Path(credentials_path).parent / "tls-exception.json", origin, "false",
-            os.environ.get("CCV_ALLOW_INSECURE_TLS_EXCEPTION", "false"),
+            os.environ.get("CCV_ALLOW_INSECURE_TLS_EXCEPTION", "true"),
         )
 
 

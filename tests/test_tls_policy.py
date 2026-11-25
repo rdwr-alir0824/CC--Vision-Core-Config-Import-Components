@@ -22,11 +22,12 @@ class TLSPolicyTests(OfflineTestCase):
         filename.write_text(json.dumps(data))
         return filename
 
-    def test_verified_default_ignores_old_persistent_policy_and_lab_control_defaults_deny(self):
+    def test_verified_default_ignores_old_policy_and_interactive_choice_needs_no_setup(self):
         (self.source / "tls-policy.json").write_text(json.dumps({
             "verify": False, "lab_authorized": True, "authorized_origin": self.origin,
         }))
-        self.assertFalse(self.module.exceptions_allowed())
+        self.assertTrue(self.module.exceptions_allowed())
+        self.assertFalse(self.module.exceptions_allowed("false"))
         filename = self.source / "tls-exception.json"
         self.assertTrue(self.module.read_exception(filename, self.origin).verify)
         self.assertTrue(self.module.read_exception(filename, self.origin, allow="true").verify)
@@ -34,11 +35,11 @@ class TLSPolicyTests(OfflineTestCase):
             with self.assertRaises(self.module.TLSPolicyError):
                 self.module.exceptions_allowed(value)
 
-    def test_exception_requires_lab_designation_temporary_approval_and_same_origin(self):
+    def test_exception_requires_temporary_approval_same_origin_and_no_production_lock(self):
         fields = {"verify": False, "lab_authorized": True, "authorized_origin": self.origin}
         filename = self.write(self.destination, fields)
         with patch.object(self.module, "_private_file"):
-            self.assertFalse(self.module.read_exception(filename, self.origin, "false", "true").verify)
+            self.assertFalse(self.module.read_exception(filename, self.origin, "false").verify)
             for path, origin, allowed in (
                 (filename, self.origin, "false"),
                 (filename, "https://another.invalid", "true"),
@@ -48,6 +49,18 @@ class TLSPolicyTests(OfflineTestCase):
                     self.module.read_exception(path, origin, "false", allowed)
         filename.unlink()
         self.assertTrue(self.module.read_exception(filename, self.origin).verify)
+
+    def test_runtime_approval_needs_no_environment_and_production_lock_still_denies(self):
+        import os
+
+        filename = self.write(self.destination, {
+            "verify": False, "lab_authorized": True, "authorized_origin": self.origin,
+        })
+        with patch.object(self.module, "_private_file"), patch.dict(os.environ, {}, clear=True):
+            self.module.require_execution_exception(self.origin, False, str(filename.parent / "credentials.json"))
+            with patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false"}):
+                with self.assertRaises(self.module.TLSPolicyError):
+                    self.module.require_execution_exception(self.origin, False, str(filename.parent / "credentials.json"))
 
     def test_false_requires_explicit_authorization_and_matching_https_origin(self):
         error = self.module.TLSPolicyError
@@ -109,7 +122,7 @@ class TLSPolicyTests(OfflineTestCase):
                 ("discovery", "CCV_DESTINATION_TLS_VERIFY", "discover-sites", "CCV_DESTINATION_URL"),
             ):
                 with patch.dict(os.environ, {
-                    setting: "false", url: self.origin, "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "true",
+                    setting: "false", url: self.origin,
                 }, clear=True), redirect_stderr(io.StringIO()):
                     with patch.object(compose, "master_main") as dispatch, self.assertRaises(SystemExit):
                         compose.main([role, command])

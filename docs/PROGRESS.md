@@ -2,7 +2,47 @@
 
 Last updated: 2026-11-25
 
-## Current task: TLS-SESSION-EXCEPTION-UX
+## Current task: TLS-INTERACTIVE-DEFAULT-UX
+
+- Objective/priority: high; remove required lab environment setup while preserving
+  the menu, verified-first TLS and explicit default-NO session approval.
+- Dependencies: existing origin-bound temporary approval, pre-auth certificate
+  classification, shared image/Compose, credential cleanup and sanitized reports.
+- Approval: owner authorized interactive choice by default and optional explicit
+  production restriction; mocked tests only, no live requests/deployment/Git.
+- Implementation status: implemented; verified complete for focused mocked/
+  offline acceptance. Actual Docker/controller runtime remains unverified.
+- Behavior: CCV_ALLOW_INSECURE_TLS_EXCEPTION defaults true consistently in Compose,
+  helpers and runtime validation. This permits only a prompt, never unverified
+  authentication without approval. Explicit administrator false still prohibits
+  exceptions. No per-controller policy, .env or administrator TLS setup is needed
+  for the normal choice. Every execution starts verified; menu unchanged.
+- Prompt: exact requested untrusted/self-signed session-only [y/N] question with
+  brief controller-impersonation/credential-interception warning. Same-origin,
+  one-retry guard, no post-auth/partial restart, reports and cleanup unchanged.
+- Files affected: ccv.sh, compose.yaml, src/cc_vision_import/{tls_policy,
+  launcher_helper,compose_entrypoint}.py, tests/{test_tls_policy,
+  test_unified_launcher}.py, README.md, docs/API_MATRIX.md, docs/PROGRESS.md.
+- Verification: `python -S -B -m unittest test_tls_policy test_unified_launcher
+  test_compose_deployment
+  test_vision_backup.VisionBackupTests.test_certificate_failure_never_transmits_credentials_or_retries
+  test_vision_backup.VisionBackupTests.test_production_rejects_unverified_profile_before_authentication
+  test_destination_discovery.DestinationDiscoveryTests.test_certificate_failure_is_sanitized_and_never_retried_or_downgraded
+  test_destination_discovery.DestinationDiscoveryTests.test_production_rejects_even_an_explicit_unverified_profile_before_authentication`
+  with src/tests on PYTHONPATH: 35 tests in 229.444s, 34 passed and one Docker
+  availability skip. No real network attempts. Covered the actual Compose default,
+  trusted no-prompt, exact question, NO/blank/EOF, YES ordering, same-origin/reset,
+  explicit production lock, secrets, failure/interruption and cleanup. Three
+  runtime AST/diagnostic checks, Pylance policy syntax, Compose JSON and 20 Bash
+  blocks (launcher plus README commands) passed.
+- Known blockers: Docker unavailable locally; image build, actual Docker ownership
+  and real controller certificates remain unverified. Collectors/migration/import
+  logic unchanged.
+- Next action: approved administrator rebuilds the existing shared image using
+  the standard deployment procedure; separately authorize runtime validation.
+  Engineers need no TLS setup. Retain explicit false where production is locked.
+
+## Previous task: TLS-SESSION-EXCEPTION-UX
 
 - Objective/priority: high; remove normal per-controller policy provisioning,
   retain verified HTTPS by default and one explicit lab-only session exception.

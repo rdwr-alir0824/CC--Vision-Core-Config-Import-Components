@@ -23,6 +23,18 @@ password. Offline validation lists transferred folders and requests no controlle
 credentials. No manual credential JSON, environment setup or Compose service
 names are needed. Review the concise result and complete backup/report path.
 
+HTTPS certificate verification is always attempted first. Trusted certificates
+need no extra prompt. If verification fails before authentication, the launcher
+asks once:
+
+> Untrusted/self-signed certificate. Continue without certificate verification for this session only? [y/N]
+
+Blank input or NO cancels safely. YES permits one same-origin retry for this
+execution only; controller identity is not authenticated and credentials could
+be intercepted. Every new execution starts verified again. No `.env` setting,
+manual JSON policy or administrator TLS provisioning is needed for this choice.
+An optional administrator production lock can prohibit it.
+
 **Source Backup -> Transfer Complete Folder -> Destination Validation ->
 Destination Discovery -> Future Approved Import.** The final step is not
 implemented or enabled. A blocked Site assessment is not an application crash
@@ -266,24 +278,26 @@ SAN. Existing administrator
 `CCV_*_DIR` and PEM-basename trust overrides are resolved through Compose;
 normal engineers do not configure them. Rebuild after updating image system trust.
 
-#### One deployment-level lab control
+#### Optional administrator production restriction
 
-Production **prohibits insecure exceptions by default**. Only an administrator
-may designate an approved lab by setting this single, non-secret entry in the
-existing ignored Compose `.env`:
+The interactive default permits the **choice**, not an automatic downgrade or
+unverified authentication. Engineers do not need to configure anything. To
+prohibit TLS exceptions in production, an administrator sets the existing
+non-secret control in the ignored Compose `.env`:
 
 ```dotenv
-CCV_ALLOW_INSECURE_TLS_EXCEPTION=true
+CCV_ALLOW_INSECURE_TLS_EXCEPTION=false
 ```
 
-Use `false` (or omit it) for production. Administrators can use `sudoedit .env`
+Omitting this control allows the default-NO interactive choice. An existing
+explicit `false` remains a production lock; it is never silently removed.
+Administrators can use `sudoedit .env`
 when approved privileges are needed; never assume passwordless sudo. Keep the
 configuration administrator-controlled, readable but not writable by engineers,
 and do not put credentials in it. Docker access/configuration also requires
 administrator control; this application is not a boundary against a Docker
 administrator overriding the deployment.
 
-This setting **only permits a choice**, never disables verification by default.
 There are no per-controller policy files to provision. Old `tls-policy.json`
 files are no longer read. Remove obsolete persistent `CCV_TLS_VERIFY=false` /
 `CCV_DESTINATION_TLS_VERIFY=false` overrides; these runtime flags alone cannot
@@ -297,10 +311,9 @@ The TLS handshake verifies identity before any HTTP credentials are transmitted.
 
 If certificate verification fails **before authentication**:
 
-- Production stops with a sanitized certificate warning; there is no exception
-  prompt.
-- An approved lab offers **one** “Continue without certificate identity
-  verification for this execution? [y/N]” choice. Enter `y`/`yes` to approve.
+- With the optional production lock, execution stops with a sanitized certificate
+  warning; there is no exception prompt.
+- Otherwise, the launcher offers **one** “Untrusted/self-signed certificate. Continue without certificate verification for this session only? [y/N]” choice. Enter `y`/`yes` to approve.
   Blank input, EOF or any other answer stops safely.
 - The warning explains controller impersonation and credential interception.
   HTTPS encryption without identity verification does not prevent those risks.
@@ -355,7 +368,7 @@ on both hosts against the same approved revision. Do not print credentials.
 | Sudo denied | Obtain approved ownership-provisioning permission; no controller credentials are collected |
 | Missing backup or wrong mount | Check the selected folder and `.env`/shell path overrides; `/incoming` is intentionally read-only |
 | Permission/SELinux failure | Check `sudo ls -ld` on the selected host paths, UID 10001 ownership/private modes, and administrator-approved labels; never use privileged/world-write workarounds |
-| TLS failure on source/destination | Correct CA trust/certificate SAN. Production stops; only an administrator-designated lab offers one default-NO session exception |
+| TLS failure on source/destination | Correct CA trust/certificate SAN or use the default-NO interactive session choice on an authorized controller. An explicit production lock prohibits exceptions |
 | Invalid preflight metadata | Supply HTTPS origins and actual installed CC version; this is not a network probe |
 | Partial backup/checksum mismatch | Stop; review source summary or repeat the approved transfer |
 | Readiness exit 1 / report exists | Readiness remains blocked; choose a new report name, never overwrite artifacts |

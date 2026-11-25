@@ -42,9 +42,10 @@ an exact evidenced method/path, response schema and target applicability.
 Basic+JSON login also requires a successful JSON status and validated session
 identifier, using the existing session validator; HTTP 200 alone is rejected.
 TLS/hostname verification starts TRUE on every launcher execution. The single
-deployment control CCV_ALLOW_INSECURE_TLS_EXCEPTION defaults false (production).
-Only an approved lab can offer one default-NO choice after a verified pre-auth
-certificate failure. Explicit approval permits one new attempt for the same
+deployment control CCV_ALLOW_INSECURE_TLS_EXCEPTION defaults true, permitting
+the default-NO interactive choice without operator setup. An administrator's
+explicit false prohibits exceptions for production. A verified pre-auth
+certificate failure offers one choice unless locked. Explicit approval permits one new attempt for the same
 selected origin/execution, using a private temporary exception rather than
 persistent per-controller policy. HTTPS, warnings, sanitized TLS status/scope and
 generic transport's verification-only gate remain intact. No credentials are
