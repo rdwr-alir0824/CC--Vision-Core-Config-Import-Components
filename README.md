@@ -345,13 +345,55 @@ docker rm cc-vision-master
 | Container name already exists | Inspect the owner's previous container and remove it only when safely exited |
 | Abnormal Docker/client termination | Temporary files are normally cleaned; forced termination/daemon failure may require operator container/file cleanup |
 
+### Vision login HTTP compatibility and diagnostics
+
+The backend accepts identity or ordinary single-member gzip responses. Encoded
+and decoded bodies each have a strict 16 MiB limit; truncated/corrupt gzip,
+trailing data, multiple gzip members and oversized output are rejected before
+session cookies are committed. Only repeated Cache-Control and Vary fields are
+combined. Duplicate framing, authentication, content-type/encoding and other
+unqualified headers remain rejected. Login still requires HTTP 200, JSON
+`status: "ok"` and a valid body `jsessionid`; no cookie-only fallback or retry.
+
+Selected Vision backups print a failure-only JSON diagnostic to stderr, with
+event `vision_http_failure`, method, safe endpoint path/template, received status,
+failure stage, normalized exception/error category, safe Content-Type/Encoding
+and a validation reason. Header parameters and unrecognized values are
+redacted/normalized. No credentials, cookies, tokens, bodies, full headers or
+raw exception messages are printed. Login JSON/session validation failures are
+reported too. Successful backups produce no extra diagnostic; the existing TLS
+warning for explicit false is unchanged.
+
+After the reviewed changes have been published, update the approved lab clone
+and rebuild; these are operator commands, not automatically executed:
+
+```sh
+git pull --ff-only
+docker build --tag cc-vision-master:0.3 .
+./run-vision-backup.sh --help
+```
+
+For the next separately authorized read-only lab run, use the unchanged launcher
+and secure credential workflow. Optional private diagnostic capture:
+
+```sh
+umask 077
+install -d -m 0700 "$HOME/cc-vision-master-logs"
+./run-vision-backup.sh 2>"$HOME/cc-vision-master-logs/http-failure.log"
+```
+
+The launcher forwards diagnostics without requiring a new option. Share only
+the sanitized diagnostic records if it fails. Gzip/repeated-header support is
+offline-tested compatibility work, not proof of the original live root cause
+or successful lab authentication.
+
 Unsupported: complete Physical/Organization tree enumeration, restorable
 credential backup, LDAP and Scheduler collection, live CC backup, appliance
 configuration downloads and all configuration writes. Evidence gaps remain
 documented internally rather than advertised as working modules.
 Authentication is cleared locally; remote logout/renewal is not implemented.
 Connect/read timeouts are 10s/30s, checked per-request deadline 60s and response
-budget 16 MiB. DNS and whole-run execution are not hard-deadline bounded.
+budget 16 MiB each for encoded and decoded data. DNS and whole-run execution are not hard-deadline bounded.
 No redirects, automatic renewal or request retries.
 
 Offline test evidence and exact limitations are recorded in
@@ -363,7 +405,8 @@ performed during implementation.
 ## Owner-reviewed publication commands
 
 Instructions only; review branch, all staged content, sensitive tracked files
-and history before committing. The following is the exact 12-file change list.
+and history before committing. The following is the exact eight-file HTTP
+compatibility change list.
 Wrapper, root master, Dockerfile, original legacy scripts and containment
 documentation are unchanged.
 
@@ -374,17 +417,13 @@ test "$(git branch --show-current)" = feature/ccv-010c-http-safety || exit 1
 git ls-files -- '*.pdf' '*.PDF' '*.tar' '*.ini' '*.pem'
 # Stop for approved cleanup if sensitive/vendor files are tracked.
 git add -- README.md docs/API_MATRIX.md docs/PROGRESS.md \
-  examples/vision-backup/profile.json \
-  src/cc_vision_import/backup_policy.py \
-  src/cc_vision_import/backup_setup.py \
-  src/cc_vision_import/master_cli.py \
+  src/cc_vision_import/authentication.py \
   src/cc_vision_import/vision_backup.py \
-  src/cc_vision_import/transport.py \
   src/cc_vision_import/http_backend.py \
-  tests/test_backup_setup.py tests/test_vision_backup.py
+  tests/test_http_backend.py tests/test_vision_backup.py
 git --no-pager diff --cached --check
 git --no-pager diff --cached
-git commit -m "Simplify Vision backup TLS and operator workflow" \
+git commit -m "Support bounded gzip and safe Vision HTTP failure diagnostics" \
   -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 git push origin HEAD:feature/ccv-010c-http-safety
 ```

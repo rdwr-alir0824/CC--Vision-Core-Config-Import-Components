@@ -222,17 +222,29 @@ class DocumentedVisionAuthenticationStrategy(VisionAuthenticationStrategy):
 
     def __init__(self) -> None:
         self._session_id: str | None = None
+        self.failure_reason: str | None = None
 
     def interpret(self, response: HttpResponse) -> AuthenticationOutcome:
         self.clear()
+        self.failure_reason = None
         outcome = super().interpret(response)
         if outcome.failure is not None:
+            self.failure_reason = (
+                "invalid_login_json_or_status"
+                if outcome.failure.category == AuthenticationFailureCategory.MALFORMED_RESPONSE
+                else "login_status_not_ok"
+            )
             return outcome
         data = load_json(response.body.decode("utf-8"))
         session_id = data.get("jsessionid") if isinstance(data, dict) else None
         if response.status != 200 or not isinstance(session_id, str) or not re.fullmatch(
             r"[A-Za-z0-9._-]{1,512}", session_id,
         ):
+            self.failure_reason = (
+                "unexpected_login_status" if response.status != 200
+                else "missing_or_non_string_jsessionid" if not isinstance(session_id, str)
+                else "invalid_jsessionid"
+            )
             return AuthenticationOutcome(False, failure=AuthenticationFailure(
                 AuthenticationFailureCategory.MALFORMED_RESPONSE, status=response.status,
             ))

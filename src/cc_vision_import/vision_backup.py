@@ -199,6 +199,7 @@ def _backend(profile: VisionBackupProfile) -> StdlibHttpBackend:
     return StdlibHttpBackend(
         allow_live=True, authorization=authorization, max_response_bytes=16 * 1024 * 1024,
         allow_unverified_vision_backup=profile.transport.unverified_vision_backup,
+        diagnose_failures=True,
     )
 
 
@@ -328,6 +329,11 @@ def run_vision_backup(
                         module_failures.update(profile.domains)
                     results.append(entry)
     except (AuthenticationError, TransportError, ProductClientError, ContractValidationError) as error:
+        if (
+            isinstance(error, AuthenticationError) and error.failure.transport_reason is None
+            and strategy.failure_reason is not None
+        ):
+            backend.report_login_failure(strategy.failure_reason)
         failures.extend(_failure(error))
     finally:
         strategy.clear()

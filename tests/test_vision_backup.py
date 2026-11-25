@@ -1,4 +1,5 @@
 import importlib
+import gzip
 import io
 import json
 import os
@@ -76,7 +77,16 @@ class VisionBackupTests(OfflineTestCase):
             with self.assertRaises(SystemExit) as caught:
                 runpy.run_path(str(Path(__file__).parent.parent / "master.py"), run_name="__main__")
             status = caught.exception.code
-        self.assertEqual(stderr.getvalue(), self.backup.TLS_WARNING + "\n" if warning_expected else "")
+        lines = stderr.getvalue().splitlines()
+        self.assertEqual(lines.count(self.backup.TLS_WARNING), 1 if warning_expected else 0)
+        self.diagnostics = [
+            json.loads(line) for line in lines if line != self.backup.TLS_WARNING
+        ]
+        for diagnostic in self.diagnostics:
+            self.assertEqual(diagnostic["event"], "vision_http_failure")
+            self.assert_secret_free(diagnostic)
+        if status == 0:
+            self.assertEqual(self.diagnostics, [])
         return status, json.loads(stdout.getvalue()), factory
 
     def assert_secret_free(self, value):
@@ -152,6 +162,49 @@ class VisionBackupTests(OfflineTestCase):
                 self.assertTrue(report["failure_codes"])
                 self.assertEqual(factory.call_count, 1)
                 self.assertEqual(report["collected_objects"], 0)
+                self.assert_secret_free(report)
+                self.assertEqual(len(self.diagnostics), 1)
+                self.assertEqual(self.diagnostics[0]["http_status"], status_code)
+                self.assertEqual(self.diagnostics[0]["failure_stage"], "response_status" if status_code == 401 else "login_response_validation")
+
+    def test_gzip_login_starts_discovery_and_keeps_success_output_quiet(self):
+        self.profile["controller_objects"] = {"discovery": True}
+        body = json.dumps({"status": "ok", "jsessionid": "session-secret-marker"}).encode()
+        compressed = gzip.compress(body)
+        login = MemoryConnection(MemoryResponse(body=compressed, headers=[
+            ("Content-Type", "application/json"), ("Content-Encoding", "gzip"),
+            ("Content-Length", str(len(compressed))),
+            ("Cache-Control", "no-cache"), ("cache-control", "no-store"),
+            ("Set-Cookie", "JSESSIONID=session-secret-marker; Secure; Path=/"),
+        ]))
+        discovery = self.connection([{"ormId": "device-native", "managementIp": "192.0.2.10"}])
+        status, report, factory = self.invoke(login, discovery, self.connection(self.device))
+        self.assertEqual(status, 0)
+        self.assertTrue(report["authenticated"])
+        self.assertEqual(report["inventory"]["status"], "collected")
+        self.assertEqual(factory.call_count, 3)
+        self.assertEqual(discovery.requests[0][:2], ("GET", "/mgmt/system/config/itemlist/alldevices"))
+        self.assertIn("JSESSIONID=session-secret-marker", discovery.requests[0][3]["Cookie"])
+        self.assert_secret_free(report)
+
+    def test_malformed_login_and_transport_failure_have_precise_safe_diagnostics(self):
+        for body, headers, stage, reason in (
+            (b'{"status":"ok"}', [("Content-Type", "application/json; token=session-secret-marker")], "login_response_validation", "missing_or_non_string_jsessionid"),
+            (b"synthetic-password-marker", [("Content-Type", "text/html")], "login_response_validation", "invalid_login_json_or_status"),
+            (b"session-secret-marker", [("Content-Encoding", "br")], "content_encoding_validation", "unsupported_content_encoding"),
+            (b"synthetic-password-marker", [("Content-Encoding", "gzip")], "gzip_decompression", "invalid_gzip_stream"),
+        ):
+            with self.subTest(stage=stage, reason=reason):
+                connection = MemoryConnection(MemoryResponse(body=body, headers=headers))
+                status, report, factory = self.invoke(connection)
+                self.assertEqual(status, 1)
+                self.assertFalse(report["authenticated"])
+                self.assertEqual(factory.call_count, 1)
+                diagnostic = self.diagnostics[0]
+                self.assertEqual(diagnostic["failure_stage"], stage)
+                self.assertEqual(diagnostic["validation_reason"], reason)
+                self.assertEqual(diagnostic["http_status"], 200)
+                self.assertEqual(diagnostic["endpoint_path"], "/mgmt/system/user/login")
                 self.assert_secret_free(report)
 
     def test_authentication_expiry_skips_remaining_targets_without_renewal(self):

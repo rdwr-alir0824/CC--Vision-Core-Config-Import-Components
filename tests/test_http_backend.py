@@ -1,7 +1,9 @@
 import base64
 import http.client
+import gzip
 import importlib
 import io
+import json
 import ssl
 import traceback
 import warnings
@@ -601,6 +603,121 @@ class HttpBackendTests(OfflineTestCase):
         self.assertIn("theme=synthetic-theme", self.cookie(second))
         self.assertNotIn("wrong", self.cookie(second))
         self.assertNotIn("Set-Cookie", repr(response))
+
+    def test_gzip_and_harmless_repeated_headers_preserve_body_and_cookies(self):
+        body = b'{"status":"ok","jsessionid":"synthetic-session"}'
+        compressed = gzip.compress(body)
+        first = MemoryConnection(MemoryResponse(body=compressed, headers=[
+            ("Content-Type", "application/json"), ("Content-Encoding", "gzip"),
+            ("Content-Length", str(len(compressed))),
+            ("Cache-Control", "no-cache"), ("cache-control", "no-store"),
+            ("Vary", "Accept-Encoding"), ("vary", "Accept"),
+            ("Set-Cookie", "JSESSIONID=synthetic-session; Secure; Path=/"),
+            ("Set-Cookie", "theme=synthetic-theme; Secure; Path=/"),
+        ]))
+        second = MemoryConnection()
+        backend, _ = self.backend(first, second)
+        response = backend.send(self.request())
+        self.assertEqual(response.body, body)
+        self.assertEqual(response.headers["Cache-Control"], "no-cache, no-store")
+        self.assertEqual(response.headers["Vary"], "Accept-Encoding, Accept")
+        self.assertFalse(any(name.lower() in ("content-length", "content-encoding", "set-cookie") for name in response.headers))
+        backend.send(self.request(url="https://backend.invalid/api"))
+        self.assertIn("JSESSIONID=synthetic-session", self.cookie(second))
+        self.assertIn("theme=synthetic-theme", self.cookie(second))
+
+    def test_gzip_decoded_limit_corruption_and_trailing_data_fail_closed(self):
+        valid = gzip.compress(b"x" * 512)
+        backend, _, deadline, _ = self.bounded_backend(
+            MemoryConnection(MemoryResponse(body=valid, headers=[("Content-Encoding", "gzip")])),
+            maximum=512,
+        )
+        self.assertEqual(len(backend.send(self.request(deadline=deadline)).body), 512)
+        for status in (204, 304):
+            backend, _ = self.backend(MemoryConnection(MemoryResponse(
+                status=status, headers=[("Content-Encoding", "gzip")],
+            )))
+            self.assertEqual(backend.send(self.request()).body, b"")
+        for body in (
+            gzip.compress(b"x" * 513), valid[:-1], valid[:-8] + b"\x00" * 8,
+            valid + b"trailing", valid + valid, SECRET.encode(),
+        ):
+            with self.subTest(size=len(body)):
+                connection = MemoryConnection(MemoryResponse(body=body, headers=[
+                    ("Content-Encoding", "gzip"), ("Content-Length", str(len(body))),
+                    ("Set-Cookie", "JSESSIONID=uncommitted; Secure; Path=/"),
+                ]))
+                backend, _, deadline, _ = self.bounded_backend(connection, maximum=512)
+                with self.assertRaises(self.t.BackendFailure) as caught:
+                    backend.send(self.request(deadline=deadline))
+                self.assertEqual(caught.exception.category, self.t.ErrorCategory.MALFORMED_RESPONSE)
+                self.assertEqual(list(backend._cookies), [])
+                self.assertEqual(connection.close_calls, 1)
+                self.safe(caught.exception)
+
+    def test_gzip_stdlib_chunked_response_is_decoded_after_framing_validation(self):
+        body = b'{"status":"ok","jsessionid":"synthetic-session"}'
+        compressed = gzip.compress(body)
+        wire_body = f"{len(compressed):x}\r\n".encode() + compressed + b"\r\n0\r\n\r\n"
+        connection = WireConnection(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Encoding: gzip\r\n\r\n" + wire_body,
+        )
+        self.addCleanup(connection.stream.close)
+        backend, _ = self.backend(connection)
+        self.assertEqual(backend.send(self.request()).body, body)
+        self.assertTrue(connection.stream.closed)
+
+    def test_sensitive_duplicate_headers_remain_rejected(self):
+        for name in ("Content-Type", "Content-Encoding", "Transfer-Encoding", "Location", "WWW-Authenticate", "Authorization"):
+            connection = MemoryConnection(MemoryResponse(headers=[
+                (name, "identity"), (name.lower(), "identity"),
+            ]))
+            backend, _ = self.backend(connection)
+            with self.assertRaises(self.t.BackendFailure):
+                backend.send(self.request())
+            self.assertEqual(connection.response.read_sizes, [])
+
+    def test_failure_diagnostics_are_sanitized_stage_specific_and_opt_in(self):
+        for response, failure, stage, reason in (
+            (MemoryResponse(headers=[("Content-Encoding", SECRET)]), None, "content_encoding_validation", "unsupported_content_encoding"),
+            (MemoryResponse(body=b"bad gzip", headers=[("Content-Encoding", "gzip")]), None, "gzip_decompression", "invalid_gzip_stream"),
+            (MemoryResponse(headers=[("Cache-Control", SECRET + "\r\ninjected: value")]), None, "response_headers", "invalid_header_syntax"),
+            (MemoryResponse(headers=[("Content-Length", "0"), ("content-length", "0")]), None, "response_headers", "unsafe_repeated_response_header"),
+            (MemoryResponse(headers=[("Set-Cookie", "JSESSIONID=" + SECRET + "; Max-Age=" + SECRET)]), None, "response_cookie_extraction", "invalid_cookie_attributes"),
+            (MemoryResponse(), ("request", OSError(SECRET)), "request_transmission", None),
+        ):
+            with self.subTest(stage=stage, reason=reason):
+                connection = MemoryConnection(response, failure=failure)
+                factory = Mock(return_value=connection)
+                backend = self.b.StdlibHttpBackend(
+                    connection_factory=factory, authorization=self.authorization(),
+                    max_response_bytes=4096, diagnose_failures=True,
+                )
+                self.addCleanup(backend.close)
+                stderr = io.StringIO()
+                with redirect_stderr(stderr), self.assertRaises(self.t.BackendFailure) as caught:
+                    backend.send(self.request(
+                        method=self.t.HttpMethod.POST, url="https://backend.invalid/mgmt/system/user/login",
+                        headers={"Authorization": SECRET}, body=SECRET.encode(),
+                    ))
+                diagnostic = json.loads(stderr.getvalue())
+                self.assertNotIn(SECRET, stderr.getvalue())
+                self.assertEqual(diagnostic["endpoint_path"], "/mgmt/system/user/login")
+                self.assertEqual(diagnostic["http_method"], "POST")
+                self.assertEqual(diagnostic["failure_stage"], stage)
+                self.assertEqual(diagnostic["validation_reason"], reason)
+                self.assertEqual(diagnostic["http_status"], None if failure else 200)
+                self.safe(caught.exception)
+        connection = MemoryConnection()
+        backend = self.b.StdlibHttpBackend(
+            connection_factory=Mock(return_value=connection), authorization=self.authorization(),
+            max_response_bytes=4096, diagnose_failures=True,
+        )
+        self.addCleanup(backend.close)
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            backend.send(self.request())
+        self.assertEqual(stderr.getvalue(), "")
 
     def test_cookie_paths_and_expiration_are_respected(self):
         login = MemoryConnection(MemoryResponse(headers=[
@@ -1219,7 +1336,7 @@ class HttpBackendTests(OfflineTestCase):
             [("Content-Length", "4"), ("content-length", "5")],
             [("Content-Length", "4"), ("Transfer-Encoding", "chunked")],
             [("Transfer-Encoding", "chunked, gzip")],
-            [("Content-Encoding", "gzip")], [("Content-Encoding", "br")],
+            [("Content-Encoding", "deflate")], [("Content-Encoding", "br")],
             [("Content-Encoding", "identity, gzip")],
         ):
             response = MemoryResponse(body=SECRET.encode(), headers=headers)

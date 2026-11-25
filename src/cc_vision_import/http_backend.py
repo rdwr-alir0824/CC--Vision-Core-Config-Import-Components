@@ -2,10 +2,13 @@
 
 import copy
 import http.client
+import json
 import math
 import re
 import ssl
+import sys
 import time
+import zlib
 from dataclasses import dataclass, field
 from email.message import Message
 from http.cookiejar import Cookie, CookieJar, DefaultCookiePolicy, parse_ns_headers
@@ -242,40 +245,80 @@ class _SocketGuard:
         self._tracker.close(self._resource)
 
 
-def _response_headers(response: _Response) -> tuple[dict[str, str], Message]:
+class _ResponseValidationError(ValueError):
+    def __init__(self, reason: str) -> None:
+        super().__init__("Response validation failed.")
+        self.reason = reason
+
+
+def _response_metadata(trace: dict[str, object], pairs: list[tuple[str, str]]) -> None:
+    for header, field_name in (
+        ("content-type", "content_type"), ("content-encoding", "content_encoding"),
+    ):
+        values = [
+            pair[1] for pair in pairs
+            if isinstance(pair, tuple) and len(pair) == 2
+            and isinstance(pair[0], str) and pair[0].lower() == header
+        ]
+        safe_values = (
+            {"application/json", "application/problem+json", "text/html", "text/plain",
+             "application/xml", "text/xml", "application/octet-stream"}
+            if header == "content-type" else {"identity", "gzip", "deflate", "br", "compress", "zstd"}
+        )
+        value = values[0].partition(";")[0].strip().lower() if len(values) == 1 and isinstance(values[0], str) else None
+        trace[field_name] = (
+            None if not values else "multiple" if len(values) > 1
+            else value if value in safe_values else "unrecognized"
+        )
+
+
+def _response_headers(
+    response: _Response, trace: dict[str, object] | None = None,
+) -> tuple[dict[str, str], Message]:
     parsed = getattr(response, "headers", None)
+    if trace is not None and isinstance(parsed, Message):
+        _response_metadata(trace, [
+            (name, value) for name in ("Content-Type", "Content-Encoding")
+            for value in parsed.get_all(name, [])
+        ])
     if isinstance(parsed, Message) and (
         parsed.defects or any(getattr(value, "defects", ()) for value in parsed.values())
     ):
-        raise ValueError("Defective response headers.")
+        raise _ResponseValidationError("defective_response_headers")
     message = Message()
     headers: dict[str, str] = {}
     seen: set[str] = set()
     pairs = response.getheaders()
     if not isinstance(pairs, list):
-        raise ValueError("Invalid response headers.")
+        raise _ResponseValidationError("invalid_response_headers")
+    if trace is not None:
+        _response_metadata(trace, pairs)
     for pair in pairs:
         if not isinstance(pair, tuple) or len(pair) != 2:
-            raise ValueError("Invalid response header pair.")
+            raise _ResponseValidationError("invalid_response_header_pair")
         name, value = pair
         if not isinstance(name, str) or not isinstance(value, str):
-            raise ValueError("Invalid response header type.")
+            raise _ResponseValidationError("invalid_response_header_type")
         _headers({name: value}, for_request=False)
         key = name.lower()
-        if key in seen and key != "set-cookie":
-            raise ValueError("Repeated response headers are not qualified.")
+        if key in seen and key not in ("set-cookie", "cache-control", "vary"):
+            raise _ResponseValidationError("unsafe_repeated_response_header")
         seen.add(key)
         message[name] = value
         # Set-Cookie is multi-valued and session-owned, not a flattened public header.
         if key != "set-cookie":
-            headers[name] = value
+            existing = next((original for original in headers if original.lower() == key), None)
+            if existing is None:
+                headers[name] = value
+            else:
+                headers[existing] += ", " + value
     length = message.get("Content-Length")
     transfer = message.get("Transfer-Encoding")
     if (
         length is not None and (not re.fullmatch(r"[0-9]+", length) or transfer is not None)
         or transfer is not None and transfer.lower() != "chunked"
     ):
-        raise ValueError("Unqualified response framing.")
+        raise _ResponseValidationError("ambiguous_or_unsupported_response_framing")
     return headers, message
 
 
@@ -322,11 +365,14 @@ class StdlibHttpBackend:
         max_response_bytes: int | None = None,
         allow_live: bool = False,
         allow_unverified_vision_backup: bool = False,
+        diagnose_failures: bool = False,
     ) -> None:
         if type(allow_live) is not bool or allow_live and connection_factory is not None:
             raise ValueError("Live dispatch must use the built-in HTTPS connection.")
         if type(allow_unverified_vision_backup) is not bool:
             raise ValueError("Backup TLS selection must be explicit.")
+        if type(diagnose_failures) is not bool:
+            raise ValueError("Failure diagnostics must be explicitly selected.")
         if authorization is not None:
             if not isinstance(authorization, DestinationAuthorization):
                 raise ValueError("Invalid destination authorization.")
@@ -338,6 +384,8 @@ class StdlibHttpBackend:
         self._factory = connection_factory
         self._allow_live = allow_live
         self._allow_unverified_vision_backup = allow_unverified_vision_backup
+        self._diagnose_failures = diagnose_failures
+        self._last_diagnostic: dict[str, object] | None = None
         self._authorization = authorization
         self._max_response_bytes = max_response_bytes
         self._cookies = _StrictCookieJar()
@@ -354,12 +402,58 @@ class StdlibHttpBackend:
         self._authorization = DestinationAuthorization(self._authorization.origin, operations)
 
     def send(self, request: BackendRequest) -> HttpResponse:
-        outcome = self._attempt(request)
+        trace: dict[str, object] = {
+            "http_method": request.method.value if isinstance(request, BackendRequest) and isinstance(request.method, HttpMethod) else "invalid",
+            "endpoint_path": "unrecognized", "http_status": None,
+            "content_type": None, "content_encoding": None,
+            "failure_stage": "request_validation", "exception_class": None,
+            "validation_reason": None,
+        }
+        if isinstance(request, BackendRequest) and isinstance(request.url, str):
+            path = "/" + request.url.partition("://")[2].partition("/")[2].partition("?")[0].partition("#")[0]
+            for endpoint in ("/mgmt/system/user/login", "/mgmt/system/config/itemlist/alldevices"):
+                if path == endpoint:
+                    trace["endpoint_path"] = endpoint
+            for prefix, template in (
+                ("/mgmt/system/config/tree/site/byname/", "/mgmt/system/config/tree/site/byname/{name}"),
+                ("/mgmt/system/config/tree/site/byid/", "/mgmt/system/config/tree/site/byid/{id}"),
+                ("/mgmt/system/config/tree/device/byip/", "/mgmt/system/config/tree/device/byip/{ip}"),
+            ):
+                if path.startswith(prefix):
+                    trace["endpoint_path"] = template
+        outcome = self._attempt(request, trace)
+        self._last_diagnostic = trace if self._diagnose_failures else None
         if isinstance(outcome, BackendFailure):
+            self._report_failure(outcome.category.value)
             raise outcome
+        if not 200 <= outcome.status < 300:
+            trace.update(failure_stage="response_status", validation_reason="http_status_rejected")
+            self._report_failure(ErrorCategory.HTTP.value)
         return outcome
 
-    def _attempt(self, request: BackendRequest) -> HttpResponse | BackendFailure:
+    def _report_failure(self, category: str) -> None:
+        if self._last_diagnostic is not None:
+            print(json.dumps({
+                "event": "vision_http_failure", **self._last_diagnostic,
+                "error_category": category,
+            }, sort_keys=True), file=sys.stderr)
+
+    def report_login_failure(self, reason: str) -> None:
+        if self._last_diagnostic is not None:
+            safe_reason = reason if reason in {
+                "invalid_login_json_or_status", "login_status_not_ok",
+                "unexpected_login_status", "missing_or_non_string_jsessionid", "invalid_jsessionid",
+            } else "unrecognized_login_validation_reason"
+            self._last_diagnostic.update(
+                failure_stage="login_response_validation", validation_reason=safe_reason,
+            )
+            self._report_failure("authentication_failure")
+
+    def _attempt(
+        self, request: BackendRequest, trace: dict[str, object] | None = None,
+    ) -> HttpResponse | BackendFailure:
+        trace = {} if trace is None else trace
+        trace.setdefault("failure_stage", "request_validation")
         resources: list[_Closable] = []
         failure: ErrorCategory | None = None
         response: HttpResponse | None = None
@@ -402,9 +496,11 @@ class StdlibHttpBackend:
                 raise BackendFailure(ErrorCategory.SAFETY_POLICY)
             deadline = request.deadline
             deadline.remaining()
+            trace["failure_stage"] = "request_headers"
             outgoing = _headers(request.headers)
             if any(name.lower() in ("proxy-authorization", "proxy-connection") for name in outgoing):
                 raise ValueError("Proxy headers are not supported.")
+            trace["failure_stage"] = "request_target_authorization"
             parts = urlsplit(request.url)
             _origin(f"{parts.scheme}://{parts.netloc}")
             target = parts.path or "/"
@@ -438,10 +534,12 @@ class StdlibHttpBackend:
                     raise BackendFailure(ErrorCategory.SAFETY_POLICY)
                 factory = http.client.HTTPSConnection
             self._origin = origin
+            trace["failure_stage"] = "request_cookies"
             cookie_request = Request(request.url, headers=outgoing, method=request.method.value)
             self._cookies.add_cookie_header(cookie_request)
             outgoing = _headers(dict(cookie_request.header_items()))
             outgoing["Connection"] = "close"
+            trace["failure_stage"] = "connection_creation"
             connection = factory(
                 host, port, timeout=min(request.connect_timeout, deadline.remaining()),
                 context=request.tls_context,
@@ -451,6 +549,7 @@ class StdlibHttpBackend:
             connection.auto_open = 0
             connection.set_debuglevel(0)
             deadline.remaining()
+            trace["failure_stage"] = "connection_connect"
             connection.connect()
             deadline.remaining()
             if connection.sock is None:
@@ -461,27 +560,37 @@ class StdlibHttpBackend:
             setattr(connection, "sock", _SocketGuard(
                 connection.sock, tracker, deadline, request.read_timeout,
             ))
+            trace["failure_stage"] = "request_transmission"
             connection.request(request.method.value, target, body=request.body, headers=outgoing)
             deadline.remaining()
             if connection.sock is not None:
                 connection.sock.settimeout(min(request.read_timeout, deadline.remaining()))
+            trace["failure_stage"] = "response_status_header_parsing"
             raw = connection.getresponse()
             resources.append(raw)
+            trace["failure_stage"] = "response_status_validation"
+            if type(raw.status) is int and 100 <= raw.status <= 599:
+                trace["http_status"] = raw.status
             if type(raw.status) is not int or not 200 <= raw.status <= 599:
                 raise ValueError("Invalid response status.")
             status = raw.status
             if status == 401:
                 self._cookies.clear()
             deadline.remaining()
-            headers, cookie_message = _response_headers(raw)
+            trace["failure_stage"] = "response_headers"
+            headers, cookie_message = _response_headers(raw, trace)
             deadline.remaining()
             if tracker.failed:
                 raise RuntimeError("Local cleanup failed.")
             length = cookie_message.get("Content-Length")
-            if length is not None and int(length) > self._max_response_bytes:
-                raise ValueError("Response exceeds byte budget.")
-            if cookie_message.get("Content-Encoding", "identity").lower() != "identity":
-                raise ValueError("Response transformations are not qualified.")
+            trace["failure_stage"] = "encoded_size_validation"
+            if length is not None and (len(length) > 20 or int(length) > self._max_response_bytes):
+                raise _ResponseValidationError("encoded_response_size_limit")
+            trace["failure_stage"] = "content_encoding_validation"
+            encoding = cookie_message.get("Content-Encoding", "identity").strip().lower()
+            if encoding not in ("identity", "gzip"):
+                raise _ResponseValidationError("unsupported_content_encoding")
+            trace["failure_stage"] = "bounded_response_read"
             body_buffer = bytearray()
             while True:
                 deadline.remaining()
@@ -491,49 +600,97 @@ class StdlibHttpBackend:
                 chunk = _read_response_body(raw, size)
                 deadline.remaining()
                 if not isinstance(chunk, bytes) or len(chunk) > size:
-                    raise ValueError("Invalid bounded response read.")
+                    raise _ResponseValidationError("invalid_bounded_response_read")
                 if len(body_buffer) + len(chunk) > self._max_response_bytes:
-                    raise ValueError("Response exceeds byte budget.")
+                    raise _ResponseValidationError("encoded_response_size_limit")
                 if not chunk:
                     break
                 body_buffer.extend(chunk)
             body = bytes(body_buffer)
+            trace["failure_stage"] = "body_length_validation"
             if raw.status not in (204, 304) and length is not None and len(body) != int(length):
-                raise ValueError("Incomplete response body.")
+                raise _ResponseValidationError("content_length_mismatch")
+            if encoding == "gzip" and status not in (204, 304):
+                trace["failure_stage"] = "gzip_decompression"
+                deadline.remaining()
+                decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+                body = decoder.decompress(body, self._max_response_bytes + 1)
+                deadline.remaining()
+                if len(body) > self._max_response_bytes or decoder.unconsumed_tail:
+                    raise _ResponseValidationError("decoded_response_size_limit")
+                if not decoder.eof:
+                    raise _ResponseValidationError("truncated_gzip_response")
+                if decoder.unused_data:
+                    raise _ResponseValidationError("gzip_trailing_data_or_multiple_members")
+                headers = {
+                    name: value for name, value in headers.items()
+                    if name.lower() not in ("content-encoding", "content-length")
+                }
             if tracker.failed:
                 raise RuntimeError("Local cleanup failed.")
             if 200 <= status < 300:
+                trace["failure_stage"] = "response_cookie_extraction"
                 candidate = _StrictCookieJar()
                 for cookie in self._cookies:
                     candidate.set_cookie(copy.deepcopy(cookie))
                 candidate.extract_cookies(_CookieResponse(cookie_message), cookie_request)
+            trace["failure_stage"] = "http_response_construction"
             response = HttpResponse(raw.status, body, headers)
             deadline.remaining()
         except BackendFailure as exc:
             failure = exc.category
+            trace["exception_class"] = "BackendFailure"
         except ssl.SSLError:
             failure = ErrorCategory.TLS
+            trace["exception_class"] = "SSLError"
         except TimeoutError:
             failure = ErrorCategory.TIMEOUT
+            trace["exception_class"] = "TimeoutError"
         except (http.client.RemoteDisconnected, OSError):
             failure = ErrorCategory.CONNECTION
-        except (http.client.HTTPException, ContractValidationError, ValueError, UnicodeError):
+            trace["exception_class"] = "ConnectionError"
+        except (http.client.HTTPException, ContractValidationError, ValueError, UnicodeError, zlib.error) as exc:
             failure = ErrorCategory.MALFORMED_RESPONSE
+            trace["exception_class"] = (
+                "ZlibError" if isinstance(exc, zlib.error)
+                else type(exc).__name__ if isinstance(exc, http.client.HTTPException) and type(exc).__name__ in {
+                    "HTTPException", "BadStatusLine", "IncompleteRead", "InvalidURL",
+                    "NotConnected", "CannotSendRequest", "CannotSendHeader", "ResponseNotReady",
+                    "LineTooLong", "UnknownProtocol", "UnknownTransferEncoding",
+                }
+                else "HTTPException" if isinstance(exc, http.client.HTTPException)
+                else "ContractValidationError" if isinstance(exc, ContractValidationError)
+                else "UnicodeError" if isinstance(exc, UnicodeError) else "ValueError"
+            )
+            trace["validation_reason"] = (
+                exc.reason if isinstance(exc, _ResponseValidationError)
+                else "invalid_gzip_stream" if isinstance(exc, zlib.error)
+                else "invalid_header_syntax" if isinstance(exc, ContractValidationError)
+                else "malformed_http_response" if isinstance(exc, http.client.HTTPException)
+                else "invalid_text_encoding" if isinstance(exc, UnicodeError)
+                else "invalid_cookie_attributes" if trace["failure_stage"] == "response_cookie_extraction"
+                else "invalid_transport_contract"
+            )
         except Exception:
             failure = ErrorCategory.BACKEND
+            trace["exception_class"] = "UnexpectedException"
         finally:
             failed = _release(resources) + tracker.failed
             self._pending.extend(failed)
         # Raise only in send(), after raw library exceptions and cleanup contexts end.
         if failure is not None or failed:
+            if failed and failure is None:
+                trace.update(failure_stage="resource_cleanup", validation_reason="local_cleanup_failed")
             return BackendFailure(
                 failure or ErrorCategory.BACKEND, status=status, cleanup_failed=bool(failed),
             )
         if response is None:
             return BackendFailure(ErrorCategory.BACKEND)
         try:
+            trace["failure_stage"] = "deadline_validation"
             deadline.remaining()
         except BackendFailure as exc:
+            trace["exception_class"] = "BackendFailure"
             return BackendFailure(exc.category, status=status)
         if candidate is not None:
             self._cookies = candidate
