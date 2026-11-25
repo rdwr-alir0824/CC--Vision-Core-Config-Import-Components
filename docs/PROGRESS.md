@@ -2,7 +2,81 @@
 
 Last updated: 2026-11-25
 
-## Current task: CC-DESTINATION-DISCOVERY - approved tree-only implementation
+## Current task: UNIFIED-PRODUCTION-LAUNCHER
+
+- Objective/priority: high; one operator entry point for source backup,
+  destination read-only Site discovery and offline transferred Site assessment.
+- Dependencies: existing shared Python 3.13 image, Compose roles, six working
+  collectors, destination-discovery and Site-readiness JSON interfaces, approved
+  Linux/Bash/Docker host, administrator runtime/CA/egress provisioning.
+- Approval: owner authorized Bash + Docker only, same image for offline helpers,
+  UID/GID 10001 containers, temporary mode-0600 credentials and approved sudo
+  only where needed. No host Python, imports, live tests, deployment or Git.
+- Implementation status: implemented; offline verification passed. New Docker/
+  Linux runtime and controller compatibility remain unverified by this task.
+- Launcher: ccv.sh offers only the three implemented operations and Exit.
+  Normal engineers enter IP/hostname/username/hidden password, or select an
+  incoming backup number without controller credentials. Compose resolves
+  administrator image/mount overrides. Missing Docker/Compose/image/directories,
+  unsafe hostname/CA/package configuration and malformed result shapes fail
+  explicitly. No DNS resolution or controller probe is added to helpers.
+- Credentials: Bash sends values only via stdin to a network-none helper from
+  the same image. Temporary credential/CA files are UID:GID 10001:10001, mode
+  0600; live operations request sudo authorization before secrets only when
+  ownership changes are needed. Operator retains directory ownership with
+  group-traverse-only access for GID 10001; cleanup needs no later sudo renewal.
+  Existing administrator files are never overwritten/deleted. Normal exit,
+  INT/TERM remove known temporary files and this run's label-verified containers.
+  SIGKILL/crash/daemon failure require administrator follow-up; no false cleanup
+  guarantee. Raw application output is temporary/private and not console-echoed.
+- TLS/network: image system trust or verified administrator CA certificates
+  copied to the private run; no private keys copied, no verification bypass.
+  Configured missing/untrusted CA bundles fail closed. Actual server trust still
+  requires the selected authorized operation. Helpers are UID 10001/network-none;
+  existing source/discovery networking and offline destination network-none/
+  incoming-read-only remain unchanged. No host firewall alterations.
+- Assessment: checks package presence/source-summary safety (six nonempty
+  modules, trees, no links/non-regular files, bounded inspection), then invokes
+  existing Organization Site readiness. Not a full package/schema/checksum
+  validator; approved transfer checksum remains mandatory. Blocked assessment
+  exit 1 is explicitly distinguished from application/Docker failures.
+- Future imports: docs/IMPORT_COORDINATOR.md only; intended Site/Device/
+  stabilization/Scheduler/LDAP/final-readback sequence, actual dependency edges,
+  proposed bounded timing settings, indeterminate-create handling and future
+  resumability. No state model, timing variables, sleeps, polling, writes,
+  imports or additional architecture milestone implemented.
+- Files affected: ccv.sh, src/cc_vision_import/launcher_helper.py,
+  tests/test_unified_launcher.py, README.md, docs/IMPORT_COORDINATOR.md,
+  docs/PROGRESS.md. Dockerfile, Compose, compose_entrypoint, source collectors,
+  authentication/transport, legacy and accepted offline supervisor unchanged.
+- Test evidence: `python -S -B -m unittest test_unified_launcher
+  test_destination_discovery test_compose_deployment test_authentication
+  test_http_backend test_vision_backup test_backup_setup test_vision_tree_preview`
+  with src/tests on PYTHONPATH: 195 tests in 146.550s, 194 passed and one
+  Docker-availability test skipped. Mocked Docker/sudo and controller responses;
+  zero real network/dispatch attempts. Eleven focused launcher tests cover menu/
+  routing, IP syntax, hidden/stdin credentials, no secret args/env/output,
+  cleanup success/failure/INT/TERM, sudo denial/ownership/no-sudo offline mode,
+  TLS/missing components, incomplete backup, safety and blocked result shapes.
+  Initial failures exposed Windows mock line-ending/path/signal differences and
+  unnecessary stdin attachment draining selection; fixed before passing run.
+  Final result/cleanup guards and saved-artifact checks: four targeted lifecycle
+  tests passed in 39.018s after tightening; final source/discovery routing and
+  explicit helper pull-never check passed in 11.872s. Cleanup failures return
+  nonzero rather than success. The cleanup-failure mock was corrected for
+  Windows shell command resolution before the final passing checks.
+  Bash launcher and 18 README shell blocks passed parse-only checks; two Python
+  files passed AST checks, helper Pylance syntax/diagnostics clear.
+- Known limitations: Docker unavailable locally, no image build or genuine
+  Docker/host ownership/SELinux runtime test. Previous owner-reported destination
+  Docker success does not verify this new launcher. CC version unknown and
+  destination schema/import contracts remain unqualified. Administrator must
+  approve Docker/sudo/CA/egress and make ccv.sh executable after install/update.
+- Next action: approved administrator rebuilds the shared image and runs README
+  offline checks, then engineers run ./ccv.sh on an authorized Docker host.
+  Separately authorize any live backup/discovery; retain actual runtime evidence.
+
+## Previous task: CC-DESTINATION-DISCOVERY - approved tree-only implementation
 
 - Objective/priority: high; explicitly selected read-only Organization root/
   Sites/native identities and private sanitized snapshot, preserving the offline

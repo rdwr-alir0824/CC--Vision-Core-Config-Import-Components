@@ -7,6 +7,39 @@ Original legacy scripts are references only: none are imported or executed.
 The detailed capability/legacy mapping is maintained in the
 [internal API matrix](docs/API_MATRIX.md).
 
+## Operator Quick Start
+
+On an **authorized appliance Docker host or approved adjacent Docker host**:
+
+```sh
+cd /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components
+./ccv.sh
+```
+
+Choose **1** for the six-module Source Vision backup, **2** for read-only
+destination Site discovery, **3** for transferred-backup validation, or **4** to
+exit. Live operations request the controller IP/hostname, username and hidden
+password. Offline validation lists transferred folders and requests no controller
+credentials. No manual credential JSON, environment setup or Compose service
+names are needed. Review the concise result and complete backup/report path.
+
+**Source Backup -> Transfer Complete Folder -> Destination Validation ->
+Destination Discovery -> Future Approved Import.** The final step is not
+implemented or enabled. A blocked Site assessment is not an application crash
+and never authorizes writes. Successful collection is not a complete/restorable
+configuration backup.
+
+The launcher uses **Bash + Docker only**, including offline helpers from the
+same image; no host Python dependency. Application/helper containers remain
+UID/GID 10001. For live operations, approved sudo may request the engineer's
+host password **before** controller credentials, solely to provision temporary
+file ownership. Passwordless sudo is not assumed. Credential files are mode
+0600/UID:GID 10001:10001; only their uniquely created directory is used.
+Normal exit, Ctrl-C and TERM remove temporary files and this run's labeled
+containers, without deleting administrator-managed secrets or reports.
+SIGKILL, host failure or an unavailable Docker daemon can prevent complete
+cleanup; ask the administrator to inspect any reported leftover run.
+
 ## Supported functionality and requirements
 
 | Backup component | Current support |
@@ -23,7 +56,7 @@ configuration item or a restorable credential backup. Imports, updates and
 deletes remain unavailable. Other Vision versions and Cyber Controller live
 backup are not qualified. Existing offline commands remain available.
 
-- **Deployment hosts:** approved Linux/Bash environment, Git, Docker and a
+- **Deployment hosts:** approved Linux/Bash 4+ environment, Git, Docker and a
   current Docker Compose v2 plugin. No host Python replacement is required.
 - **Container engine:** official Python **3.13-slim**, `/app`,
   `PYTHONPATH=/app/src`, UID/GID **10001:10001**.
@@ -66,7 +99,8 @@ cd /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components
 sudo install -d -m 0700 -o 10001 -g 10001 \
   ../ccv-runtime/source-backups ../ccv-runtime/source-secrets \
   ../ccv-runtime/source-config ../ccv-runtime/destination-incoming \
-  ../ccv-runtime/destination-reports
+  ../ccv-runtime/destination-reports ../ccv-runtime/destination-secrets
+chmod u+x ccv.sh
 docker compose --profile source --profile destination config --quiet
 docker compose --profile source --profile destination build
 ```
@@ -94,25 +128,15 @@ networking disabled. Missing bind directories fail rather than being auto-create
 
 ### 2. Source backup (source host only)
 
-Provision an approved least-privilege account's owner-private JSON credential
-file containing exactly `username` and `password`. Do not put secret values in
-command arguments or shell history:
-
 ```sh
-sudo install -m 0600 -o 10001 -g 10001 /absolute/private/vision-credentials.json \
-  ../ccv-runtime/source-secrets/credentials.json
-read -r -p 'Approved Vision HTTPS origin: ' CCV_VISION_URL
-export CCV_VISION_URL
-export CCV_TLS_VERIFY=true
-docker compose --profile source run --rm ccv-source backup
+./ccv.sh
 ```
 
-Run only after controller/account authorization. This executes all six read-only
-modules, then exits; engine JSON and `summary.json` are preserved. The HTTPS origin
-must contain no credentials, path, query or fragment. Verification defaults to
-system trust. For a private CA, provision `source-config/vision-ca.pem`, readable
-by UID 10001, and set `CCV_TRUSTED_CA=/run/config/vision-ca.pem`. Do not silently
-disable TLS verification to resolve certificate failures.
+Select **1** and enter the approved controller IP/hostname and credentials.
+The launcher executes the existing six read-only modules and exits. It displays
+the complete generated folder and module counts/redactions/limitations;
+full engine JSON and `summary.json` remain unchanged. Transfer that whole folder
+using Step 3; never transfer temporary or administrator credential files.
 
 ### 3. Transfer the complete backup folder (mandatory)
 
@@ -180,96 +204,72 @@ Inside the destination container, it is `/incoming/<backup-folder>/`, read-only.
 
 ### 4. Destination preflight (destination host only)
 
-After the transfer/completeness checks, validate non-secret profile metadata:
-
 ```sh
-read -r -p 'Source Vision HTTPS origin (metadata only): ' CCV_VISION_URL
-read -r -p 'Destination CC HTTPS origin (metadata only): ' CCV_DESTINATION_URL
-read -r -p 'Exact installed CC version: ' CCV_DESTINATION_VERSION
-export CCV_VISION_URL CCV_DESTINATION_URL CCV_DESTINATION_VERSION
-docker compose --profile destination run --rm ccv-destination preflight
-
-REPORT_NAME="${BACKUP_FOLDER}-sites-$(date -u +%Y%m%dT%H%M%SZ).json"
-docker compose --profile destination run --rm ccv-destination \
-  --operation tree-readiness-preview --site-readiness \
-  --input "/incoming/$BACKUP_FOLDER/organization-tree/tree.json" \
-  --output "/reports/$REPORT_NAME"
+./ccv.sh
 ```
 
-`preflight` invokes existing **profile syntax validation only**, exits 0 for
-valid profiles, and does not read the backup or contact either controller.
-The second command assesses source Sites from the transferred artifact; it
-exits **1** when inspected but migration-blocked. Reports must have new names.
-Neither command imports/restores anything. There is no live CC connectivity,
-authentication, TLS, license/capacity preflight or complete package validator
-in this **offline role**. Do not fabricate an installed version if it is unknown;
-metadata preflight must wait for verified metadata. Optional discovery below
-does not require a declared version or successful metadata preflight.
+Select **3**, then a displayed incoming folder number. No controller credentials
+or version declaration is requested. The launcher checks six nonempty module
+directories, both trees and the successful source collection summary, rejecting
+links, unsafe folders and incomplete collection. These are **presence/safety
+checks, not a full package/schema or checksum validator**. Transfer-integrity
+verification in Step 3 remains mandatory.
 
-#### Optional: authorized read-only CC Site discovery
+The existing offline Organization **Site-readiness** assessment runs with
+networking disabled and `/incoming` read-only. It saves a new report under
+destination-reports and displays its path/counts. Exit **1** plus “Assessment
+completed; migration BLOCKED” is the expected non-executable readiness outcome,
+not application failure. Input/runtime errors are reported separately. This
+does not validate all six schemas, authenticate to CC or qualify import mappings.
 
-This is a separate, explicitly selected execution role using the **same built
-image**. It never enables networking in `ccv-destination` or reads `/incoming`.
-Obtain authorization for the destination/account first. Have the administrator
-restrict this role's Docker egress to the approved CC address on TCP **443**
-(and approved DNS only if necessary). The dedicated bridge is isolation, **not
-an egress firewall**. Application requests are restricted to that HTTPS origin,
-POST `/mgmt/system/user/login` and GET
-`/mgmt/system/config/tree/Organization`; no configuration writes or version API.
+#### Optional: read-only destination Site discovery
 
-Provision separate, owner-private destination credentials containing exactly
-`username` and `password`; never copy source credentials or put passwords in
-environment variables, command arguments or Git:
+Run `./ccv.sh`, select **2**, and enter the approved CC IP/hostname and credentials.
+It uses the existing explicitly selected discovery role, never enabling networking
+in the offline destination. The summary displays counts/redactions and the
+private snapshot path under destination-reports. Snapshot native Site names/IDs
+must not be copied into shared logs. Parent semantics and enumeration remain
+unqualified; product version stays **unknown/unverified**, including the unresolved
+10.10.7/10.10.6 documentation conflict. No imports, writes or speculative version
+requests occur. Exit 0 means collected-unqualified, not migration-ready.
+
+### Administrator TLS/CA and egress provisioning
+
+Before permitting live operations, authorize the controller/account and restrict
+discovery's Docker egress to the approved CC address on TCP **443**, with approved
+DNS only if required. The dedicated bridge is **not an egress firewall**; the
+launcher never changes host rules or grants broader networking. Application
+discovery permits only POST login and GET Organization tree at the chosen origin.
+Host validation checks syntax only; it does not resolve DNS or prove controller
+identity. Actual TLS verification occurs in the existing selected operation.
+
+TLS certificate and hostname verification is mandatory, including when source
+settings previously disabled it. System CA trust from the application image is
+used unless an administrator PEM bundle is present. Provision an approved
+private CA before execution (omit the unneeded product's command):
 
 ```sh
-sudo install -d -m 0700 -o 10001 -g 10001 ../ccv-runtime/destination-secrets
-sudo install -m 0600 -o 10001 -g 10001 /absolute/private/cc-credentials.json \
-  ../ccv-runtime/destination-secrets/credentials.json
-read -r -p 'Approved destination CC HTTPS origin (port 443): ' CCV_DESTINATION_URL
-export CCV_DESTINATION_URL
-docker compose --profile destination-discovery config --quiet
-docker compose --profile destination-discovery run --rm ccv-destination-discovery --help
-docker compose --profile destination-discovery run --rm ccv-destination-discovery discover-sites
-```
-
-TLS certificate/hostname verification is mandatory. For an approved private CA:
-
-```sh
+sudo install -m 0600 -o 10001 -g 10001 /absolute/private/vision-ca.pem \
+  ../ccv-runtime/source-config/vision-ca.pem
 sudo install -m 0600 -o 10001 -g 10001 /absolute/private/cc-ca.pem \
   ../ccv-runtime/destination-secrets/cc-ca.pem
-export CCV_DESTINATION_TRUSTED_CA=/run/secrets/cc-ca.pem
 ```
 
-Set the CA before `discover-sites`; never disable verification. An origin must
-contain no credentials, path, query or fragment. `CCV_DESTINATION_VERSION` is
-not used by discovery: product release/build remains **unknown/unverified**.
-Legacy login/tree evidence is not target-release compatibility verification;
-the documentation's 10.10.7/10.10.6 conflict remains unresolved.
-
-The JSON console summary contains only counts, issue codes and the new report
-directory/filename. The snapshot is written under
-`../ccv-runtime/destination-reports/cc-destination-*/organization-sites.json`.
-It retains native root/Site names and identities **privately**, excludes Devices
-and unsupported field values, and reports redaction/structural limitations.
-Do not share the raw snapshot in logs or public reports. Parent semantics are
-legacy-nesting-inferred, not verified destination mappings. Unknown schema,
-duplicates and missing dependencies remain explicit. Exit **0** means
-collected-unqualified, **1** means partial/failed; neither means complete,
-migration-ready or executable. Other nonzero exits indicate input/runtime errors.
-Session credentials/cookies are cleared locally; no remote logout is attempted.
-`run --rm` removes the container; the private snapshot remains.
-To remove this optional role's unused Compose resources without deleting reports:
-
-```sh
-docker compose --profile destination-discovery down
-```
+Use regular, readable CA bundles, not symlinks or private keys. Invalid bundles
+or explicitly configured missing bundles fail before credential collection.
+A missing private CA cannot be identified from hostname syntax alone: if only
+system trust is available, the actual operation must fail closed for an untrusted
+controller certificate. Never bypass verification. Existing administrator
+`CCV_*_DIR` and PEM-basename trust overrides are resolved through Compose;
+normal engineers do not configure them. Rebuild after updating image system trust.
 
 ### 5. Verification and troubleshooting
 
 From the standard application directory, these checks are offline:
 
 ```sh
-docker compose --profile source --profile destination config --quiet
+./ccv.sh --help
+docker compose --profile source --profile destination --profile destination-discovery config --quiet
 docker compose --profile source run --rm ccv-source --help
 docker compose --profile destination run --rm --entrypoint python ccv-destination --version
 docker compose --profile destination run --rm ccv-destination --operation operations
@@ -281,6 +281,8 @@ on both hosts against the same approved revision. Do not print credentials.
 | Problem | Check / action |
 | --- | --- |
 | Missing configuration/image | Run from the standard directory; confirm Compose v2, config validation and completed build |
+| Launcher not executable | Administrator runs `chmod u+x ccv.sh` after clone/update |
+| Sudo denied | Obtain approved ownership-provisioning permission; no controller credentials are collected |
 | Missing backup or wrong mount | Check the selected folder and `.env`/shell path overrides; `/incoming` is intentionally read-only |
 | Permission/SELinux failure | Check `sudo ls -ld` on the selected host paths, UID 10001 ownership/private modes, and administrator-approved labels; never use privileged/world-write workarounds |
 | TLS failure on source | Use an approved CA and matching certificate hostname; no silent downgrade |
@@ -294,7 +296,7 @@ on both hosts against the same approved revision. Do not print credentials.
 directory, credential, backup, incoming package and report untouched:
 
 ```sh
-docker compose --profile source --profile destination down
+docker compose --profile source --profile destination --profile destination-discovery down
 ```
 
 For an **existing repository**, update in place during an approved idle window:
@@ -309,6 +311,31 @@ git status --short
 Stop on update errors. Use the same approved revision on both hosts, then repeat
 the shared deployment block in Install and the offline Verification commands.
 Do not repeat source collection or transfer automatically during an update.
+
+### Advanced Docker commands (administrators and approved unattended workflows)
+
+These are diagnostics/existing interfaces, **not another installation procedure**.
+The interactive operator entry point is always `./ccv.sh`. Existing
+`run-vision-backup.sh` is retained for legacy deployments only; it is not the
+recommended interactive launcher.
+
+```sh
+docker compose --profile destination-discovery run --rm ccv-destination-discovery --help
+docker compose --profile destination run --rm ccv-destination \
+  --operation tree-readiness-preview --site-readiness --report-format json \
+  --input "/incoming/$BACKUP_FOLDER/organization-tree/tree.json" \
+  --output "/reports/REPLACE-WITH-A-NEW-REPORT-NAME.json"
+```
+
+Existing direct `backup`/`discover-sites` shortcuts still require private
+administrator credential mounts and connection/CA settings. They are not
+normal-operator prerequisites. Existing metadata-only `preflight` validates
+profile syntax, not a backup or connectivity, and requires independently known
+version metadata; never substitute an invented version.
+
+The [future import coordinator design](docs/IMPORT_COORDINATOR.md) specifies
+dependency sequencing and proposed bounded timing settings. It is documentation
+only: no import coordinator, timing variables, polling or write stages are enabled.
 
 ### Existing deployments: legacy paths only
 
