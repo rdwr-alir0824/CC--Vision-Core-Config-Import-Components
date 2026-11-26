@@ -1,8 +1,189 @@
 # Persistent Development Tracker
 
-Last updated: 2026-11-25
+Last updated: 2026-11-26
 
-## Current task: READ-ONLY-ROOT-ID-QUALIFICATION
+## Current task: CCV-011 - controlled single-Site migration
+
+- Objective/priority: high; implement the working, reusable one-Site dry-run and
+  separately authorized experimental create/readback path, not another research
+  milestone. Primary CC 10.10.x; additional CC 10.15.x. No blanket compatibility.
+- Dependencies: existing hash-bound Vision backup, saved CC discovery snapshot,
+  confirmed 30-Site comparison/root association, shared authentication/transport,
+  session-only TLS consent, legacy minimal Site contract and Docker launcher.
+- Approval: implement live-create code and run local mocked/offline tests only.
+  No live controller calls/writes, deployment, Git operations or legacy edits.
+- Implementation status: implemented. Reusable reference-based selection,
+  recomputed/hash-checked comparison evidence, destination-only parent resolution,
+  fresh collision/tree checks, sanitized preview/report, separate real-terminal
+  authorization, final same-session preflight, one POST maximum, returned-ID and
+  bounded hierarchy readback, durable no-repeat reservation. No child dependency
+  activation, Devices, Scheduler, LDAP, bulk, fallback, rename, retry or rollback.
+- Integration: existing choice 2 accepts explicit --single-site-dry-run or
+  --single-site-create; choices 1-4 unchanged. Initial read-only stage retains
+  existing TLS consent; controlled stage is foreground interactive and never
+  automatically restarted. Same image/service/egress; existing incoming mount
+  added read-only to discovery. Offline destination remains network-disabled.
+- Files affected: src/cc_vision_import/single_site.py (new),
+  http_backend.py, master_cli.py, compose_entrypoint.py, launcher_helper.py;
+  ccv.sh, compose.yaml; tests/test_single_site.py (new),
+  tests/test_compose_deployment.py, tests/test_unified_launcher.py;
+  README.md, docs/API_MATRIX.md, docs/PROGRESS.md. No unrelated files modified.
+- Verification status: implemented and verified offline/mock only. Combined
+  operator/API/CLI/regression run: 233 tests in 469.683s, 232 passed and 1 Docker
+  availability skip. Final review added a failing repro for a returned identity
+  already present before POST; the engine now rejects that identity before
+  readback. Final focused engine/CLI rerun: 94 tests in 32.934s, all passed,
+  including all 22 single-Site cases. HTTP backend observed zero network/real
+  dispatch attempts (0/1080 network, 0/144 dispatch observations). Python AST
+  and launcher Bash syntax passed, as did all 26 README shell blocks (syntax
+  only, not executed). Offline master help/operation catalog both passed.
+  Pylance reports no error diagnostics for changed runtime files; existing
+  backend unused/unreachable hints and Windows-only analysis of Linux fsync are
+  not runtime verification. Pylance syntax check passed; both preflight call
+  sites were verified compatible after retaining baseline destination identities.
+  Initial test-fixture query shape/required-timeout mistakes were fixed; no
+  remaining failed checks. A labeled synthetic mocked dry-run report was produced
+  outside the checkout; it is not evidence from the owner's actual lab inputs.
+- Known blockers/limitations: Docker unavailable locally, so image build and
+  container execution unverified. Real protected inputs remain on Linux; no
+  live dry-run or POST/readback executed here. Parent/tree identity correspondence,
+  collision completeness, omitted fields and create/response semantics are
+  experimental on both target families; unknown shapes fail closed. Shared
+  reports directory and same controller origin must be retained for reservation
+  protection. Existing DNS timing limitation remains, without a containment claim.
+- Next action: owner may separately authorize deployment/read-only preflight
+  using README commands. Before one lab
+  create: review actual dry-run, freeze competing writers, accept exact target
+  risks, authorize one candidate/account/egress, and arrange manual reconciliation.
+  Development approval is not controller-write approval.
+
+## Previous task: LEGACY-CC-OBJECTS-COMPATIBILITY-REUSE
+
+- Objective/priority: high; extract actionable reuse from the original cc-objects
+  app as primary source reference. Primary destination CC 10.10.x; additional
+  CC 10.15.x/other 10.x only where exact operation behavior is verified.
+- Dependencies: original uploader/downloader/updater; existing 30-Site comparison,
+  selected source:node-2, root/source diagnostic results and security controls.
+- Approval: focused source inspection and compatibility/reuse recommendations.
+  No controller calls, write activation, deployment, Git operations or unrelated
+  edits. Original legacy workspace is read-only.
+- Implementation status: exact function/line contract inventory, one version-aware
+  matrix, reuse/reject guidance and smallest mock-only development step recorded
+  in API_MATRIX.md. No runtime implementation in this task.
+- Verification status: all three actual files under
+  C:\DATA\Scripts\CC -Master Config Migration\cc-objects\app read in full; AST parse
+  established exact function ranges without executing/importing legacy code.
+  No primary CC 10.10 patch/build/live result supplied; no write qualification.
+- Findings: downloader emits depth-first parent-before-child Sites; uploader
+  consumes supplied order, resolves destination parents by name, creates all
+  Sites before Devices. No created-ID map, completion/readback, failure stop or
+  arbitrary-order repair; failed parent creates/lookups can misplace children.
+  Uploader/updater prefer managedElementID then ormID; downloader parent lookup
+  consumes ormID. Neither establishes identifier equivalence.
+- Device dependencies: source parent ID -> source Site name -> destination
+  lookup; device access enriched by IP, only nested ormID removed. Updater
+  copies input device.id into destination PUT ormID without proving remapping.
+  Device schemas/credentials/identity mapping remain separate and out of next step.
+- Reuse: field roles, dependency ordering and parent binding concepts through
+  existing master parsers/mappings, not duplicated legacy networking/traversal.
+  Reject INI secrets, TLS false, raw logging, root fallback, failure continuation,
+  source-ID reuse and assumed HTTP-200 completion. Original three files have no
+  root rename; separate public cloner behavior remains prohibited.
+- Files affected: docs/API_MATRIX.md and docs/PROGRESS.md only for this task.
+- Test evidence: static source/AST inspection only; documentation-only edits
+  need no runtime tests. Recommended mocked cases are proposals, not executed.
+  Existing runtime/launcher/deployment/TLS/collectors and unrelated files unchanged.
+- Known blockers: exact primary release, target payload/omission/parent contract,
+  destination returned identity/completion/readback, collision baseline and
+  separate bounded write/test approval. 10.15.0-2 Default read is not 10.10 or
+  family-wide write evidence. Existing source/root confirmed mapping unchanged.
+- Next action: seek approval for a mock-only one-Site contract/readback rehearsal
+  using current Site workflow/helpers; no write backend or import engine.
+  Obtain exact primary-target evidence, then separately authorize one bounded
+  create/readback test. Never split by hardcoded versions without real differences.
+
+## Previous task: SINGLE-SITE-CONTRACT-EVIDENCE
+
+- Objective/priority: high; compare Radware's public cloner with legacy evidence
+  and target read evidence, without implementing writes or changing runtime.
+- Dependencies: real root/source diagnostic results, selected root-child
+  source:node-2, immutable comparison bindings and existing API matrix.
+- Approval: public source/document review and documentation only; no controller
+  requests, writes, deployment, Git operations or unrelated edits.
+- Implementation status: evidence matrix, protected-reference non-executable
+  preview and explicit future success/error/timeout/readback requirements added.
+- Verification status: Radware public source and README directly fetched/reviewed
+  2026-11-26. Mutable main, not pinned revision. Target POST untested/unqualified.
+  README describes testing through CC 10.5.0, not our GUI-observed 10.15.0-2.
+- Findings: public helper takes destination lookup ormID; Site POST sends only
+  name/parentOrmID and accepts HTTP 200. No created-ID extraction or per-Site
+  completion/readback. It also renames root via PUT and silently substitutes root
+  on failed lookup; neither behavior is adopted. Legacy helper's managedElementID
+  preference is not identity equivalence evidence.
+- Files affected: docs/API_MATRIX.md and docs/PROGRESS.md only in this task.
+  Application/launcher/Docker/TLS/session/collector/write restrictions unchanged.
+- Test evidence: source/document comparison only; no runtime tests required for
+  documentation-only edits. Preview JSON syntax and non-executable guards checked
+  below. External script was never executed or incorporated into application.
+  Protected-reference JSON parses; execution/write/import/body-generation flags
+  false, root rename/fallback/source-ID reuse prohibited, parent acceptance
+  unqualified. Runtime tests not rerun; no controller calls or configuration writes.
+- Known blockers: target field sufficiency/allowed values and four-field omission;
+  root ormID acceptance/Organization placement; returned identity, success/error/
+  asynchronous completion and bounded readback contracts; collision baseline;
+  explicit one-test authorization and future bounded mechanism approval.
+- Failure policy: no automatic retry, no second create on ambiguous result, no
+  root fallback/rename and no blind rollback. Timeouts/errors may have mutated
+  state; only authorized read-only reconciliation/manual review can resolve it.
+- Next action: obtain target-applicable contract or authoritative clarification
+  with existing approved target evidence. Then separately authorize exactly one
+  Site create and evidenced bounded identity/completion/hierarchy readback.
+
+## Previous task: SITE-CREATE-CONTRACT-QUALIFICATION
+
+- Objective/priority: high; record real root/source diagnostic evidence and
+  qualify one non-executable root-child Site validation plan.
+- Dependencies: root-only read, bound comparison/source-only diagnostic, legacy
+  Site uploader and existing vendor-document evidence.
+- Approval: owner authorizes documentation only; no runtime changes, network,
+  configuration writes, Git operations or unrelated edits.
+- Implementation status: updated compatibility/field matrix and sanitized
+  source:node-2 preview/validation plan. All create operations remain disabled.
+- Verification status: owner-reported live read and real Linux offline diagnostic
+  succeeded; evidence reviewed as sanitized owner results, not independently
+  executed or reproduced on this workstation. Target create contract blocked.
+- Live evidence: Default by-name GET succeeded on GUI-identified CC 10.15.0-2;
+  exact Default name true, ormID present/usable string, type present string,
+  parentOrmID present null, exit 0, no configuration writes. Native ormID value
+  not supplied/logged. Root's null parent does not mean child create parent null.
+- Real diagnostic evidence: source backup/comparison available on Linux;
+  source SHA-256 binding, confirmed roots and source:node-2 validated there.
+  data NoneType/null; dynamicViewChildrenNumber int/number; totalChildrenNumber
+  int/number; meIdentifier.dbId int/number. No actual values supplied.
+- Interpretation limits: data is opaque despite null; counters are derived
+  candidates only; dbId likely source-local identity metadata, never destination
+  ID. No field is proven required/optional/safely omitted for target create.
+  Optional dbId in a documented identifier lookup model is not a POST rule.
+- Files affected: docs/API_MATRIX.md and docs/PROGRESS.md only for this task.
+  Existing runtime/deployment/TLS/collectors and unrelated files unchanged.
+- Test evidence: documentation/source evidence review; no runtime test rerun
+  required for docs-only edits. Embedded preview JSON validation recorded below.
+  Earlier mocked runtime results remain historical, not target write evidence.
+  Preview JSON parses; selected reference/four actual paths retained;
+  execution/write/body-generation flags false and parent acceptance unverified.
+- Known blockers (priority): target Site-create allowed/required fields/values and
+  four-field omission/server-generation rules; destination root ormID acceptance
+  as child parentOrmID/Organization placement; returned destination identity and
+  completion/error contract; exact readback/completion API scope; fresh qualified
+  collision baseline with incomplete enumeration; specific write/test approval.
+  Installed product version remains GUI-observed, not API-verified.
+- Next action: obtain target-applicable vendor contract or existing approved
+  transaction plus schema clarification. Then separately authorize one bounded
+  create (no retry), returned identity/completion and by-ID/hierarchy readback
+  using protected destination values. No Device/child/bulk writes or automatic
+  rollback; timeout/uncertainty requires protected manual review.
+
+## Previous task: READ-ONLY-ROOT-ID-QUALIFICATION
 
 - Objective/priority: high; explicitly selected Default root GET through existing
   discovery/authentication/TLS/launcher infrastructure, without native-value logs
@@ -15,7 +196,8 @@ Last updated: 2026-11-25
 - Implementation status: root-only selector and sanitized projection/report
   implemented. Default tree discovery/menu/collectors/deployment unchanged.
 - Verification status: implemented and verified for mocked/offline acceptance;
-  actual controller response/Docker runtime unverified.
+  owner subsequently reports live Default lookup succeeded, exit 0/no writes;
+  detailed sanitized evidence is recorded in the current task above.
 - Behavior: `./ccv.sh --qualify-default-root`, choose 2. Only validated login POST
   and exact Default by-name GET at selected HTTPS/443 origin. No Organization/
   arbitrary read in root mode, no union allowlist or configuration writes.

@@ -126,6 +126,26 @@ class DestinationAuthorization:
 
 
 @dataclass(frozen=True)
+class SingleSiteAuthorization(DestinationAuthorization):
+    """Finite Site-only scope for the separately selected one-create workflow."""
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        for method, target in self.operations:
+            if (method, target) in (
+                (HttpMethod.POST, "/mgmt/system/user/login"),
+                (HttpMethod.POST, "/mgmt/system/config/tree/site"),
+                (HttpMethod.GET, "/mgmt/system/config/tree/Organization"),
+            ):
+                continue
+            if method == HttpMethod.GET and re.fullmatch(
+                r"/mgmt/system/config/tree/site/(?:byname|byid)/[^/?#]+", target,
+            ):
+                continue
+            raise ValueError("Single-Site authorization cannot include other operations.")
+
+
+@dataclass(frozen=True)
 class _CookieResponse:
     message: Message = field(repr=False)
 
@@ -366,6 +386,7 @@ class StdlibHttpBackend:
         allow_live: bool = False,
         allow_unverified_vision_backup: bool = False,
         allow_unverified_destination_discovery: bool = False,
+        allow_unverified_single_site: bool = False,
         diagnose_failures: bool = False,
     ) -> None:
         if type(allow_live) is not bool or allow_live and connection_factory is not None:
@@ -374,6 +395,10 @@ class StdlibHttpBackend:
             raise ValueError("Backup TLS selection must be explicit.")
         if type(allow_unverified_destination_discovery) is not bool:
             raise ValueError("Destination discovery TLS selection must be explicit.")
+        if type(allow_unverified_single_site) is not bool or (
+            allow_unverified_single_site and not isinstance(authorization, SingleSiteAuthorization)
+        ):
+            raise ValueError("Single-Site TLS requires an exact Site-only authorization.")
         if type(diagnose_failures) is not bool:
             raise ValueError("Failure diagnostics must be explicitly selected.")
         if authorization is not None:
@@ -388,6 +413,7 @@ class StdlibHttpBackend:
         self._allow_live = allow_live
         self._allow_unverified_vision_backup = allow_unverified_vision_backup
         self._allow_unverified_destination_discovery = allow_unverified_destination_discovery
+        self._allow_unverified_single_site = allow_unverified_single_site
         self._diagnose_failures = diagnose_failures
         self._last_diagnostic: dict[str, object] | None = None
         self._authorization = authorization
@@ -507,7 +533,13 @@ class StdlibHttpBackend:
                     },
                 )
             )
-            if not verified and not backup_tls and not discovery_tls:
+            single_site_tls = (
+                self._allow_unverified_single_site and request.unverified_destination_discovery
+                and isinstance(self._authorization, SingleSiteAuthorization)
+                and request.tls_context.verify_mode == ssl.CERT_NONE
+                and request.tls_context.check_hostname is False
+            )
+            if not verified and not backup_tls and not discovery_tls and not single_site_tls:
                 raise ValueError("Unverified TLS is not authorized.")
             _timeouts(request.connect_timeout, request.read_timeout)
             if (

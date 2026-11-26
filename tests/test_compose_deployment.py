@@ -149,6 +149,37 @@ class ComposeDeploymentTests(OfflineTestCase):
         self.assertEqual(result.returncode, 0, "docker compose config failed; run it locally for configuration diagnostics.")
         self.assertTrue({"ccv-source", "ccv-destination"} <= set(json.loads(result.stdout)["services"]))
 
+    def test_single_site_routes_only_existing_discovery_with_protected_paths(self):
+        for command, operation in (("site-dry-run", "single-site-dry-run"), ("site-create", "single-site-create")):
+            with self.subTest(command=command):
+                def inspect(arguments):
+                    self.assertEqual(arguments[:2], ["--operation", operation])
+                    self.assertEqual(arguments[arguments.index("--site-reference") + 1], "source:node-2")
+                    payload = json.loads(Path(arguments[3]).read_text())
+                    self.assertEqual(payload["destination"]["base_url"], self.environment["CCV_DESTINATION_URL"])
+                    self.assertEqual(payload["tls"], {"verify": True})
+                    self.assertEqual(payload["output_directory"], "/reports")
+                    self.assertNotIn("password", json.dumps(payload))
+                    return 0
+
+                with patch.dict(os.environ, self.environment, clear=True), patch.object(
+                    self.module, "master_main", side_effect=inspect,
+                ):
+                    self.assertEqual(self.module.main([
+                        "discovery", command, "--input", "/incoming/backup/organization-tree/tree.json",
+                        "--comparison", "/reports/comparison.json",
+                        "--destination-snapshot", "/reports/snapshot.json", "--site-reference", "source:node-2",
+                    ]), 0)
+
+        with redirect_stderr(io.StringIO()), patch.object(self.module, "master_main") as dispatch:
+            for role, source in (("source", "/incoming/tree.json"), ("discovery", "/incoming/../secrets/tree.json")):
+                with self.assertRaises(SystemExit):
+                    self.module.main([
+                        role, "site-create", "--input", source, "--comparison", "/reports/comparison.json",
+                        "--destination-snapshot", "/reports/snapshot.json", "--site-reference", "source:node-2",
+                    ])
+            dispatch.assert_not_called()
+
     def test_discovery_profile_is_separate_and_cannot_enable_offline_destination_networking(self):
         services = json.loads((ROOT / "compose.yaml").read_text())["services"]
         discovery = services["ccv-destination-discovery"]
@@ -165,7 +196,8 @@ class ComposeDeploymentTests(OfflineTestCase):
         self.assertTrue(discovery["read_only"])
         self.assertEqual(discovery["cap_drop"], ["ALL"])
         self.assertEqual(discovery["security_opt"], ["no-new-privileges:true"])
-        self.assertEqual({mount["target"] for mount in discovery["volumes"]}, {"/run/secrets", "/reports"})
+        self.assertEqual({mount["target"] for mount in discovery["volumes"]}, {"/run/secrets", "/reports", "/incoming"})
+        self.assertTrue(next(m for m in discovery["volumes"] if m["target"] == "/incoming")["read_only"])
         self.assertTrue(next(m for m in discovery["volumes"] if m["target"] == "/run/secrets")["read_only"])
         captured = []
 

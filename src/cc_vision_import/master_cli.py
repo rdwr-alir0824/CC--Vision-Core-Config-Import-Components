@@ -24,6 +24,7 @@ _LOOKUPS = {
 _OPERATIONS = (
     "operations", "profiles", "export", "compare", "plan", "import-preview",
     "authenticate", "import", "backup-vision", "destination-discovery", "tree-readiness-preview", "site-comparison", *_LOOKUPS,
+    "single-site-dry-run", "single-site-create",
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -127,7 +128,7 @@ def _export_input(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python master.py",
-        description="Offline consolidation, or explicitly selected read-only Vision backup. Never writes controller configuration.",
+        description="Offline tools, selected controller reads, or explicitly authorized experimental single-Site creation.",
     )
     parser.add_argument("--operation", choices=_OPERATIONS, required=True)
     parser.add_argument("--report-format", choices=("text", "json"), help="Tree readiness/Site comparison stdout format; defaults to text.")
@@ -148,7 +149,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--root", help="Explicit local root response required for flat export.")
     parser.add_argument("--exported-at", help="ISO-8601 timestamp for supplied export/lookup data.")
     parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
-    parser.add_argument("--discovery-profile", help="External JSON profile for explicitly selected CC tree-only discovery; version unknown.")
+    parser.add_argument("--discovery-profile", help="External JSON profile for selected CC discovery or single-Site operation; version unknown.")
     parser.add_argument("--qualify-default-root", action="store_true", help="Destination discovery: read only Default by name instead of the Organization tree.")
     parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
     parser.add_argument("--destination-snapshot", help="Saved read-only destination Organization Site snapshot for offline comparison.")
@@ -156,7 +157,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--destination-root-name", help="Reviewed destination root name for a proposed offline root association.")
     parser.add_argument("--confirm-root-mapping", action="store_true", help="Explicitly confirm the proposed root association; never renames roots or authorizes writes.")
     parser.add_argument("--destination-gui-version", help="Optional operator-declared GUI version; never API qualification.")
+    parser.add_argument("--comparison", help="Confirmed hash-bound Site comparison report for a single-Site operation.")
+    parser.add_argument("--site-reference", help="Exactly one source:node-N reference; never a native identifier.")
+    parser.add_argument("--target-version", help="Optional exact operator-declared CC 10.x release; not API verification.")
     args = parser.parse_args(argv)
+    single_site = args.operation in ("single-site-dry-run", "single-site-create")
+    if single_site:
+        if any(value is None for value in (
+            args.input, args.comparison, args.destination_snapshot, args.site_reference,
+            args.discovery_profile, args.credentials_file,
+        )) or args.module != "controller-objects" or any(value is not None for value in (
+            args.request, args.source_profile, args.destination_profile, args.lookup_value,
+            args.format, args.tree, args.controller_id, args.root, args.exported_at, args.backup_profile,
+            args.output, args.source_root_name, args.destination_root_name, args.destination_gui_version,
+        )) or args.confirm_root_mapping or args.qualify_default_root:
+            parser.error("single-Site operations require source, comparison, destination snapshot, Site reference and discovery profile/credentials only.")
+    elif any(value is not None for value in (args.comparison, args.site_reference, args.target_version)):
+        parser.error("Single-Site options require an explicit single-site-dry-run or single-site-create operation.")
     site_comparison = args.operation == "site-comparison"
     if site_comparison:
         if args.input is None or args.destination_snapshot is None or args.module != "controller-objects" or any(
@@ -171,9 +188,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.confirm_root_mapping and args.source_root_name is None
         ):
             parser.error("Supply both root names before explicitly confirming their proposed association.")
-    elif args.confirm_root_mapping or any(value is not None for value in (
+    elif not single_site and (args.confirm_root_mapping or any(value is not None for value in (
         args.destination_snapshot, args.source_root_name, args.destination_root_name, args.destination_gui_version,
-    )):
+    ))):
         parser.error("Root mapping and destination snapshot options require site-comparison.")
     destination_discovery = args.operation == "destination-discovery"
     if args.qualify_default_root and not destination_discovery:
@@ -187,7 +204,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.controller_id, args.root, args.exported_at,
         )):
             parser.error("destination-discovery uses only its discovery profile and credentials file.")
-    elif args.discovery_profile is not None:
+    elif args.discovery_profile is not None and not single_site:
         parser.error("--discovery-profile requires destination-discovery.")
     tree_preview = args.operation == "tree-readiness-preview"
     if args.report_format is not None and not (tree_preview or site_comparison):
@@ -216,7 +233,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         ):
             parser.error("backup-vision uses only its backup profile and credentials file, not offline input options.")
-    elif args.backup_profile is not None or (args.credentials_file is not None and not destination_discovery):
+    elif args.backup_profile is not None or (args.credentials_file is not None and not destination_discovery and not single_site):
         parser.error("backup profile/credentials options require explicit --operation backup-vision.")
     lookup = args.operation in _LOOKUPS
     standalone_export = args.operation == "export" and args.input is not None
@@ -226,7 +243,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("offline export requires --output.")
     if args.operation in ("export", "compare", "plan", "import-preview") and args.request is None and not standalone_export:
         parser.error("this operation requires --request.")
-    if args.input is not None and not (lookup or standalone_export or tree_preview or site_comparison):
+    if args.input is not None and not (lookup or standalone_export or tree_preview or site_comparison or single_site):
         parser.error("--input is supported only for export or lookup.")
     if args.request is not None and (lookup or standalone_export):
         parser.error("standalone export/lookup cannot be combined with --request.")
@@ -260,6 +277,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "profiles": "offline validation for Vision/CC source and CC destination",
                 "backup-vision": "explicit live read-only Vision 5.4.9 inventory discovery or targeted reads; completeness unverified",
                 "destination-discovery": "explicit CC Organization root/Site read; product version unknown, compatibility unverified; no writes",
+                "single-site-dry-run": "explicit authenticated read-only preflight of one hash-bound Site candidate; sanitized preview; no configuration writes",
+                "single-site-create": "experimental one-Site create/readback; separate interactive authorization, no retries or bulk; target compatibility unverified",
                 "export": "CC 0.0-test supplied source inventory to local artifact",
                 **{operation: "CC 0.0-test request preview / supplied single-response inspection; not a complete export" for operation in _LOOKUPS},
                 "compare": "CC-to-CC offline comparison and candidate actions",
@@ -268,7 +287,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "tree-readiness-preview": "offline inspection of real Vision tree backup envelopes; no import plan",
                 "site-comparison": "offline Vision Organization Sites versus saved CC Site snapshot; proposed/confirmed root association, no executable plan",
                 "authenticate": "unavailable: shared authentication exists but is not wired to live execution",
-                "import": "unavailable: no live writes, even after offline planning",
+                "import": "unavailable: offline planning never enables imports; controlled single-Site creation is a separate explicit operation",
                 "vision-to-cc": _VISION_LIMITATION,
                 **_DOMAIN_LIMITATIONS,
             })
@@ -276,6 +295,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .vision_backup import run_vision_backup
 
             report, status = run_vision_backup(args.backup_profile, args.credentials_file)
+        elif single_site:
+            from .single_site import SiteBlocked, run_single_site
+            from .tls_policy import TLSPolicyError
+
+            try:
+                report, status = run_single_site(
+                    args.discovery_profile, args.credentials_file, args.input, args.comparison,
+                    args.destination_snapshot, args.site_reference,
+                    execute=args.operation == "single-site-create", target_version=args.target_version,
+                )
+            except (SiteBlocked, TLSPolicyError) as error:
+                code = error.code if isinstance(error, SiteBlocked) else "tls_execution_approval_required"
+                report = _report(
+                    "single-site-migration", "error", issue_codes=[code], migration_ready=False,
+                    create_attempts=0, source_reference=None, configuration_writes_authorized=False,
+                )
+                status = ExitStatus.VALIDATION_FAILED
         elif destination_discovery:
             from .destination_discovery import run_destination_discovery
 

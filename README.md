@@ -1,7 +1,8 @@
 # CC-Vision Master
 
 One on-demand application for supported, read-only APSolute Vision configuration
-collection and existing offline export/comparison/planning workflows.
+collection, offline export/comparison/planning, and separately selected experimental
+single-Site migration.
 It reuses shared authentication, sessions, HTTP transport and JSON validation.
 Original legacy scripts are references only: none are imported or executed.
 The detailed capability/legacy mapping is maintained in the
@@ -36,10 +37,10 @@ manual JSON policy or administrator TLS provisioning is needed for this choice.
 An optional administrator production lock can prohibit it.
 
 **Source Backup -> Transfer Complete Folder -> Destination Validation ->
-Destination Discovery -> Future Approved Import.** The final step is not
-implemented or enabled. A blocked Site assessment is not an application crash
-and never authorizes writes. Successful collection is not a complete/restorable
-configuration backup.
+Destination Discovery -> Separately Authorized Single-Site Test.** Bulk import
+remains unavailable. A blocked Site assessment never authorizes writes; only the
+explicit controlled operation below can request authorization for one Site.
+Successful collection is not a complete/restorable configuration backup.
 
 The launcher uses **Bash + Docker only**, including offline helpers from the
 same image; no host Python dependency. Application/helper containers remain
@@ -65,7 +66,8 @@ cleanup; ask the administrator to inspect any reported leftover run.
 
 Full Supported Backup selects all six modules. It does not mean every possible
 configuration item or a restorable credential backup. Imports, updates and
-deletes remain unavailable. Other Vision versions and Cyber Controller live
+deletes remain unavailable; the only configuration-write exception is the explicit
+experimental single-Site operation below. Other Vision versions and Cyber Controller live
 backup are not qualified. Existing offline commands remain available.
 
 - **Deployment hosts:** approved Linux/Bash 4+ environment, Git, Docker and a
@@ -274,8 +276,9 @@ response or authentication/transport failure is an explicit error.
 Root type/parent semantics, correspondence to earlier snapshots and Site-create
 acceptance remain unqualified even if response identity fields compare equal.
 
-Normal `./ccv.sh` still performs the original workflows. No Site-create operation
-is enabled. Check [API_MATRIX.md](docs/API_MATRIX.md) for field/schema blockers.
+Normal `./ccv.sh` still performs the original read-only/offline workflows.
+Site creation requires the separate explicit mode below.
+Check [API_MATRIX.md](docs/API_MATRIX.md) for field/schema risks.
 Offline developer verification (no controller access), from a checkout with
 Python and tests, is:
 
@@ -287,6 +290,119 @@ PYTHONPATH=src:tests python -S -B -m unittest \
 This developer command does not add a host Python requirement to deployment.
 Do not rerun a live lookup if adequate protected evidence already exists.
 
+#### CCV-011: experimental controlled single-Site migration
+
+Primary target: **CC 10.10.x**; additional lab target: **CC 10.15.x**.
+One shared implementation, **not certified write compatibility for either**.
+The successful Default GET on 10.15.0-2 does not qualify POST, omitted source
+fields, absence semantics or readback. The operator must explicitly accept these
+risks before a separately authorized one-Site lab test.
+
+On the authorized Linux destination host, from the reviewed updated checkout,
+rebuild the **same shared image**; no new service, container type or settings:
+
+```sh
+cd /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components
+docker compose --profile destination-discovery config --quiet
+docker compose --profile destination-discovery build ccv-destination-discovery
+```
+
+Keep the real protected backup, original destination snapshot and confirmed,
+hash-bound comparison unchanged in their existing directories. The discovery
+service now also mounts existing `/incoming` **read-only**. The comparison must
+be the original complete report, not a manually reconstructed summary. With
+standard mounts and the known lab artifact paths:
+
+```sh
+./ccv.sh --single-site-dry-run \
+  --input /incoming/vision-backup-20261125T122823Z-3ad1c37f503d/organization-tree/tree.json \
+  --comparison /reports/source-destination-site-comparison.json \
+  --destination-snapshot /reports/cc-destination-20261126T001502Z-c71a84af2691/organization-sites.json \
+  --site-reference source:node-2 \
+  --target-version 10.15.0-2
+```
+
+Use the actual existing comparison basename if different. Select **2**; enter the
+approved lab controller and credentials. This is a **live read-only preflight**,
+not an offline command: fresh login, exact parent/candidate by-name lookups and
+Organization tree. Source/snapshot hashes, selected comparison record, confirmed
+root mapping, resolved destination-parent dependency, fresh parent identity and
+collision checks must all pass. HTTP 404 or the exact legacy absence signature
+is accepted only together with a fresh, structurally valid collision-free tree;
+neither proves complete destination enumeration. Unrecognized evidence blocks.
+No Device lookup, configuration write, root rename or source-ID reuse occurs.
+
+The sanitized `ccv-single-site-<random>.json` is saved in destination-reports
+(0600); no Site names, native IDs, credentials or response bodies are included.
+Exit 0 / `dry-run-ready` means this bounded preflight passed, not compatibility
+certification or write approval. The non-executable preview contains only:
+
+```json
+{
+  "method": "POST",
+  "path": "/mgmt/system/config/tree/site",
+  "body_generated": false,
+  "fields": {
+    "name": "unchanged-protected-source-name",
+    "parentOrmID": "fresh-protected-destination-ormID"
+  }
+}
+```
+
+**Only after separate owner authorization for the one-Site lab test**, invoke:
+
+```sh
+./ccv.sh --single-site-create \
+  --input /incoming/vision-backup-20261125T122823Z-3ad1c37f503d/organization-tree/tree.json \
+  --comparison /reports/source-destination-site-comparison.json \
+  --destination-snapshot /reports/cc-destination-20261126T001502Z-c71a84af2691/organization-sites.json \
+  --site-reference source:node-2 \
+  --target-version 10.15.0-2
+```
+
+Select **2**. The launcher first performs the read-only stage. Only if it passes
+does the same existing service run interactively for controlled execution.
+Within that new authenticated session, fresh preflight displays the target origin,
+artifact reference and experimental risks. Approval requires a real terminal and
+the exact phrase `CREATE source:node-2`; blank/EOF/non-terminal cancels.
+There is no `--yes`. A final same-session preflight rechecks after approval.
+TLS starts verified; the existing default-NO, origin-bound session-only lab
+exception remains separate from write authorization. Create-stage failures are
+never automatically restarted, including TLS/authentication failures.
+
+At most **one POST** sends only the protected source name and freshly resolved
+destination ormID as parentOrmID. HTTP 200/201 alone is insufficient: the response
+must identify the expected Site with a usable new ormID; at most three by-ID/tree
+readback rounds must confirm the same identity, name and destination parent.
+There is no inferred async/job API. Missing identity, 202, malformed output,
+timeout, conflicting/duplicate identity or incomplete/wrong-parent readback stops
+as **indeterminate**, exit nonzero, requiring manual reconciliation.
+Read timeouts/deadlines are inherited (connect 10s/read 30s/request 60s, zero
+transport retries); the existing DNS limitation means no hard overall wall-clock
+containment claim.
+
+A durable, private `.ccv-site-attempt-<hash>.json` reservation in the same reports
+directory is written **before POST** and retained after success or uncertainty.
+It blocks another attempt for that canonical origin/name across invocations.
+Do not delete/reset it, change reports directories or switch controller aliases
+to bypass it. Reconcile through an independently authorized administrator workflow;
+there is no automatic retry, second create, rollback or deletion.
+Child dependencies unresolved in the comparison remain blocked; no bulk,
+Device, Scheduler or LDAP migration is enabled.
+
+Offline developer verification (all controller connections mocked):
+
+```sh
+PYTHONPATH=src:tests python -S -B -m unittest \
+  test_single_site test_http_backend test_destination_discovery \
+  test_site_comparison test_compose_deployment test_unified_launcher
+```
+
+No live test or deployment is implied by these instructions. Before live use:
+authorize the exact host/account/egress and one candidate, inspect a successful
+dry-run, prevent concurrent GUI/API changes, accept the recorded unverified
+contracts, and arrange manual reconciliation if completion cannot be proved.
+
 ### Administrator TLS/CA and egress provisioning
 
 Before permitting live operations, authorize the controller/account and restrict
@@ -295,6 +411,10 @@ DNS only if required. The dedicated bridge is **not an egress firewall**; the
 launcher never changes host rules or grants broader networking. Application
 discovery permits only POST login and GET Organization tree at the chosen origin,
 or POST login and the exact Default GET in explicitly selected root-only mode.
+Explicit single-Site mode adds only the selected parent/candidate GETs and
+Organization GET; separate runtime authorization arms one exact Site POST and
+only the returned identity's by-ID GET. Other paths, methods, queries and origins
+remain blocked.
 Host validation checks syntax only; it does not resolve DNS or prove controller
 identity. Actual TLS verification occurs in the existing selected operation.
 

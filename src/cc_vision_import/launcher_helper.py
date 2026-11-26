@@ -74,11 +74,13 @@ def settings(payload: object, selection: str) -> list[str]:
     if any(row.get("image") != image for row in services.values()):
         raise SetupError("All roles must use the same image.")
     mounts = {row["target"]: row for row in service["volumes"]}
-    expected_mounts = {"/run/secrets", "/reports"} if selection == "2" else {
+    expected_mounts = {"/run/secrets", "/reports", "/incoming"} if selection == "2" else {
         "/run/secrets", "/run/config", "/backups",
     } if selection == "1" else {"/incoming", "/reports"}
     if set(mounts) != expected_mounts:
         raise SetupError("Unexpected Compose bind mounts.")
+    if selection == "2" and not mounts["/incoming"].get("read_only"):
+        raise SetupError("Single-Site source backups must remain read-only.")
     output = mounts["/backups" if selection == "1" else "/reports"]["source"]
     if selection == "3":
         if not mounts["/incoming"].get("read_only"):
@@ -271,6 +273,29 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
         codes = report.get("failure_codes", []) if selection == "1" else report.get("issue_codes", [])
         if isinstance(codes, list) and "tls_certificate_failure" in codes:
             print("TLS certificate verification failed: untrusted chain or hostname mismatch. No automatic downgrade.")
+    if selection == "2" and report.get("operation") == "single-site-migration":
+        state = report.get("status")
+        allowed = {"dry-run-ready", "cancelled", "blocked", "error", "indeterminate", "single-site-verified"}
+        if not isinstance(state, str) or state not in allowed or report.get("migration_ready") is not False:
+            raise SetupError("Invalid single-Site result.")
+        reference = report.get("source_reference")
+        if reference is not None and (not isinstance(reference, str) or not re.fullmatch(r"source:node-[1-9][0-9]{0,4}", reference)):
+            raise SetupError("Invalid Site reference.")
+        attempts = report.get("create_attempts")
+        if type(attempts) is not int or attempts not in (0, 1):
+            raise SetupError("Invalid single-Site attempt count.")
+        if status == 0 and state not in ("dry-run-ready", "single-site-verified"):
+            raise SetupError("Single-Site failure cannot have successful exit status.")
+        print(f"Single-Site migration: {state}; candidate {reference}; create attempts {attempts}.")
+        print("Experimental/unverified compatibility. No automatic write retry or rollback.")
+        if report.get("manual_reconciliation_required") is True:
+            print("MANUAL RECONCILIATION REQUIRED. Do not create again or delete blindly.")
+        path = report.get("report_file")
+        if path is not None:
+            if not isinstance(path, str) or not re.fullmatch(r"ccv-single-site-[0-9a-f]{32}\.json", path):
+                raise SetupError("Invalid single-Site report path.")
+            print(f"Sanitized report: {Path(output) / path}")
+        return 11 if certificate_exception_available(report, selection, status) else 0
     if selection == "1":
         if status == 0 and report.get("overall_status") != "supported_collection_succeeded":
             raise SetupError("Incomplete source collection cannot have a successful launcher status.")

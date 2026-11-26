@@ -104,6 +104,13 @@
       "volumes": [
         {
           "type": "bind",
+          "source": "${CCV_DESTINATION_INCOMING_DIR:-../ccv-runtime/destination-incoming}",
+          "target": "/incoming",
+          "read_only": true,
+          "bind": {"create_host_path": false}
+        },
+        {
+          "type": "bind",
           "source": "${CCV_DESTINATION_SECRETS_DIR:-../ccv-runtime/destination-secrets}",
           "target": "/run/secrets",
           "read_only": true,

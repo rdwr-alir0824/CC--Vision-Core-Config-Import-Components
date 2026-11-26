@@ -7,6 +7,45 @@ for selected exact method/path pairs; E-036 synthetic offline subset regressions
 Runtime compatibility is scoped; current owner-reported evidence and remaining
 qualification limits are recorded below.
 
+## CCV-011 - implemented experimental controlled single-Site operation
+
+Owner approval now covers implementation and mocked verification of the bounded
+write path, **not live execution**. This supersedes historical statements below
+that a write backend is not implemented. Ordinary discovery/root-only scopes and
+offline comparison remain unchanged and never gain write permission.
+
+| Contract/capability | Source evidence | Current implementation / target evidence |
+| --- | --- | --- |
+| Site POST `/mgmt/system/config/tree/site` | Original uploader and official Radware cloner; minimal `name`, `parentOrmID` | Explicit one-Site operation only; runtime consent, one-attempt backend and durable reservation; mock-tested, no target POST performed |
+| Parent resolution | Destination by-name lookup consumes destination ormID | Fresh selected-parent GET plus Organization identity/placement crosscheck; rejects source IDs; Default must be tree root with null own parent. Saved artifact references are never native IDs |
+| Source fields | Original minimal projection; four unprojected fields documented below | Only source name projected; opaque data/counters/dbId omitted experimentally, not proven optional on target |
+| Collision evidence | By-name read plus Organization tree | Exact legacy HTTP-200 not-found signature or HTTP-404, corroborated by structurally valid fresh tree; normalized name/identity ambiguity blocks. Completeness and not-found semantics still experimental |
+| Create outcome | Legacy checks HTTP 200 only | Require 200/201, exact expected name and usable new ormID absent from the final preflight identities. Missing/pre-existing identity, 202, timeout or error remains indeterminate; no invented response wrapper/job API |
+| Completion | Legacy does not establish | At most 3 exact returned-by-ID GET + Organization rounds; consistent returned/new identity, expected name and actual parent placement required. Unknown schemas fail closed |
+| Failure policy | Legacy unsafe continuation rejected | No POST retries, rollback, second ambiguous create, root rename/fallback, Devices or bulk. Persistent per-canonical-origin/name guard blocks reexecution in shared report directory |
+| CC 10.10.x (primary) | Legacy/PDF evidence, unresolved exact patch/provenance | Shared experimental code; no target-verified POST/absence/completion contract or certification |
+| CC 10.15.x (additional) | Owner's successful Default GET on GUI-observed 10.15.0-2 | Root read evidence retained; not proof of Site-create compatibility. No target POST/readback test performed |
+| Other CC 10.x | Published cloner compatibility stops at 10.5.0 | No family-wide claim or hardcoded version branches |
+
+Implementation: `src/cc_vision_import/single_site.py`, strict
+`SingleSiteAuthorization`, existing CLI/Compose/launcher. Dry-run loads immutable
+hash-bound source/snapshot/comparison, recomputes selected evidence and requires a
+confirmed parent mapping; unresolved child dependencies cannot be created.
+Exact login/selected reads are scoped to one approved HTTPS origin. A Site POST
+is armed only after separate interactive approval and fresh same-session checks.
+Only returned-ID readback is subsequently added. Credentials/session/TLS cleanup,
+default verified TLS and explicit session-only certificate consent are reused.
+Reports contain static field references/presence/results, never native values.
+
+Remaining live prerequisites: separately authorize the exact controller/account,
+restricted egress and single candidate; rebuild reviewed shared image; pass real
+read-only preflight with matching source/snapshot hashes and parent/tree identity;
+freeze competing writers, explicitly accept the target contract risks and arrange
+manual reconciliation. Missing parent/tree correspondence or unrecognized
+absence/response schema must be resolved through separately approved read evidence,
+not bypassed. A controlled test can qualify only its exact observed release/case.
+See README for exact dry-run and separately authorized execution commands.
+
 ## CC-DESTINATION-DISCOVERY - approved tree-only, version unknown
 
 Owner authorizes implementation of separately selected, read-only destination
@@ -109,20 +148,258 @@ execution, without launcher/service/authentication/TLS/discovery changes.
 No endpoints, configuration writes, Device associations or capability activation
 are added. Test evidence is recorded in PROGRESS.md.
 
-## SITE-CREATE-API-QUALIFICATION - legacy evidence, target blocked
+## LEGACY-CC-OBJECTS-COMPATIBILITY-REUSE - primary implementation reference
+
+Current destination priority: **CC 10.10.x**. CC 10.15.x and other CC 10.x are
+additional compatibility targets only where exact operation behavior is verified.
+A family label is not a tested release; the primary target's precise patch/build
+and live contract evidence have not been supplied. Earlier 10.15.0-2 results
+remain valid for the observed read, not evidence for every 10.x release.
+
+On 2026-11-26 the following original workspace files were read in full, without
+executing/importing their code or authentication functions. They are the primary
+implementation reference; repository legacy copies and the public cloner are
+corroborating/historical evidence, not substitutes for these inspected files:
+
+- **U**: [upload_cybercontroller_objects.py](<../../CC -Master Config Migration/cc-objects/app/upload_cybercontroller_objects.py>).
+- **D**: [download_cybercontroller_objects.py](<../../CC -Master Config Migration/cc-objects/app/download_cybercontroller_objects.py>).
+- **X**: [update_cybercontroller_objects.py](<../../CC -Master Config Migration/cc-objects/app/update_cybercontroller_objects.py>).
+
+### Exact reusable contracts and function anchors
+
+| Original function / lines | Observed method/path and data flow | Reuse decision |
+| --- | --- | --- |
+| U/X `login_cyber_controller` 52-84; D same function 54-85 | POST `/mgmt/system/user/login`; Basic auth plus manually concatenated username/password JSON; HTTP-200-only acceptance. U/X advertise supportasync=true. | Do not transplant. Existing master validated authentication/session/TLS/secret lifecycle replaces it. Async header is a request preference, not completion evidence. |
+| D `main` 180-202; U `upload_configuration` 143-150; X same 143-150 | GET `/mgmt/system/config/tree/{tree_type}` for Physical/Organization; native root identity from meIdentifier.managedElementID. D entrypoint 205 onward invokes both trees. | Retain separate tree/role concepts, not presumed root equivalence. First test Organization only, explicit root association; do not broaden current allowlists. |
+| D `get_parent_site_name` 99-107 | GET `/mgmt/system/config/tree/site/byid/{device_parent_id}`; consumes response name; error-text detection only. Called for Site parent naming in extraction. | Readback path evidence, not post-create verification. Do not equate passed managedElementID with lookup ormID without evidence; reuse existing qualified request/schema helpers, not this unchecked request. |
+| D `get_parent_site_id` 88-96; U/X same 86-120 | GET `/mgmt/system/config/tree/site/byname/{parent_site_name}`. D consumes ormID; U/X prefer meIdentifier.managedElementID, then ormID; broad errors return False. | Adapt to explicit destination parent resolution and ambiguity checks. Never treat missing/malformed/error/duplicate as permission to choose root; no implicit ID alias. D helper is defined but not used by its main export path. |
+| D `extract_sites_and_devices` 110-142 | Walks children by native Site/Device class. Site record has name, source id, parent_site_name, source parentOrmID. Appends Site before recursion, then extends child Sites; Device records retain name/type/managementIp/source id/source parentOrmID. | Reuse field roles and dependency concept. Existing source parser/order handles immutable native backup, duplicates, unknown classes and graph blockers more safely; no second traversal/parser is needed. |
+| U `upload_configuration` 152-175 | For every sites[] entry in input order: destination parent-name lookup; falsy result substitutes tree root; POST `/mgmt/system/config/tree/site` with name/parentOrmID. HTTP 200 success, other responses assumed JSON message. | Reuse two-field construction as an unqualified contract candidate only. Reject fallback, unchecked payload/error body and continue-on-failure. No returned-ID extraction/readback in this loop. |
+| U `get_site_name_by_id` 122-128; U `upload_configuration` 177-202 | Match Device's source parentOrmID against source sites[].id to find parent name; resolve destination parent, otherwise root. POST `/mgmt/system/config/tree/device` with name,parentOrmID,type,deviceSetup.deviceAccess. | Future Device association depends on verified destination Site/root mapping, target type/access schema and independent Device identity. Excluded from next Site milestone; do not copy source IDs or root fallback. |
+| D `extract_device_access_data` 145-157 | GET `/mgmt/system/config/tree/device/byip/{device_ip}`; consumes deviceSetup.deviceAccess, removes only its ormID, attaches to first matching managementIp. | Evidence for source enrichment only, not post-create readback or sufficient credential/identity sanitation. Do not modify the six working collectors or infer IP uniqueness/portable secrets. |
+| X `upload_configuration` 152-184 | Device loop only: input device.id becomes PUT body ormID; name,parentOrmID,type,deviceSetup.deviceAccess also sent to `/mgmt/system/config/tree/device`. X main uses an Organization `_updated` file. | No Site update/readback exists here. Filename does not prove Device IDs were remapped; reject input-ID reuse on a different destination without independent mapping. No update feature authorized. |
+| U `main` 204-225; X `main` 186-207; D `write_json_to_file` 169-177 | Local flat files, Physical then Organization; separate invocations/sessions; generic exceptions/logging. U/X load_config 27-50 and D 28-51 read plaintext INI credentials. | Keep export/plan/import/verification separate. Reject plaintext credential persistence, raw response logging, insecure TLS, unbounded requests and missing lifecycle/validation guarantees. Original files remain read-only. |
+
+### How legacy child-Site restoration actually works
+
+1. D appends a parent Site before recursively extracting that Site's descendants;
+   this produces parent-before-child Sites in observed child order. It does not
+   sort arbitrary imported JSON or validate a dependency graph.
+2. U consumes the supplied sites[] order unchanged. A child's destination parent
+   is looked up by the exported source parent's **name** after the earlier
+   parent's POST; the returned create identity is never captured or cached.
+3. This works only if parent creation has completed and name lookup is unique/
+   correctly scoped. U does not prove either. A failed parent POST does not stop
+   the loop; a later unresolved child can be silently created under root. An
+   async delay has the same hazard. Both paths are rejected for the master.
+4. Devices are submitted after the entire Site loop, even if some Sites failed.
+   Missing source parent names choose destination root; a failed non-root lookup
+   can yield False as Device parent. Device association is therefore not safe
+   merely because Sites were attempted first.
+5. These original U/D/X files contain no automatic root-rename request and no
+   Site post-create readback. The public cloner's root PUT is separate evidence
+   and remains prohibited. No automatic request-retry loop was observed, but
+   repeated manual runs are not idempotent and can duplicate configuration.
+
+### One version-aware compatibility matrix
+
+Evidence labels: source-observed is implementation intent, documented is the
+previously reviewed PDF contract, owner-live is the owner's sanitized result;
+none implies target write qualification. No version branches are justified by
+the current evidence.
+
+| Operation / dependency | Original code evidence | Primary CC 10.10.x | Additional CC 10.15.x | Other CC 10.x |
+| --- | --- | --- | --- | --- |
+| Login/session | U/D/X functions above | Documented older CC login plus mock evidence; exact primary patch/build/live acceptance unknown | Owner-live validated session enabled Default read on GUI-observed 10.15.0-2 only | Unknown until exact-release validation |
+| Organization/Physical tree | D main, U/X root GET | Source-observed; exact tree schema/root identity and completeness unqualified | Organization discovery succeeded; zero discovered Sites does not prove complete absence. Physical not qualified by that result | Unknown |
+| Default/name lookup | D 88-96, U/X 86-120 | CC PDF by-name operation documented; 10.10.7 cover versus 10.10.6 metadata conflict still unresolved; no primary live result | Owner-live on 10.15.0-2: Default matches, usable string ormID, string type, null parentOrmID; no write acceptance inferred | Unknown; no family wildcard |
+| By-ID lookup | D 99-107 | Documented SitePojo read candidate; native-ID correspondence and primary live response unqualified | Not qualified by Default read; returned-new-ID readback still unverified | Unknown |
+| Site create/name+parent | U 152-175; public example corroborates | Legacy intent, not target-tested schema. Parent/root acceptance, unknown-field omission, result/async contract unqualified | Same unqualified write candidate; root read does not prove create compatibility | Unknown; public testing through 10.5.0 is not 10.x certification |
+| Child-Site parent binding | D 110-142 then U parent lookup | Order/name dependency observed, destination created-ID/readback contract missing | Same dependency; no child create performed | Unknown |
+| Device enrichment/create/association | D 145-157; U 177-202 | Device read/create documented subsets do not qualify full access/type/identity semantics; destination IDs required | No Device compatibility established by root/Site evidence | Unknown |
+| Device update | X 152-184 | PUT source-observed only; independent destination identity mandatory | No write evidence | Unknown |
+
+Use one shared contract-oriented implementation and per-exact-release evidence/
+capability gates, not parallel CC1010/CC1015 code copies or numeric >=10
+assumptions. Introduce a version-specific adapter only after an observed schema/
+behavior difference requires it. Do not bypass current exact-version capability
+gates or label all CC 10.10.x verified because it is the priority.
+
+### Smallest safe next development step (proposal, not implemented)
+
+**Mock-only one-Site candidate/readback contract rehearsal**, using existing
+[source readiness](../src/cc_vision_import/vision_tree_preview.py),
+[comparison](../src/cc_vision_import/site_comparison.py),
+[identity mappings/dependency_order](../src/cc_vision_import/mappings.py),
+[read response/request helpers](../src/cc_vision_import/product_clients.py) and
+the existing exact-origin session/transport infrastructure. Existing lookup
+helpers are capability/mock-gated, not authorization for new live reads.
+
+- Keep all 30 source Sites/order, root confirmation and immutable input bindings.
+  Selected source:node-2 has no intermediate Site dependency; 22 descendants
+  still require future destination parent-ID resolution. No Device action.
+- After separate development approval, add a focused offline assessment within
+  the existing Site workflow, not an import engine/new deployment. Consume the
+  existing selected report and protected evidence; expose source reference,
+  candidate name/parent field provenance, exact target version and blockers,
+  never a sendable body or native IDs in shared output.
+- Reuse legacy name plus destination-parent projection, but require protected
+  destination ormID from a validated mapping, not managedElementID alias/name
+  fallback. A missing parent, unverified contract or duplicate mapping blocks.
+- Rehearse a pure response/readback assessor with synthetic success/error/timeout
+  and identity/hierarchy evidence. Require verified destination-ID resolution
+  before a parent binding can release any child dependency; no automatic reads
+  or broadened runtime allowlist. Keep completion unknown where contract unknown.
+- First establish primary exact CC 10.10 patch/build and obtain applicable
+  payload/parent/results/readback evidence. The successful 10.15.0-2 root read
+  can exercise the common read design but is not primary-target qualification.
+- A future one-create test still needs separate authorization for one controller,
+  field set, reviewed name/parent, collision baseline, deadlines, readback and
+  recovery. No automatic retry, blind rollback or second ambiguous create.
+  All create features remain disabled here.
+
+Recommended focused mocked cases, preferably extending existing Site comparison/
+destination discovery tests rather than introducing a framework:
+
+1. Parent/child/grandchild plus interleaved Device nodes: preserve existing
+   source references, parent-before-child order, 30/0 counts and 22 dependencies.
+   Shuffled/cyclic/duplicate/unknown parents block or order explicitly; never
+   inherit legacy flat-array assumptions or process Devices.
+2. Root-child uses only confirmed protected destination-root mapping; source
+   dbId/ormID/managedElementID and artifact-local node refs rejected as destination
+   values. Distinct lookup ormID/managedElementID never silently aliased.
+3. Parent rejection, timeout/async-pending, failed/malformed/ambiguous name lookup
+   keeps children/Devices blocked; zero fallback to root and no root rename.
+4. Exactly name/destination parent are candidate fields, not target-qualified
+   payload. All four source-field omission rules and unknown naming/type rules
+   stay blocked until evidence; inputs remain byte/object immutable.
+5. Hypothetical HTTP 200 without identity/completion stays unverified; explicit
+   error, malformed JSON, contradictory readback, duplicate-name or wrong-parent
+   response never becomes success. Ambiguous create yields no replay/rollback.
+6. Exact target releases with absent evidence stay unqualified; common schema
+   behavior uses the shared path. Existing 10.15 root evidence cannot unlock
+   10.10 writes or a family-wide capability.
+7. Existing TLS/session/credential cleanup and finite sanitized reports remain;
+   no real dispatch, forbidden methods, arbitrary origin/path or leaked values.
+
+Validation this task: read-only full source review and AST function-range
+inspection (no legacy code imports/execution). Documentation-only change; no
+runtime tests or controller requests needed. All reference/test proposals above
+are future work, not new verified implementation.
+
+## SITE-CREATE-API-QUALIFICATION - historical 10.15.0-2 evidence, writes blocked
 
 Scope: qualify one future Organization Site create, not implement or authorize
 writes. Existing discovery, comparison, Docker deployment and launcher remain
 unchanged. The confirmed root association is not root identity equivalence.
 
+### SINGLE-SITE-CONTRACT-EVIDENCE - official example versus target
+
+Reviewed 2026-11-26, without executing or copying the external application:
+
+- Radware-published [cloner source, main](https://github.com/Radware/Cyber-Controller-Sites-and-Devices-Cloner/blob/main/copy_cyber_controller_objects.py),
+  specifically `get_parent_site_id` and the root/Site portions of `main`.
+  [Raw source](https://raw.githubusercontent.com/Radware/Cyber-Controller-Sites-and-Devices-Cloner/refs/heads/main/copy_cyber_controller_objects.py)
+  was inspected because the HTML file view omitted source content.
+- [Repository README](https://github.com/Radware/Cyber-Controller-Sites-and-Devices-Cloner#readme)
+  reports testing from Vision 4.85 through CC 10.5.0 and instructs GUI refresh/
+  verification. This is published example coverage, not certification of every
+  intermediate version or of target CC 10.15.0-2.
+- References address mutable `main`, not a pinned release/commit; no commit
+  identity or target write result was obtained. Radware publication strengthens
+  provenance of the example, not its target applicability. Existing approved
+  PDFs still do not document the exact Site POST.
+
+| Contract point | Radware published example | Repository legacy uploader | CC 10.15.0-2 evidence / remaining gate |
+| --- | --- | --- | --- |
+| Method/path/body | Site loop POST `/mgmt/system/config/tree/site`; JSON name and parentOrmID | Same method/path and two fields | Corroborated example construction, not target-verified create schema or minimal-field sufficiency. |
+| Parent resolution | `get_parent_site_id` reads destination by-name response ormID | Helper prefers destination managedElementID, falls back to ormID | Live Default GET yielded usable destination ormID. Do not copy legacy preference or assume identifier equivalence; POST acceptance still unverified. |
+| Root handling | `main` PUT-renames destination root to source name if different; failed parent lookup falls back to tree managedElementID | Failed parent lookup also falls back to root; selected uploader loop does not qualify that choice | Both behaviors prohibited. Preserve confirmed Bell Canada -> Default association without rename; unresolved parent blocks. Default's own parent null does not authorize child parent null. |
+| Four source fields | Site request omits data, both child counters and meIdentifier.dbId | Same omissions | Independent source examples, not proof of target optionality/server generation. Existing four-field matrix remains unqualified for omission; source identity reuse forbidden. |
+| Allowed values/tree semantics | Uses source name and destination parent result; no complete validator | Same incomplete field checks | Name grammar/length/case, duplicates, allowed parents/root IDs and Organization placement require target evidence. |
+| Success | HTTP 200 considered success; no successful Site body parsing | Same | No target write performed; do not promote legacy HTTP check into verified creation. |
+| Error/timeout | Assumes failure JSON message; no explicit bounded timeout on Site POST | Assumes JSON message; no complete result contract | Neither establishes exhaustive errors, no-mutation semantics, completion or safe replay. Never print raw messages or adopt unbounded calls. |
+| Destination created identity | Does not extract newly created Site identity | Does not extract it | Target returned ormID/authoritative identity-resolution contract required; no source-ID reuse. |
+| Completion/readback | No per-Site post-create readback/completion check; README asks operator GUI verification | None in create loop | Target by-ID/hierarchy verification and any async completion protocol still required; GUI visibility alone is not full API acceptance evidence. |
+| Release coverage | README's upper tested release CC 10.5.0 | Legacy target intent alone gives no 10.15 qualification | GUI version 10.15.0-2 and live Default GET are established owner evidence only for that read, not POST. |
+
+#### Sanitized single-Site request assessment - NOT a sendable request
+
+This descriptor intentionally has no request body or substituted native values.
+Protected references below describe future local resolution, not existing
+profile keys, API values, executable templates or an enabled import format.
+The successful sanitized root report contains no recoverable native ormID;
+future use requires protected destination evidence or a separately approved
+fresh root read, not an identifier reconstructed from a report.
+
+```json
+{
+  "domain": "single-site-contract-evidence-preview",
+  "execution_authorized": false,
+  "configuration_writes_authorized": false,
+  "import_file_compatible": false,
+  "request_body_generated": false,
+  "source_reference": "source:node-2",
+  "source_parent_reference": "source:node-1",
+  "mapped_destination_root_reference": "destination:node-1",
+  "observed_method": "POST",
+  "observed_path": "/mgmt/system/config/tree/site",
+  "field_sources": {
+    "name": {
+      "protected_reference": "reviewed-bound-source-node-2-native-name",
+      "transformation": "none",
+      "target_allowed_value_contract": "unqualified"
+    },
+    "parentOrmID": {
+      "protected_reference": "selected-destination-origin-validated-Default-lookup-ormID",
+      "server_assigned_destination_identity_only": true,
+      "native_value_included": false,
+      "target_create_acceptance": "unqualified"
+    }
+  },
+  "root_rename_allowed": false,
+  "unresolved_parent_fallback_allowed": false,
+  "source_identifier_reuse_allowed": false,
+  "four_field_omission_contract": "unqualified",
+  "creation_result_and_readback_contract": "unqualified"
+}
+```
+
+#### Future test acceptance and failure requirements - approval gates
+
+| Outcome/stage | Exact acceptance requirement / safe action |
+| --- | --- |
+| Before transmission | Approve exact target origin/account, selected bound Site/name, destination parent, qualified field set, collision baseline, response/identity protocol, readback endpoints and recovery owner. Predetermine numeric connect/read/overall deadlines and, if applicable, bounded completion polling interval/attempts from target-supported behavior. Missing limits or contracts block execution, not trigger defaults. |
+| Success response | Match target-qualified HTTP status and application success/body/header schema; validate returned destination identity or evidenced authoritative resolution mechanism. Legacy HTTP 200 alone is insufficient; an undocumented 201/202 or bodyless response is not automatically accepted. Keep result pending until completion and readback pass. |
+| Explicit error | Static sanitized category/status only in shared reports; protected local evidence for investigation. Do not assume even 4xx/5xx guarantees no mutation without contract/readback evidence. Stop; no resubmission or automatic corrective write. |
+| Timeout/disconnect/unparseable or contradictory result | Treat as indeterminate whenever server execution cannot be excluded. No automatic retries, second create, fallback parent or blind delete/rollback. Only separately approved read-only reconciliation can resolve outcome. Definite pre-send failure also requires review before any new attempt, not an automatic retry. |
+| Async response | Accept only an evidenced job/operation mechanism with qualified terminal states and bounded read polling. Do not invent status endpoints, follow arbitrary response URLs or equate HTTP acceptance with completion. Deadline expiry leaves indeterminate status. |
+| Readback | Target-qualified by-ID lookup using new destination identity; exact local checks for name, parent identity and supported type plus Organization hierarchy/placement versus baseline. Name-only match or root GET is insufficient; missing/duplicate/conflicting objects remain unresolved. No automatic write follows a readback failure. |
+| Verified test outcome | Only after qualified terminal success and consistent identity/hierarchy readback: report one test Site verified, not bulk migration ready. Keep native values/credentials/tokens/raw bodies out of logs/reports; no Device/child/root changes. |
+| Recovery | No blind rollback. Any deletion/correction requires distinct authorization, proven ownership/identity, reviewed dependencies and evidence; never infer that approval from the one-create approval. |
+
+**Smallest remaining evidence/approval:** target-applicable clarification that
+the two-field Site body is valid (or its exact additional required fields), that
+the destination Default ormID is an allowed Organization parent, and that the
+four omitted fields are server-managed/optional or otherwise accounted for;
+plus the target success/error/identity/completion/readback contract and a fresh
+collision baseline. An existing approved 10.15 transaction with authoritative
+schema clarification can supply evidence; the older public example alone cannot.
+Then request one explicitly scoped create and its bounded readback, not general
+write enablement. If static evidence cannot settle a particular semantic, obtain
+an explicit vendor-supported experimental test protocol acknowledging that
+uncertainty; no such approval is inferred here. Existing application has no
+Site-create capability, and its root-only allowlist remains unchanged.
+
 ### Compatibility matrix
 
 | Question | Exact evidence | Qualification for CC 10.15.0-2 |
 | --- | --- | --- |
-| Create method/path | [Legacy uploader](../legacy/app/upload_cybercontroller_objects.py), lines 162-168: POST `/mgmt/system/config/tree/site` with JSON | Source-observed only. API-07 is absent from both reviewed PDFs; target support remains unqualified, not proven unsupported. |
-| Create payload | Uploader lines 162-165 submits only `name` and `parentOrmID` | These are fields used by legacy code, not a vendor-qualified list of required/allowed fields, types, defaults or nullability. No complete create schema established. |
+| Create method/path | [Legacy uploader](../legacy/app/upload_cybercontroller_objects.py), lines 162-168: POST `/mgmt/system/config/tree/site` with JSON; corroborated by Radware's public cloner above | Published example plus local source evidence. API-07 is absent from both reviewed PDFs; 10.15.0-2 support remains unqualified, not proven unsupported. |
+| Create payload | Uploader lines 162-165 and Radware public cloner submit only `name` and `parentOrmID` | Corroborated field construction, not a target-qualified list of required/allowed fields, types, defaults or nullability. No complete create schema established. |
 | Parent reference | Uploader lines 86-105: GET `/mgmt/system/config/tree/site/byname/{parent_site_name}`, then prefer `meIdentifier.managedElementID`, otherwise `ormID` | Name is a lookup input, not the submitted parent field. A returned destination identifier is submitted as `parentOrmID`; the two identifier types' equivalence is unqualified. Never substitute a source ID. |
 | Root parent | Uploader lines 146-160: GET `/mgmt/system/config/tree/{tree_type}`, take `meIdentifier.managedElementID`; failed/falsy parent lookup falls back to that root | Root-ID acceptance in `parentOrmID` is unqualified. The silent fallback is unsafe and must not be adopted. A confirmed Bell Canada -> Default association does not qualify the Default identifier for POST. |
+| Live Default lookup | Owner-reported successful GET `/mgmt/system/config/tree/site/byname/Default` on GUI-identified CC 10.15.0-2; name match true; usable string ormID; string type; null parentOrmID; exit 0; no configuration writes | Destination-native candidate identity is observed, not a source ID or artifact reference. Actual type value, create-parent acceptance, uniqueness/root correspondence and create contract remain unqualified. Null describes the root's own parent, not the parent field for a new child Site. |
 | Source projection | Uploader lines 154-165 consumes source `name` and `parent_site_name`; existing source-readiness projection distinguishes source `id`/`parentOrmID` | Preserve `name` unchanged only conditionally, pending target naming/collision rules. Source `parent_site_name` is dependency evidence, not a create field. Source `id`/`parentOrmID` are not destination identifiers. |
 | Other fields | Lookup `SitePojo`, V/C PDF 255 (printed 245): required strings `ormID`, `name`, `type`; optional strings `description`, `parentOrmID` | Lookup-model Required flags do not qualify create fields. Do not add `ormID`, `type`, `description`, tree selectors or unknown fields from this model. Unprojected source fields remain unchanged and unresolved, not silently discarded as irrelevant. |
 | Creation response/identity | Uploader lines 169-175 considers only HTTP 200 successful; no success-body parsing or returned-ID extraction | Success statuses, response schema, destination identity field, asynchronous completion and failure contracts unknown. HTTP acceptance alone cannot prove creation. No automatic write retry. |
@@ -137,8 +414,11 @@ Owner supplies additional Radware evidence: GET
 `/mgmt/system/config/tree/site/byname/Default` can return `ormID`, `name`, `type`
 and `parentOrmID`. A destination server-assigned root `ormID` is the candidate
 create-parent identifier, never the Vision root ID or `destination:node-1`.
-This supports a lookup candidate, not a demonstrated target response or proof
-that POST accepts this root identifier.
+The subsequent owner-reported live lookup succeeded with exact Default name,
+usable string ormID, string type and present-null parentOrmID, exit 0 and no
+configuration writes. This is observed target read evidence, not proof that
+POST accepts this root identifier. Version 10.15.0-2 remains GUI-observed, not
+API-discovered. No native identifier value was supplied or recorded here.
 
 The protected snapshots exist only on the Linux destination. No root response
 was inspected here. Current discovery projection
@@ -150,10 +430,11 @@ managedElementID and ormID is assumed.
 
 | Evidence item | Current qualification |
 | --- | --- |
-| Intended root name | Default is owner-confirmed; saved native name still requires local match check. |
-| Root type | Native managedElementClass may identify the Site class. Lookup `type` and its expected root value remain unverified; a class match is not proof of lookup-type equivalence. |
-| Root ormID | Candidate server identifier per supplied Radware evidence; value/presence and correspondence to the saved Default root unverified. |
-| Four source fields | Only count 4 is available. All four field names, types and create relevance remain unverified; no identities or field names are invented. |
+| Intended root name | Live lookup name matched Default, owner-reported. Name alone does not establish uniqueness or equality with earlier tree identity. |
+| Root type | Live lookup type is a string; expected value/root semantics unqualified. No type enum is inferred. |
+| Root ormID | Live lookup returned usable string, owner-reported; destination-native candidate identity. Correspondence to earlier tree identity and acceptance as child create parentOrmID unverified. |
+| Root parentOrmID | Present null in live lookup. This is the root's own parent relationship; never copy null as the new child's parent. |
+| Four source fields | Real Linux diagnostic succeeded with source SHA-256 binding/root/candidate checks; paths/types classified below. Required/optional/create omission rules remain unknown. |
 | Future identity/readback | Need target create success/error and returned server-ID contract, then by-ID readback matching reviewed name, expected parent ormID and Organization placement. By-name root read alone does not qualify creation/completion. |
 
 Owner-reported Linux inspection: exactly one Default name match; name present
@@ -163,7 +444,94 @@ stores the native name at `organization_root.native.name` and managed identity
 at `organization_root.native.meIdentifier.managedElementID`, not directly on the
 root record. The supplied results do not establish which nesting level was
 inspected; do not infer server absence, valid native identity or root-ID equality.
-The lookup's actual response and all create-parent acceptance remain unverified.
+The later live lookup supersedes this earlier snapshot-only limitation for
+lookup field presence/types, but does not qualify any create-parent acceptance.
+
+### SITE-CREATE-CONTRACT-QUALIFICATION - real diagnostic and contract gate
+
+Evidence provenance: owner reports the existing source-only diagnostic completed
+on the Linux destination against the real protected Vision backup and confirmed
+comparison report. Source SHA-256 binding, confirmed root mapping and
+`source:node-2` selection passed there. This workstation received only sanitized
+field-path/type results; it did not rerun Linux extraction or inspect native
+values. Source/destination IDs remain separate and protected inputs unchanged.
+
+| Actual field path | Observed evidence | Interpretation, not established target semantics | Target Site-create classification and remaining evidence |
+| --- | --- | --- | --- |
+| `source:node-2.data` | Python NoneType / JSON null | Opaque field with null in this one record; null is not evidence that it is irrelevant, optional or defaulted | **Unqualified/unsupported by available create evidence**, not proven rejected by the product. Required versus optional unknown. Need meaning, nullability and omission/default behavior before approving omission; never replace unknown configuration with a guessed value. |
+| `source:node-2.dynamicViewChildrenNumber` | Python int / JSON number; value not supplied | Name suggests a derived dynamic-view child count; neither derivation nor configuration relevance is proven | **Derived candidate only; create support/requiredness unqualified.** Need target evidence that server computes it or omission is valid; no source count copying, zeroing or assumptions about contained Devices. |
+| `source:node-2.totalChildrenNumber` | Python int / JSON number; value not supplied | Name suggests an aggregate child count; definition, scope and derivation unknown | **Derived candidate only; create support/requiredness unqualified.** Need server-managed/omission evidence and scope definition; do not copy source hierarchy counters into a destination Site. |
+| `source:node-2.meIdentifier.dbId` | Python int / JSON number; value not supplied. Existing V/C ManagedElementIdentifierPojo PDF 243/printed 233 lists optional integer(int64) dbId in that model | Likely source-local persistence identity metadata. The model optional flag does not specify Site-create behavior or cross-controller identity | **Source identifier, prohibited for destination-ID reuse; target create support/requiredness unqualified.** Need target-managed identity/allowed-field contract. Do not send source dbId, ormID or managedElementID, even if a target field has the same spelling/type. |
+
+None of the four fields is established as required, optional or safely omittable
+for target POST Site. They are absent from the legacy two-field request, which
+is evidence of client construction only, not a tested omission contract on this
+release. Unknown omission rules remain explicit blockers; no Device processing
+or source identity migration is implied by these field classifications.
+
+Legacy reinspection confirms only `name` and destination-resolved `parentOrmID`
+are submitted. It supplies no allowed-name grammar/length/case normalization,
+tree-selection rule, required `type`, nullability/default schema, created-ID
+extraction or post-create verification. The supplied PDFs do not document this
+POST. SitePojo lookup required flags cannot fill the gap. Existing root read and
+source diagnostic add no target write-contract evidence.
+
+### Single-Site validation plan - sanitized and NON-EXECUTABLE
+
+Scope: one real root-child `source:node-2`, source parent `source:node-1`,
+operator-confirmed association to `destination:node-1`. No intermediate Site
+dependency; no root creation/rename, Device association or bulk execution.
+
+1. **Contract gate, still blocked:** obtain target-applicable vendor contract or
+   an already authorized sanitized target transaction with schema clarification
+   for exact Site POST, allowed/required fields and values, four-field omission/
+   server-generation behavior and Organization placement. Confirm destination
+   root ormID is accepted as new child's parentOrmID. Do not use the legacy
+   managedElementID preference/root fallback or set child parent to null.
+2. **Identity gate:** preserve immutable source bindings. Resolve the reviewed
+   source name only within protected inputs; no name transformation. Resolve
+   destination root identity only within the selected destination origin/session
+   and approved evidence. A native value must never be replaced with
+   `source:node-1`, `destination:node-1`, or a source identifier.
+3. **Collision/baseline gate:** refresh/review authorized destination evidence for
+   that exact name and intended parent, including case/normalization, namespace,
+   uniqueness, permissions and not-found semantics. Zero Sites in the earlier
+   incomplete projection does not prove absence; a successful root lookup adds
+   no Site enumeration. Duplicate-name groups zero means only none in the saved
+   projection. Ambiguous/error/not-authorized is not "not found". Qualify the
+   intended readback coverage rather than asserting global enumeration.
+4. **Separate authorization gate:** only after gates 1-3 and response/completion
+   evidence below, request approval for one named controller, reviewed Site,
+   parent, payload field set, maintenance window, account and recovery procedure.
+   Current application cannot execute creation; a future bounded write mechanism
+   and any required read allowlist changes need their own explicit approval.
+5. **Smallest future lab transaction (description only):** one Site-create
+   submission, no retry/replay, using only the qualified unchanged name and
+   destination-native parent plus any additional contract-required fields.
+   Stop on rejection, timeout or indeterminate result. Do not repeat a possibly
+   successful create, attach Devices, or create children.
+6. **Returned identity/completion gate:** require documented success/error
+   statuses and body/headers, created destination ormID or an authoritative
+   identity-resolution mechanism, and synchronous/asynchronous semantics. If
+   asynchronous, require the exact evidenced completion read, terminal states,
+   bounded polling and timeout behavior; do not invent a job endpoint.
+7. **Readback acceptance:** after the one authorized create, use target-qualified
+   by-ID lookup for the newly assigned destination identity (API-05 candidate)
+   and approved hierarchy evidence. Confirm usable destination identity,
+   unchanged reviewed name/type and parent matching the protected destination
+   root ormID, intended Organization placement and absence of unexpected changes
+   against baseline. By-name alone cannot distinguish a pre-existing duplicate;
+   by-ID GET alone need not prove tree placement. Actual equality checks stay
+   local; reports expose only booleans/types and provenance.
+8. **Failure/recovery:** contradictory, missing or timed-out completion/readback
+   leaves status indeterminate/failed, not migration-ready. Escalate for manual
+   review using protected evidence. Recovery/deletion is separately authorized,
+   never an automatic cleanup write. Close/clear sessions and temporary
+   credentials through the existing security lifecycle.
+
+This plan does not generate an HTTP body, enable a capability or authorize a
+write/readback request. Root-only mode still permits just login and Default GET;
+it does not currently permit Site-create, by-ID readback or generic polling.
 
 Field classification after local key/type extraction: source-specific identity,
 version or runtime metadata must not be copied without portability evidence;
@@ -605,13 +973,33 @@ is unknown evidence, not a value to send.
     "candidate_lookup": "GET /mgmt/system/config/tree/site/byname/Default",
     "native_identifier_value_included": false,
     "saved_root_ormID_presence": "unverified_projector_does_not_retain_field",
+    "live_lookup_evidence": {
+      "basis": "owner-reported-live-CC-10.15.0-2-GUI-observed",
+      "name_matches_Default": true,
+      "ormID_present": true,
+      "ormID_type": "string",
+      "ormID_usable": true,
+      "type_present": true,
+      "type_json_type": "string",
+      "parentOrmID_present": true,
+      "parentOrmID_json_type": "null",
+      "exit_status": 0,
+      "configuration_writes_occurred": false
+    },
     "managedElementID_equals_ormID": "unverified_not_assumed",
     "lookup_name_type_root_correspondence": "unverified",
     "post_parentOrmID_acceptance": "unverified"
   },
   "unprojected_fields": {
     "count": 4,
-    "field_paths_types_and_create_relevance": "unverified_pending_local_extraction"
+    "extraction_basis": "owner-reported-real-Linux-diagnostic-source-binding-root-selection-validated",
+    "fields": [
+      {"path": "source:node-2.data", "python_type": "NoneType", "json_type": "null", "interpretation": "opaque-null-semantics-unqualified"},
+      {"path": "source:node-2.dynamicViewChildrenNumber", "python_type": "int", "json_type": "number", "interpretation": "derived-count-candidate-not-proven"},
+      {"path": "source:node-2.totalChildrenNumber", "python_type": "int", "json_type": "number", "interpretation": "derived-count-candidate-not-proven"},
+      {"path": "source:node-2.meIdentifier.dbId", "python_type": "int", "json_type": "number", "interpretation": "source-identity-metadata-candidate-no-destination-reuse"}
+    ],
+    "target_required_optional_and_omission_contract": "unqualified-for-all-four-fields"
   },
   "returned_destination_identity_contract": "unqualified",
   "readback_and_completion_contract": "unqualified",
@@ -620,10 +1008,12 @@ is unknown evidence, not a value to send.
 ```
 
 Both whole-input bindings are copied exactly from the sanitized report and pass
-64-character hexadecimal SHA-256 syntax checks. They were not recomputed against
-the unavailable underlying snapshots and are not an independent authenticity
-check. No native IDs, names, credentials or raw configuration values are needed
-to establish this reference-based selection.
+64-character hexadecimal SHA-256 syntax checks here. Owner reports the source
+binding was additionally validated against the real backup on Linux. Neither
+binding was independently recomputed on this workstation; destination binding
+revalidation was not reported. This is not an independent authenticity check.
+No native IDs, names, credentials or raw configuration values are needed to
+establish this reference-based selection.
 
 ### Smallest remaining prerequisite before a separately authorized lab test
 
@@ -632,8 +1022,8 @@ the exact destination root identifier accepted by `parentOrmID`, success/error
 and returned-identity schema, plus a completion/readback contract. An approved,
 sanitized existing target transaction may supplement that evidence; this task
 does not authorize capturing one through a new write. Resolve the selected
-root-child's relevant unprojected fields and naming/parent collision checks from
-the actual bound inputs. Then seek separate approval for one create and readback,
+root-child's now-identified four fields' target omission/requiredness rules and
+naming/parent collision checks from the actual bound inputs. Then seek separate approval for one create and readback,
 with least-privilege access, a fresh reviewed baseline and a documented recovery
 procedure. Do not enable bulk creation or infer permission to delete.
 

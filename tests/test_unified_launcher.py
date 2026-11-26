@@ -117,6 +117,21 @@ if args[0] == "compose" and "run" in args:
             "snapshot_file": "root-qualification.json",
             **project_default_root({"name": "Default", "ormID": "private-native-id"}),
         }
+    if service == "ccv-destination-discovery" and any(command in args for command in ("site-dry-run", "site-create")):
+        create = "site-create" in args
+        report = {
+            "operation": "single-site-migration", "status": "single-site-verified" if create else "dry-run-ready",
+            "migration_ready": False, "source_reference": "source:node-2", "create_attempts": int(create),
+            "configuration_writes_authorized": create, "read_only": not create,
+            "report_file": "ccv-single-site-" + "a" * 32 + ".json",
+            "opaque": "private-native-id",
+        }
+        if create:
+            report.pop("opaque")
+        if create and mode == "create-uncertain":
+            report.update(status="indeterminate", manual_reconciliation_required=True)
+            print(json.dumps({key: value for key, value in report.items() if key != "opaque"}))
+            sys.exit(1)
     exit_status = 1 if service == "ccv-destination" else 0
     if service != "ccv-destination":
         variable = "CCV_TLS_VERIFY" if service == "ccv-source" else "CCV_DESTINATION_TLS_VERIFY"
@@ -302,6 +317,68 @@ class UnifiedLauncherTests(OfflineTestCase):
         report = self.reports / "cc-destination-synthetic" / "root-qualification.json"
         self.assertNotIn("private-native-id", report.read_text())
         self.assertFalse((self.reports / "cc-destination-synthetic" / "organization-sites.json").exists())
+
+    def single_site_arguments(self, create=False):
+        return (
+            "--single-site-create" if create else "--single-site-dry-run",
+            "--input", "/incoming/vision-backup-synthetic/organization-tree/tree.json",
+            "--comparison", "/reports/comparison.json",
+            "--destination-snapshot", "/reports/cc-destination-synthetic/organization-sites.json",
+            "--site-reference", "source:node-2",
+        )
+
+    def test_single_site_dry_run_uses_existing_service_and_sanitized_summary(self):
+        result, calls = self.launch(arguments=self.single_site_arguments())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        operations = self.operation_calls(calls)
+        self.assertEqual(len(operations), 1)
+        self.assertIn("site-dry-run", operations[0]["args"])
+        self.assertNotIn("site-create", operations[0]["args"])
+        self.assertIn("dry-run-ready", result.stdout)
+        self.assertIn("source:node-2", result.stdout)
+        self.assertNotIn("private-native-id", result.stdout + result.stderr)
+
+    def test_single_site_create_runs_read_only_stage_then_one_foreground_interactive_stage(self):
+        result, calls = self.launch(arguments=self.single_site_arguments(create=True))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        operations = self.operation_calls(calls)
+        self.assertEqual(len(operations), 2)
+        self.assertIn("site-dry-run", operations[0]["args"])
+        self.assertIn("-T", operations[0]["args"])
+        self.assertIn("site-create", operations[1]["args"])
+        self.assertIn("-it", operations[1]["args"])
+        self.assertNotIn("-T", operations[1]["args"])
+        self.assertEqual(operations[0]["env"]["CCV_DESTINATION_URL"], operations[1]["env"]["CCV_DESTINATION_URL"])
+        self.assertEqual(operations[0]["env"]["CCV_DESTINATION_SECRETS_DIR"],
+                         operations[1]["env"]["CCV_DESTINATION_SECRETS_DIR"])
+
+    def test_single_site_create_never_restarts_uncertain_execution(self):
+        result, calls = self.launch(mode="create-uncertain", arguments=self.single_site_arguments(create=True))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(len(self.operation_calls(calls)), 2)
+        self.assertEqual(sum("site-create" in row["args"] for row in calls), 1)
+        self.assertNotIn("Continue without certificate", result.stderr)
+
+    def test_single_site_preserves_explicit_session_only_tls_consent(self):
+        result, calls = self.launch(
+            arguments=self.single_site_arguments(create=True), mode="certificate-failure",
+            inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\ny\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        operations = self.operation_calls(calls)
+        self.assertEqual(len(operations), 3)
+        self.assertEqual([row["env"]["CCV_DESTINATION_TLS_VERIFY"] for row in operations], ["true", "false", "false"])
+        self.assertEqual(sum("site-create" in row["args"] for row in operations), 1)
+        self.assertEqual(result.stderr.count("Continue without certificate verification for this session only?"), 1)
+
+    def test_single_site_flags_cannot_select_other_roles_or_multiple_modes(self):
+        for selection in ("1", "3"):
+            result, calls = self.launch(selection, arguments=self.single_site_arguments())
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(calls, [])
+        result, calls = self.launch(arguments=("--single-site-create", "--single-site-dry-run"))
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(calls, [])
 
     def test_root_flag_rejects_other_menu_roles_before_credentials_or_docker(self):
         for selection in ("1", "3"):

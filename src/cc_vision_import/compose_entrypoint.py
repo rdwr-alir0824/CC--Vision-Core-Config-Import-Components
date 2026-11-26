@@ -17,19 +17,35 @@ def main(argv: Sequence[str] | None = None) -> int:
     if arguments and arguments[0] == "destination" and len(arguments) > 1 and arguments[1].startswith("--"):
         return master_main(arguments[1:])
     parser = argparse.ArgumentParser(
-        description="Compose: source backup, offline destination preflight, or explicitly selected tree-only destination discovery.",
+        description="Compose: source backup, offline preflight, destination reads or explicitly authorized experimental single-Site creation.",
     )
     parser.add_argument("role", choices=("source", "destination", "discovery"))
-    parser.add_argument("command", nargs="?", choices=("backup", "preflight", "discover-sites"))
+    parser.add_argument("command", nargs="?", choices=("backup", "preflight", "discover-sites", "site-dry-run", "site-create"))
     parser.add_argument("--qualify-default-root", action="store_true")
+    parser.add_argument("--input")
+    parser.add_argument("--comparison")
+    parser.add_argument("--destination-snapshot")
+    parser.add_argument("--site-reference")
+    parser.add_argument("--target-version")
     args = parser.parse_args(arguments)
+    single_site = args.role == "discovery" and args.command in ("site-dry-run", "site-create")
+    site_values = (args.input, args.comparison, args.destination_snapshot, args.site_reference)
+    if single_site:
+        if any(value is None for value in site_values) or args.qualify_default_root:
+            parser.error("Single-Site mode requires input/comparison/destination-snapshot/site-reference.")
+        for value, prefix in ((args.input, "/incoming/"), (args.comparison, "/reports/"),
+                              (args.destination_snapshot, "/reports/")):
+            if not value.startswith(prefix) or ".." in Path(value).parts:
+                parser.error("Use existing container-visible incoming/report paths.")
+    elif any(value is not None for value in (*site_values, args.target_version)):
+        parser.error("Single-Site options require discovery site-dry-run or site-create.")
     if args.qualify_default_root and (args.role != "discovery" or args.command != "discover-sites"):
         parser.error("--qualify-default-root requires discovery discover-sites.")
     if args.command is None:
         parser.print_help()
         return 0
     expected = {"source": "backup", "destination": "preflight", "discovery": "discover-sites"}[args.role]
-    if args.command != expected:
+    if args.command != expected and not single_site:
         parser.error("Use the selected role's backup, preflight or discover-sites command.")
 
     def required(name: str) -> str:
@@ -94,9 +110,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ])
             if args.role == "discovery":
                 return master_main([
-                    "--operation", "destination-discovery", "--discovery-profile", str(profile),
+                    "--operation", ("single-site-create" if args.command == "site-create" else "single-site-dry-run")
+                    if single_site else "destination-discovery", "--discovery-profile", str(profile),
                     "--credentials-file", "/run/secrets/credentials.json",
                     *(["--qualify-default-root"] if args.qualify_default_root else []),
+                    *([
+                        "--input", args.input, "--comparison", args.comparison,
+                        "--destination-snapshot", args.destination_snapshot, "--site-reference", args.site_reference,
+                        *(["--target-version", args.target_version] if args.target_version else []),
+                    ] if single_site else []),
                 ])
             assert destination is not None
             destination_profile = Path(directory) / "destination.json"

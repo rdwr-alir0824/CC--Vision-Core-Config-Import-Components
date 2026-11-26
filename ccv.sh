@@ -61,22 +61,45 @@ trap 'printf "\nInterrupted; cleaning this run only.\n" >&2; exit 130' INT
 trap 'printf "\nTerminated; cleaning this run only.\n" >&2; exit 143' TERM
 
 qualify_default_root=0
+single_site_mode=""
+single_site_arguments=()
 if [[ "${1:-}" == "--help" ]]; then
-    printf 'Usage: ./ccv.sh [--qualify-default-root]\nInteractive source backup, read-only CC discovery, or offline Site assessment.\n--qualify-default-root selects only the Default lookup for menu choice 2.\nRequires Bash, Docker Compose v2, the built shared image and administrator-provisioned runtime directories.\n'
+    printf 'Usage: ./ccv.sh [--qualify-default-root]\n       ./ccv.sh --single-site-dry-run|--single-site-create --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... --site-reference source:node-N [--target-version VERSION]\nSelect menu choice 2 for explicit root or single-Site modes. Create requires a separate interactive authorization after fresh preflight.\nRequires Bash, Docker Compose v2, the built shared image and administrator-provisioned runtime directories.\n'
     exit 0
 fi
 if [[ $# -eq 1 && "$1" == "--qualify-default-root" ]]; then
     qualify_default_root=1
     shift
 fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --single-site-dry-run|--single-site-create)
+            [[ -z "$single_site_mode" ]] || fail "Select only one single-Site mode."
+            single_site_mode="${1#--single-site-}"
+            shift
+            ;;
+        --input|--comparison|--destination-snapshot|--site-reference|--target-version)
+            [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || fail "Missing single-Site argument value."
+            single_site_arguments+=("$1" "$2")
+            shift 2
+            ;;
+        *) fail "Use ./ccv.sh --help for supported arguments." ;;
+    esac
+done
+[[ ${#single_site_arguments[@]} -eq 0 || -n "$single_site_mode" ]] ||
+    fail "Single-Site arguments require an explicitly selected mode."
 [[ $# -eq 0 ]] || fail "Use ./ccv.sh without arguments, or --help."
 
 printf '\nCC-Vision Master\n\n1. Source Vision - Full Supported Backup\n2. Destination CC - Read-Only Site Discovery\n3. Destination CC - Validate Transferred Backup\n4. Exit\n'
+if [[ -n "$single_site_mode" ]]; then
+    printf 'Explicit override for choice 2: single-Site %s. Create still requires separate in-session authorization.\n' "$single_site_mode"
+fi
 IFS= read -r -p 'Select operation: ' selection || fail "No operation selected."
 [[ "$selection" == "4" ]] && exit 0
 [[ "$selection" =~ ^[123]$ ]] || fail "Select 1, 2, 3 or 4."
 [[ "$qualify_default_root" == "0" || "$selection" == "2" ]] ||
     fail "--qualify-default-root requires menu choice 2."
+[[ -z "$single_site_mode" || "$selection" == "2" ]] || fail "Single-Site mode requires menu choice 2."
 
 command -v docker >/dev/null 2>&1 || fail "Docker is missing; ask the administrator to install/configure Docker."
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is missing or unavailable."
@@ -164,6 +187,14 @@ run_operation() {
             [[ "$status" != "0" ]] || status=3
             fail "Application/Docker output was not a valid result (exit $status). Check administrator TLS, permissions and image configuration; raw output is not displayed." "$status"
         fi
+        if [[ "$status" == "0" && "$single_site_mode" == "create" ]]; then
+            printf 'Starting fresh controlled preflight; authorization will be requested inside the same session before one create.\n'
+            status=0
+            "${compose[@]}" --profile "$profile" run --rm --no-deps -it \
+                --name "$operation_name" --label "ccv.launcher.run=$token" "$service" \
+                site-create "${single_site_arguments[@]}" || status=$?
+            exit "$status"
+        fi
         exit "$status"
     done
 }
@@ -238,7 +269,9 @@ else
     export CCV_DESTINATION_URL="$origin" CCV_DESTINATION_SECRETS_DIR="$temporary"
     export CCV_DESTINATION_TLS_VERIFY=true CCV_ALLOW_INSECURE_TLS_EXCEPTION="$allow_exceptions"
     export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem
-    if [[ "$qualify_default_root" == "1" ]]; then
+    if [[ -n "$single_site_mode" ]]; then
+        run_operation site-dry-run "${single_site_arguments[@]}"
+    elif [[ "$qualify_default_root" == "1" ]]; then
         run_operation discover-sites --qualify-default-root
     else
         run_operation discover-sites
