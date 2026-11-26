@@ -210,17 +210,25 @@ class SingleSiteTests(OfflineTestCase):
     def test_candidate_http_400_diagnostic_does_not_guess_absence_or_expose_response(self):
         absent = {"status": "error", "message": "There is no site with name private-candidate"}
         cases = (
-            (absent, "legacy_absence_signature_unqualified", True),
+            (absent, "legacy_absence_signature_unqualified", True, (True, True, True, False, False)),
+            ({**absent, "token": "private-token"},
+             "unqualified_http_400", False, (False, True, True, False, False)),
+            ({"status": "error", "message": "Site private-candidate NOT FOUND"},
+             "unqualified_http_400", False, (True, True, False, True, False)),
+            ({"status": "error", "message": "NO SITE exists for private-candidate"},
+             "unqualified_http_400", False, (True, True, True, False, False)),
             ({"status": "error", "message": "Invalid request private-user private-password"},
-             "unqualified_http_400", False),
+             "unqualified_http_400", False, (True, False, False, False, True)),
             ({**absent, "ormID": "destination-created-id", "token": "private-token"},
-             "unqualified_http_400", False),
+             "unqualified_http_400", False, (False, True, True, False, False)),
             ({"status": "error", "message": absent["message"] + " (private-extra)"},
-             "unqualified_http_400", False),
-            ([self.created, self.created], "unexpected_json_shape", False),
+             "unqualified_http_400", False, (True, True, True, False, False)),
+            ({"status": "error", "message": None},
+             "unqualified_http_400", False, (True, False, False, False, False)),
+            ([self.created, self.created], "unexpected_json_shape", False, None),
         )
-        for payload, classification, matches in cases:
-            with self.subTest(classification=classification, matches=matches):
+        for payload, classification, matches, flags in cases:
+            with self.subTest(classification=classification, flags=flags):
                 connections = [self.login(), self.connection(self.parent), self.connection(payload, 400)]
                 status, report, factory, approval = self.run_engine(connections, use_cli=True)
                 self.assertEqual(status, 1)
@@ -230,6 +238,14 @@ class SingleSiteTests(OfflineTestCase):
                 diagnostic = report["candidate_collision_diagnostic"]
                 self.assertEqual(diagnostic["classification"], classification)
                 self.assertEqual(diagnostic.get("legacy_absence_signature_matches", False), matches)
+                if flags is None:
+                    self.assertEqual(diagnostic, {"classification": classification})
+                else:
+                    for key, expected in zip((
+                        "only_status_message_keys", "candidate_name_in_message", "message_mentions_no_site",
+                        "message_mentions_not_found", "message_mentions_invalid",
+                    ), flags, strict=True):
+                        self.assertIs(diagnostic[key], expected, key)
                 self.assertEqual(report["create_attempts"], 0)
                 self.assertTrue(report["read_only"])
                 self.assertFalse(report["configuration_writes_authorized"])

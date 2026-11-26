@@ -163,6 +163,19 @@ def _candidate_error_diagnostic(response: HttpResponse, name: str) -> dict[str, 
         "classification": "legacy_absence_signature_unqualified" if matches else "unqualified_http_400",
         "status_is_error": payload.get("status") == "error",
         "message_is_string": isinstance(payload.get("message"), str),
+        "only_status_message_keys": set(payload) == {"status", "message"},
+        "candidate_name_in_message": (
+            isinstance(payload.get("message"), str) and name in payload["message"]
+        ),
+        "message_mentions_no_site": (
+            isinstance(payload.get("message"), str) and "no site" in payload["message"].casefold()
+        ),
+        "message_mentions_not_found": (
+            isinstance(payload.get("message"), str) and "not found" in payload["message"].casefold()
+        ),
+        "message_mentions_invalid": (
+            isinstance(payload.get("message"), str) and "invalid" in payload["message"].casefold()
+        ),
         "legacy_absence_signature_matches": matches,
         "site_fields_present": any(key in payload for key in (
             "name", "ormID", "parentOrmID", "managedElementID", "meIdentifier", "type",
