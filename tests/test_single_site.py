@@ -176,6 +176,8 @@ class SingleSiteTests(OfflineTestCase):
                 self.assertEqual(report["issue_codes"], ["http_error"])
                 self.assertEqual(report["http_status"], 400)
                 self.assertEqual(report["failure_stage"], stage)
+                if stage != "candidate_collision_lookup":
+                    self.assertNotIn("candidate_collision_diagnostic", report)
                 self.assertTrue(report["authenticated"])
                 self.assertTrue(report["read_only"])
                 self.assertFalse(report["configuration_writes_authorized"])
@@ -188,6 +190,79 @@ class SingleSiteTests(OfflineTestCase):
                 self.assertTrue(all(c.close_calls for c in connections))
                 self.assertFalse(any(r[0] != "GET" and r[1] != "/mgmt/system/user/login"
                                      for c in connections for r in c.requests))
+
+    def test_exact_legacy_absence_still_requires_fresh_tree_collision_verification(self):
+        absent = {"status": "error", "message": "There is no site with name private-candidate"}
+        for tree, expected_status in ((self.tree, 0), (self.result_tree, 1)):
+            with self.subTest(expected_status=expected_status):
+                connections = [self.login(), *self.preflight(collision=absent, tree=tree)]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertEqual(status, expected_status)
+                self.assertEqual(factory.call_count, 4)
+                self.assertEqual(connections[-1].requests[0][:2],
+                                 ("GET", "/mgmt/system/config/tree/Organization"))
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertNotIn("candidate_collision_diagnostic", report)
+                if expected_status:
+                    self.assertEqual(report["issue_codes"], ["fresh_tree_collision"])
+                approval.assert_not_called()
+
+    def test_candidate_http_400_diagnostic_does_not_guess_absence_or_expose_response(self):
+        absent = {"status": "error", "message": "There is no site with name private-candidate"}
+        cases = (
+            (absent, "legacy_absence_signature_unqualified", True),
+            ({"status": "error", "message": "Invalid request private-user private-password"},
+             "unqualified_http_400", False),
+            ({**absent, "ormID": "destination-created-id", "token": "private-token"},
+             "unqualified_http_400", False),
+            ({"status": "error", "message": absent["message"] + " (private-extra)"},
+             "unqualified_http_400", False),
+            ([self.created, self.created], "unexpected_json_shape", False),
+        )
+        for payload, classification, matches in cases:
+            with self.subTest(classification=classification, matches=matches):
+                connections = [self.login(), self.connection(self.parent), self.connection(payload, 400)]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertEqual(status, 1)
+                self.assertEqual(report["issue_codes"], ["http_error"])
+                self.assertEqual(report["http_status"], 400)
+                self.assertEqual(report["failure_stage"], "candidate_collision_lookup")
+                diagnostic = report["candidate_collision_diagnostic"]
+                self.assertEqual(diagnostic["classification"], classification)
+                self.assertEqual(diagnostic.get("legacy_absence_signature_matches", False), matches)
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertTrue(report["read_only"])
+                self.assertFalse(report["configuration_writes_authorized"])
+                self.assertEqual(factory.call_count, 3)
+                approval.assert_not_called()
+                self.assertFalse(list(self.output.glob(".ccv-site-attempt-*")))
+                self.assertEqual(json.loads((self.output / report["report_file"]).read_text()), report)
+                self.assertNotIn("Default", json.dumps(report))
+                self.assertTrue(all(c.close_calls for c in connections))
+
+    def test_malformed_candidate_http_400_body_is_sanitized_and_remains_blocked(self):
+        for body in (b"private-user private-password <html>private-candidate</html>", b"\xff"):
+            with self.subTest(body_type=type(body).__name__):
+                connections = [self.login(), self.connection(self.parent),
+                               MemoryConnection(MemoryResponse(400, body))]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertEqual(status, 1)
+                self.assertEqual(report["http_status"], 400)
+                self.assertEqual(report["candidate_collision_diagnostic"], {"classification": "malformed_json"})
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertEqual(factory.call_count, 3)
+                approval.assert_not_called()
+
+    def test_actual_candidate_collision_never_becomes_absence(self):
+        connections = [self.login(), self.connection(self.parent), self.connection(self.created)]
+        status, report, factory, approval = self.run_engine(connections, use_cli=True)
+        self.assertEqual(status, 1)
+        self.assertEqual(report["issue_codes"], ["site_collision_or_absence_unqualified"])
+        self.assertEqual(report["failure_stage"], "candidate_collision_lookup")
+        self.assertEqual(report["create_attempts"], 0)
+        self.assertEqual(factory.call_count, 3)
+        self.assertNotIn("candidate_collision_diagnostic", report)
+        approval.assert_not_called()
 
     def test_authorized_one_create_cli_requires_new_destination_identity_and_hierarchy(self):
         connections = self.sequence()

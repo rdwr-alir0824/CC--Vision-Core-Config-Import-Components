@@ -148,11 +148,36 @@ def load_selection(source_path: str, comparison_path: str, snapshot_path: str, r
     )
 
 
+def _candidate_error_diagnostic(response: HttpResponse, name: str) -> dict[str, object]:
+    try:
+        payload = load_json(response.body.decode("utf-8"))
+    except (UnicodeError, ValueError, RecursionError):
+        return {"classification": "malformed_json"}
+    if not isinstance(payload, dict):
+        return {"classification": "unexpected_json_shape"}
+    matches = (
+        set(payload) == {"status", "message"} and payload.get("status") == "error"
+        and payload.get("message") == "There is no site with name " + name
+    )
+    return {
+        "classification": "legacy_absence_signature_unqualified" if matches else "unqualified_http_400",
+        "status_is_error": payload.get("status") == "error",
+        "message_is_string": isinstance(payload.get("message"), str),
+        "legacy_absence_signature_matches": matches,
+        "site_fields_present": any(key in payload for key in (
+            "name", "ormID", "parentOrmID", "managedElementID", "meIdentifier", "type",
+        )),
+    }
+
+
 class SingleSiteBackend(StdlibHttpBackend):
     """Fresh exact read scope; write permission is armed once after approval."""
 
     def __init__(self, profile: DiscoveryProfile, selection: SiteSelection) -> None:
         self._site_origin = profile.transport.base_url
+        self._candidate_lookup_url = build_url(self._site_origin, _segments("byname", selection.name))
+        self._candidate_name = selection.name
+        self.candidate_collision_diagnostic: dict[str, object] | None = None
         self._operations = (
             (HttpMethod.POST, "/mgmt/system/user/login"),
             (HttpMethod.GET, "/" + "/".join(_TREE)),
@@ -185,7 +210,13 @@ class SingleSiteBackend(StdlibHttpBackend):
             if not self.create_armed or self.create_count:
                 raise BackendFailure(ErrorCategory.SAFETY_POLICY)
             self.create_count += 1
-        return super().send(request)
+        response = super().send(request)
+        if (
+            request.method == HttpMethod.GET and request.url == self._candidate_lookup_url
+            and response.status == 400
+        ):
+            self.candidate_collision_diagnostic = _candidate_error_diagnostic(response, self._candidate_name)
+        return response
 
 
 def _json(response: HttpResponse) -> object:
@@ -460,6 +491,11 @@ def run_single_site(
                 report["issue_codes"] = [error.category.value]
                 if error.status is not None:
                     report["http_status"] = error.status
+                if (
+                    error.status == 400 and report.get("failure_stage") == "candidate_collision_lookup"
+                    and backend.candidate_collision_diagnostic is not None
+                ):
+                    report["candidate_collision_diagnostic"] = backend.candidate_collision_diagnostic
                 report["status"] = "indeterminate" if report["create_attempts"] else "error"
             except ContractValidationError:
                 report["issue_codes"] = ["response_or_path_contract_failure"]
