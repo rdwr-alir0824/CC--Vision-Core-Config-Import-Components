@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+import time
 import unicodedata
 from collections import Counter
 from collections.abc import Callable
@@ -82,8 +83,18 @@ class SiteSelection:
     source_identities: frozenset[str] = field(repr=False)
 
 
-def load_selection(source_path: str, comparison_path: str, snapshot_path: str, reference: str) -> SiteSelection:
-    _require(bool(re.fullmatch(r"source:node-[1-9][0-9]{0,4}", reference)), "invalid_site_reference")
+@dataclass(frozen=True, repr=False)
+class SiteEvidence:
+    rows: list[dict]
+    report: dict
+    comparison: dict
+    destination_root: dict
+    destination_sites: list[dict]
+    digests: tuple[str, str, str]
+    source_identities: frozenset[str]
+
+
+def load_site_evidence(source_path: str, comparison_path: str, snapshot_path: str) -> SiteEvidence:
     inputs = OfflineInputs(Path.cwd())
     source = inputs.read(source_path, "source-organization-tree", base=Path.cwd())
     snapshot = inputs.read(snapshot_path, "destination-organization-sites", base=Path.cwd())
@@ -115,6 +126,24 @@ def load_selection(source_path: str, comparison_path: str, snapshot_path: str, r
              and expected["root_mapping"]["status"] == "confirmed", "root_mapping_unconfirmed")
     records = report.get("site_comparisons")
     _require(isinstance(records, list), "invalid_comparison_records")
+    identities: set[str] = set()
+    for row in rows:
+        identifier = row.get("meIdentifier", {})
+        for value in (row.get("ormID"), identifier.get("managedElementID"), identifier.get("dbId")):
+            if isinstance(value, (str, int)) and not isinstance(value, bool):
+                identities.add(str(value))
+    return SiteEvidence(
+        rows, report, expected, destination_root, destination_sites,
+        (inputs.bindings[0]["sha256"], inputs.bindings[2]["sha256"], inputs.bindings[1]["sha256"]),
+        frozenset(identities),
+    )
+
+
+def load_selection(source_path: str, comparison_path: str, snapshot_path: str, reference: str) -> SiteSelection:
+    _require(bool(re.fullmatch(r"source:node-[1-9][0-9]{0,4}", reference)), "invalid_site_reference")
+    evidence = load_site_evidence(source_path, comparison_path, snapshot_path)
+    records, expected, rows = evidence.report["site_comparisons"], evidence.comparison, evidence.rows
+    destination_root, destination_sites = evidence.destination_root, evidence.destination_sites
     selected = [row for row in records if isinstance(row, dict) and row.get("source_reference") == reference]
     recomputed = [row for row in expected["site_comparisons"] if row["source_reference"] == reference]
     _require(len(selected) == len(recomputed) == 1 and selected[0] == recomputed[0], "candidate_evidence_mismatch")
@@ -135,16 +164,9 @@ def load_selection(source_path: str, comparison_path: str, snapshot_path: str, r
     _segments("byname", name)
     _segments("byname", parent_name)
     _require(_name(name) != _name(parent_name), "candidate_parent_name_collision")
-    identities: set[str] = set()
-    for row in rows:
-        identifier = row.get("meIdentifier", {})
-        for value in (row.get("ormID"), identifier.get("managedElementID"), identifier.get("dbId")):
-            if isinstance(value, (str, int)) and not isinstance(value, bool):
-                identities.add(str(value))
     return SiteSelection(
         reference, name, parent_name, parents[0] is destination_root,
-        inputs.bindings[0]["sha256"], inputs.bindings[2]["sha256"], inputs.bindings[1]["sha256"],
-        frozenset(identities),
+        *evidence.digests, evidence.source_identities,
     )
 
 
@@ -196,6 +218,16 @@ class SingleSiteBackend(StdlibHttpBackend):
 
     def __init__(self, profile: DiscoveryProfile, selection: SiteSelection) -> None:
         self._site_origin = profile.transport.base_url
+        self._select_read_scope(selection)
+        self.create_armed = False
+        self.create_count = 0
+        super().__init__(
+            allow_live=True, authorization=SingleSiteAuthorization(self._site_origin, self._operations),
+            max_response_bytes=16 * 1024 * 1024,
+            allow_unverified_single_site=profile.transport.unverified_destination_discovery,
+        )
+
+    def _select_read_scope(self, selection: SiteSelection) -> None:
         self._candidate_lookup_url = build_url(self._site_origin, _segments("byname", selection.name))
         self._candidate_name = selection.name
         self.candidate_collision_diagnostic: dict[str, object] | None = None
@@ -205,14 +237,6 @@ class SingleSiteBackend(StdlibHttpBackend):
             *((HttpMethod.GET, urlsplit(build_url(self._site_origin, _segments("byname", value))).path)
               for value in (selection.parent_name, selection.name)),
         )
-        self.create_armed = False
-        self.create_count = 0
-        super().__init__(
-            allow_live=True, authorization=SingleSiteAuthorization(self._site_origin, self._operations),
-            max_response_bytes=16 * 1024 * 1024,
-            allow_unverified_single_site=profile.transport.unverified_destination_discovery,
-        )
-
     def arm_create(self) -> None:
         _require(not self.create_armed and self.create_count == 0, "create_already_authorized")
         self.create_armed = True
@@ -291,17 +315,9 @@ def _tree(payload: object) -> list[dict]:
     return records
 
 
-def _preflight(
+def _lookup_candidate(
     manager: SessionManager, selection: SiteSelection, report: dict, backend: SingleSiteBackend,
-) -> tuple[str, frozenset[str]]:
-    report["failure_stage"] = "parent_lookup"
-    response = _get(manager, _segments("byname", selection.parent_name))
-    _require(response.status == 200, "destination_parent_lookup_failed")
-    parent = _site_object(_json(response), selection.parent_name)
-    parent_id = parent["ormID"]
-    _require(parent_id not in selection.source_identities, "destination_identity_matches_source_identity")
-    if selection.parent_is_root:
-        _require("parentOrmID" in parent and parent["parentOrmID"] is None, "destination_root_parent_unverified")
+) -> HttpResponse | None:
     report["failure_stage"] = "candidate_collision_lookup"
     try:
         response = _get(manager, _segments("byname", selection.name))
@@ -326,11 +342,10 @@ def _preflight(
             and collision.get("message") == "There is no site with name " + selection.name
         )
     )
-    _require(absent, "site_collision_or_absence_unqualified")
-    report["failure_stage"] = "organization_tree_lookup"
-    response = _get(manager, _TREE)
-    _require(response.status == 200, "tree_preflight_failed")
-    tree = _tree(_json(response))
+    return None if absent else response
+
+
+def _parent_in_tree(tree: list[dict], selection: SiteSelection, parent_id: str) -> None:
     parents = [row for row in tree if row["site"] and row["name"] == selection.parent_name
                and (row["ormID"] if row["ormID"] is not None else row["identity"]) == parent_id]
     _require(len(parents) == 1, "parent_tree_identity_unverified")
@@ -339,6 +354,26 @@ def _preflight(
              "parent_name_ambiguous")
     if selection.parent_is_root:
         _require(parents[0] is tree[0], "parent_not_organization_root")
+
+
+def _preflight(
+    manager: SessionManager, selection: SiteSelection, report: dict, backend: SingleSiteBackend,
+) -> tuple[str, frozenset[str]]:
+    report["failure_stage"] = "parent_lookup"
+    response = _get(manager, _segments("byname", selection.parent_name))
+    _require(response.status == 200, "destination_parent_lookup_failed")
+    parent = _site_object(_json(response), selection.parent_name)
+    parent_id = parent["ormID"]
+    _require(parent_id not in selection.source_identities, "destination_identity_matches_source_identity")
+    if selection.parent_is_root:
+        _require("parentOrmID" in parent and parent["parentOrmID"] is None, "destination_root_parent_unverified")
+    _require(_lookup_candidate(manager, selection, report, backend) is None,
+             "site_collision_or_absence_unqualified")
+    report["failure_stage"] = "organization_tree_lookup"
+    response = _get(manager, _TREE)
+    _require(response.status == 200, "tree_preflight_failed")
+    tree = _tree(_json(response))
+    _parent_in_tree(tree, selection, parent_id)
     _require(not any(isinstance(row["name"], str) and _name(row["name"]) == _name(selection.name)
                      for row in tree), "fresh_tree_collision")
     identities = frozenset(value for row in tree for value in (row["identity"], row["ormID"])
@@ -348,10 +383,12 @@ def _preflight(
 
 
 def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: SiteSelection, parent_id: str,
-              identity: str) -> bool:
+              identity: str, *, attempts: int = 3, interval: float = 0) -> bool:
     _require(identity not in selection.source_identities and identity != parent_id, "created_identity_invalid")
     backend.authorize_readback(identity)
-    for _ in range(3):
+    for attempt in range(attempts):
+        if attempt and interval:
+            time.sleep(interval)
         try:
             response = _get(manager, _segments("byid", identity))
         except TransportError as error:
@@ -410,6 +447,29 @@ def _close_backend(backend: SingleSiteBackend, report: dict) -> None:
         report["manual_reconciliation_required"] = bool(report["create_attempts"])
 
 
+def site_attempt_guard(profile: DiscoveryProfile, selection: SiteSelection) -> Path:
+    origin = urlsplit(profile.transport.base_url)
+    key = hashlib.sha256(json.dumps([
+        [origin.scheme, origin.hostname, origin.port or 443], _name(selection.name),
+    ], separators=(",", ":")).encode()).hexdigest()
+    return profile.output_directory / (".ccv-site-attempt-" + key + ".json")
+
+
+def reserve_site_attempt(profile: DiscoveryProfile, selection: SiteSelection, filename: str) -> None:
+    descriptor = os.open(site_attempt_guard(profile, selection), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as reservation:
+        json.dump({"source_reference": selection.reference, "state": "reserved-reconcile-before-reuse",
+                   "report_file": filename}, reservation)
+        reservation.flush()
+        os.fsync(reservation.fileno())
+    if os.name != "nt":
+        descriptor = os.open(profile.output_directory, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+
 def run_single_site(
     profile_path: str, credentials_path: str, source_path: str, comparison_path: str,
     snapshot_path: str, reference: str, *, execute: bool = False, target_version: str | None = None,
@@ -448,11 +508,7 @@ def run_single_site(
     strategy = _DiscoveryAuthentication()
     filename = "ccv-single-site-" + uuid4().hex + ".json"
     report["report_file"] = filename
-    origin = urlsplit(profile.transport.base_url)
-    guard_key = hashlib.sha256(json.dumps([
-        [origin.scheme, origin.hostname, origin.port or 443], _name(selection.name),
-    ], separators=(",", ":")).encode()).hexdigest()
-    guard = profile.output_directory / (".ccv-site-attempt-" + guard_key + ".json")
+    guard = site_attempt_guard(profile, selection)
     status = ExitStatus.VALIDATION_FAILED
     try:
         descriptor = os.open(profile.output_directory / filename, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
@@ -478,18 +534,7 @@ def run_single_site(
                         # Recheck after the human decision, within the same authenticated session.
                         fresh_parent_id, prior_identities = _preflight(manager, selection, report, backend)
                         _require(fresh_parent_id == parent_id, "parent_changed_after_approval")
-                        guard_descriptor = os.open(guard, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-                        with os.fdopen(guard_descriptor, "w", encoding="utf-8") as reservation:
-                            json.dump({"source_reference": reference, "state": "reserved-reconcile-before-reuse",
-                                       "report_file": filename}, reservation)
-                            reservation.flush()
-                            os.fsync(reservation.fileno())
-                        if os.name != "nt":
-                            directory_descriptor = os.open(profile.output_directory, os.O_RDONLY)
-                            try:
-                                os.fsync(directory_descriptor)
-                            finally:
-                                os.close(directory_descriptor)
+                        reserve_site_attempt(profile, selection, filename)
                         report.update(execution_authorized=True, configuration_writes_authorized=True,
                                       read_only=False, status="indeterminate", create_attempts=1,
                                       manual_reconciliation_required=True)

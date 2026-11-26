@@ -132,6 +132,25 @@ if args[0] == "compose" and "run" in args:
             report.update(status="indeterminate", manual_reconciliation_required=True)
             print(json.dumps({key: value for key, value in report.items() if key != "opaque"}))
             sys.exit(1)
+    if service == "ccv-destination-discovery" and any(command in args for command in ("sites-dry-run", "sites-execute", "sites-resume")):
+        execute = "sites-execute" in args or "sites-resume" in args
+        report = {
+            "operation": "site-batch-migration", "status": "batch-verified" if execute else "dry-run-ready",
+            "migration_ready": False, "create_attempts": 30 if execute else 0,
+            "configuration_writes_authorized": execute, "read_only": not execute,
+            "counts": {"total": 30, "created": 30 if execute else 0, "verified": 30 if execute else 0,
+                       "verified_this_run": 30 if execute else 0,
+                       "pending": 0 if execute else 30, "blocked": 0, "failed": 0, "already_existing": 0},
+            "report_file": "ccv-sites-report-" + "a" * 32 + ".json",
+            "journal_file": "ccv-sites-" + "b" * 32 + "-" + "c" * 16 + ".journal.json",
+            "opaque": "private-native-id",
+        }
+        if execute:
+            report.pop("opaque")
+        if execute and mode == "create-uncertain":
+            report.update(status="indeterminate", manual_reconciliation_required=True)
+            print(json.dumps(report))
+            sys.exit(1)
     exit_status = 1 if service == "ccv-destination" else 0
     if service != "ccv-destination":
         variable = "CCV_TLS_VERIFY" if service == "ccv-source" else "CCV_DESTINATION_TLS_VERIFY"
@@ -337,6 +356,47 @@ class UnifiedLauncherTests(OfflineTestCase):
         self.assertIn("dry-run-ready", result.stdout)
         self.assertIn("source:node-2", result.stdout)
         self.assertNotIn("private-native-id", result.stdout + result.stderr)
+
+    def test_batch_dry_run_execute_and_resume_use_only_existing_service(self):
+        previous_count = 0
+        for mode in ("dry-run", "execute", "resume"):
+            with self.subTest(mode=mode):
+                result, calls = self.launch(arguments=(
+                    "--sites-" + mode, *self.single_site_arguments()[1:-2],
+                    "--operation-delay", "0.5", "--readback-interval", "1", "--readback-attempts", "4",
+                ))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                operations = self.operation_calls(calls)
+                operations, previous_count = operations[previous_count:], len(operations)
+                self.assertEqual(len(operations), 1 if mode == "dry-run" else 2)
+                self.assertIn("sites-dry-run", operations[0]["args"])
+                self.assertIn("-T", operations[0]["args"])
+                self.assertIn("reviewed Sites: 30", result.stdout)
+                self.assertNotIn("private-native-id", result.stdout + result.stderr)
+                if mode != "dry-run":
+                    self.assertIn("sites-" + mode, operations[1]["args"])
+                    self.assertIn("-it", operations[1]["args"])
+                    self.assertEqual(sum("sites-" + mode in row["args"] for row in operations), 1)
+
+    def test_batch_uncertain_execution_is_never_restarted(self):
+        result, calls = self.launch(
+            arguments=("--sites-execute", *self.single_site_arguments()[1:-2]), mode="create-uncertain",
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(len(self.operation_calls(calls)), 2)
+        self.assertEqual(sum("sites-execute" in row["args"] for row in calls), 1)
+
+    def test_batch_preserves_single_session_tls_consent_and_no_write_stage_retry(self):
+        result, calls = self.launch(
+            arguments=("--sites-resume", *self.single_site_arguments()[1:-2]), mode="certificate-failure",
+            inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\ny\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        operations = self.operation_calls(calls)
+        self.assertEqual(len(operations), 3)
+        self.assertEqual([row["env"]["CCV_DESTINATION_TLS_VERIFY"] for row in operations], ["true", "false", "false"])
+        self.assertEqual(sum("sites-resume" in row["args"] for row in operations), 1)
+        self.assertEqual(result.stderr.count("Continue without certificate verification for this session only?"), 1)
 
     def test_single_site_create_runs_read_only_stage_then_one_foreground_interactive_stage(self):
         result, calls = self.launch(arguments=self.single_site_arguments(create=True))

@@ -2,7 +2,82 @@
 
 Last updated: 2026-11-26
 
-## Current task: CCV-011 - controlled single-Site migration
+## Current task: CCV-012 - full hierarchical Site migration
+
+- Objective/priority: high; migrate the complete supported Site list in verified
+  parent-before-child order, preserving the existing single-Site troubleshooting
+  path. Primary target CC 10.10.x; additional lab CC 10.15.0-2; source Vision 5.4.9.
+- Dependencies: unchanged hash-bound backup/snapshot/confirmed comparison,
+  operator-confirmed source/destination root association, existing finite Site
+  transport/authentication, TLS consent, shared image and choice-2 launcher.
+- Approval: implement and run local mocked/offline tests. No live controller
+  calls, authentication, writes, deployment, Git operations or legacy edits
+  performed during development. Batch code is not controller-write approval.
+- Implementation status: implemented. Full ordered plan is recomputed and bound
+  to input hashes; destination identities remain separate from source IDs.
+  Each existing or created Site requires exact parent/identity/hierarchy
+  verification before children proceed. One terminal batch authorization binds
+  count/list/destination; no per-Site prompts, blind retry, rollback or root
+  fallback/rename. Existing single-Site behavior and finite API scope retained.
+- Journal/reporting: private atomic/fsynced journal, per-origin process lock,
+  shared per-Site no-repeat guards, durable pre-POST intent/identity baseline,
+  returned-ID checkpoint and explicit resume reconciliation. Attempted-but-absent
+  or identity/parent-mismatched Sites block continuation. Reports cover the
+  complete list, dependencies and pending/blocked/failed/created/verified/existing
+  evidence; verified_this_run distinguishes current reads from journal history.
+  Native destination IDs exist only in the protected journal, not shared output.
+  Only local Windows atomic-file replacement has a bounded PermissionError
+  retry; controller POSTs never retry.
+- Integration: --sites-dry-run, --sites-execute, --sites-resume use unchanged
+  choice 2, shared discovery service/image/mounts and existing TLS consent.
+  Read-only launcher preflight precedes exactly one interactive execution/resume
+  stage. Configurable 0-60-second delays and 1-10 readback rounds; no new
+  containers, services, dependencies, configuration files or non-Site operations.
+- Files created: src/cc_vision_import/site_migration.py;
+  tests/test_site_migration.py.
+- Files modified: src/cc_vision_import/single_site.py (shared evidence, lookup,
+  parent/readback and reservation helpers); master_cli.py, compose_entrypoint.py,
+  launcher_helper.py in the same package; ccv.sh;
+  tests/test_compose_deployment.py, tests/test_unified_launcher.py;
+  README.md, docs/API_MATRIX.md, docs/PROGRESS.md.
+- Verification status: offline/mock verified, not live/target certified.
+  Related engine/HTTP/Compose/launcher suite: 161 tests in 509.349s,
+  160 passed / one Docker availability skip. Existing CLI/controller workflow,
+  discovery, comparison, tree-preview and TLS suite: 102 tests in 35.505s,
+  all passed. Final batch-engine/Compose run after additional journal/guard
+  regressions: 30 tests in 9.340s, 29 passed / the same Docker availability skip;
+  includes 20 batch tests. These runs overlap and are not additive unique totals.
+  Synthetic end-to-end graph has exactly 30 Sites and 22 non-root parent
+  dependencies, including deeper descendants. Coverage includes dry-run/no
+  writes, verified ordering/remapping, qualified existing Sites, HTTP failure,
+  missing returned ID, wrong parent, duplicate identity, changed parent,
+  bounded polling/delays, timeout/interruption and reconciliation without
+  repeating POST, journal binding/order/UTF-8 corruption, competing batch lock,
+  pre-POST storage failure and prior single-Site guard protection.
+  HTTP backend: zero network attempts across 1080 observations, zero real
+  dispatch attempts across 144 observations. Python AST passed for all eight
+  changed source/test files; Pylance syntax and error diagnostics checked.
+  Launcher Bash syntax and 26 README shell blocks passed syntax-only checks.
+  Offline CLI help/catalog passed. Initial fixture, journal I/O and launcher
+  regression failures were corrected; final executed suites have no failures.
+  A clearly labeled sanitized synthetic 30-Site/22-dependency dry-run report was
+  delivered as a session artifact, not evidence from the owner's actual backup.
+- Known blockers/limitations: Docker unavailable, so no image build/container
+  execution verified. Linux POSIX permission/fsync/flock branches and the actual
+  protected Linux snapshots have not been executed here. No live batch or
+  create/readback compatibility verified for CC 10.10.x or CC 10.15.x.
+  Enumeration completeness, omitted fields and unknown API shapes remain
+  experimental; unexpected evidence fails closed. Preserve the same private
+  reports directory/origin and freeze competing writers; never edit/delete
+  journals or guards to bypass reconciliation. Existing DNS timing limitations
+  remain, with no new containment claim.
+- Next action: owner separately authorizes deployment of the reviewed shared
+  image and runs README full-batch read-only commands against unchanged lab
+  inputs. Only after reviewing that complete report may the owner separately
+  authorize a batch; the first unverified create stops all subsequent work.
+  Devices, Scheduler, LDAP and Physical-tree migration remain out of scope.
+
+## Previous task: CCV-011 - controlled single-Site migration
 
 - Objective/priority: high; implement the working, reusable one-Site dry-run and
   separately authorized experimental create/readback path, not another research

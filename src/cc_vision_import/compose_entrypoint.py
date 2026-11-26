@@ -20,18 +20,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Compose: source backup, offline preflight, destination reads or explicitly authorized experimental single-Site creation.",
     )
     parser.add_argument("role", choices=("source", "destination", "discovery"))
-    parser.add_argument("command", nargs="?", choices=("backup", "preflight", "discover-sites", "site-dry-run", "site-create"))
+    parser.add_argument("command", nargs="?", choices=(
+        "backup", "preflight", "discover-sites", "site-dry-run", "site-create",
+        "sites-dry-run", "sites-execute", "sites-resume",
+    ))
     parser.add_argument("--qualify-default-root", action="store_true")
     parser.add_argument("--input")
     parser.add_argument("--comparison")
     parser.add_argument("--destination-snapshot")
     parser.add_argument("--site-reference")
     parser.add_argument("--target-version")
+    parser.add_argument("--operation-delay", type=float)
+    parser.add_argument("--readback-interval", type=float)
+    parser.add_argument("--readback-attempts", type=int)
     args = parser.parse_args(arguments)
     single_site = args.role == "discovery" and args.command in ("site-dry-run", "site-create")
+    site_batch = args.role == "discovery" and args.command in ("sites-dry-run", "sites-execute", "sites-resume")
+    site_operation = single_site or site_batch
     site_values = (args.input, args.comparison, args.destination_snapshot, args.site_reference)
-    if single_site:
-        if any(value is None for value in site_values) or args.qualify_default_root:
+    if site_operation:
+        if any(value is None for value in site_values[:3]) or (
+            single_site and args.site_reference is None
+        ) or (site_batch and args.site_reference is not None) or args.qualify_default_root:
             parser.error("Single-Site mode requires input/comparison/destination-snapshot/site-reference.")
         for value, prefix in ((args.input, "/incoming/"), (args.comparison, "/reports/"),
                               (args.destination_snapshot, "/reports/")):
@@ -39,13 +49,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 parser.error("Use existing container-visible incoming/report paths.")
     elif any(value is not None for value in (*site_values, args.target_version)):
         parser.error("Single-Site options require discovery site-dry-run or site-create.")
+    if not site_batch and any(value is not None for value in (
+        args.operation_delay, args.readback_interval, args.readback_attempts,
+    )):
+        parser.error("Batch timing requires a sites-dry-run, sites-execute or sites-resume command.")
     if args.qualify_default_root and (args.role != "discovery" or args.command != "discover-sites"):
         parser.error("--qualify-default-root requires discovery discover-sites.")
     if args.command is None:
         parser.print_help()
         return 0
     expected = {"source": "backup", "destination": "preflight", "discovery": "discover-sites"}[args.role]
-    if args.command != expected and not single_site:
+    if args.command != expected and not site_operation:
         parser.error("Use the selected role's backup, preflight or discover-sites command.")
 
     def required(name: str) -> str:
@@ -110,15 +124,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ])
             if args.role == "discovery":
                 return master_main([
-                    "--operation", ("single-site-create" if args.command == "site-create" else "single-site-dry-run")
-                    if single_site else "destination-discovery", "--discovery-profile", str(profile),
+                    "--operation", ("site-batch-" + args.command.removeprefix("sites-")) if site_batch else (
+                        ("single-site-create" if args.command == "site-create" else "single-site-dry-run")
+                        if single_site else "destination-discovery"
+                    ), "--discovery-profile", str(profile),
                     "--credentials-file", "/run/secrets/credentials.json",
                     *(["--qualify-default-root"] if args.qualify_default_root else []),
                     *([
                         "--input", args.input, "--comparison", args.comparison,
-                        "--destination-snapshot", args.destination_snapshot, "--site-reference", args.site_reference,
+                        "--destination-snapshot", args.destination_snapshot,
+                        *(["--site-reference", args.site_reference] if single_site else []),
                         *(["--target-version", args.target_version] if args.target_version else []),
-                    ] if single_site else []),
+                        *[part for option, value in (
+                            ("--operation-delay", args.operation_delay), ("--readback-interval", args.readback_interval),
+                            ("--readback-attempts", args.readback_attempts),
+                        ) if value is not None for part in (option, str(value))],
+                    ] if site_operation else []),
                 ])
             assert destination is not None
             destination_profile = Path(directory) / "destination.json"

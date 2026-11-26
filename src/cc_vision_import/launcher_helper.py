@@ -273,6 +273,39 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
         codes = report.get("failure_codes", []) if selection == "1" else report.get("issue_codes", [])
         if isinstance(codes, list) and "tls_certificate_failure" in codes:
             print("TLS certificate verification failed: untrusted chain or hostname mismatch. No automatic downgrade.")
+    if selection == "2" and report.get("operation") == "site-batch-migration":
+        state = report.get("status")
+        if state not in ("dry-run-ready", "batch-verified", "blocked", "error", "indeterminate"):
+            raise SetupError("Invalid Site batch result.")
+        counts = report.get("counts")
+        if not isinstance(counts, dict) or type(counts.get("total")) is not int or not 0 <= counts["total"] <= 9999:
+            raise SetupError("Invalid Site batch counts.")
+        total = counts["total"]
+        if report.get("migration_ready") is not False or (
+            status == 0 and state not in ("dry-run-ready", "batch-verified")
+        ):
+            raise SetupError("Invalid Site batch success state.")
+        print(f"Site batch: {state}; reviewed Sites: {total}. Experimental/unverified compatibility.")
+        for key in ("created", "verified", "verified_this_run", "already_existing", "blocked", "failed", "pending"):
+            value = counts.get(key, 0)
+            if type(value) is not int or not 0 <= value <= total:
+                raise SetupError("Invalid Site batch count.")
+            print(f"{key}: {value}")
+        if report.get("manual_reconciliation_required") is True:
+            print("MANUAL RECONCILIATION REQUIRED. No automatic POST retry or rollback.")
+        path = report.get("report_file")
+        if path is not None:
+            if not isinstance(path, str) or not re.fullmatch(r"ccv-sites-report-[0-9a-f]{32}\.json", path):
+                raise SetupError("Invalid Site batch report path.")
+            print(f"Sanitized report: {Path(output) / path}")
+        journal = report.get("journal_file")
+        if journal is not None:
+            if not isinstance(journal, str) or not re.fullmatch(
+                r"ccv-sites-[0-9a-f]{32}-[0-9a-f]{16}\.journal\.json", journal,
+            ):
+                raise SetupError("Invalid Site journal path.")
+            print(f"Protected journal location (native mappings; do not share): {Path(output) / journal}")
+        return 11 if certificate_exception_available(report, selection, status) else 0
     if selection == "2" and report.get("operation") == "single-site-migration":
         state = report.get("status")
         allowed = {"dry-run-ready", "cancelled", "blocked", "error", "indeterminate", "single-site-verified"}

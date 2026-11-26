@@ -7,6 +7,28 @@ for selected exact method/path pairs; E-036 synthetic offline subset regressions
 Runtime compatibility is scoped; current owner-reported evidence and remaining
 qualification limits are recorded below.
 
+## CCV-012 - shared hierarchical Site orchestration
+
+Implementation extends the existing finite Site API, not its endpoint scope:
+login, selected parent/candidate by-name GET, Organization GET, one reserved
+Site POST and exact by-ID readback. Ordinary discovery and single-Site scopes
+are unchanged. One runtime batch authorization binds the recomputed ordered
+input list and displayed destination; children consume only verified destination
+identities. Existing Sites require fresh exact identity/parent/hierarchy evidence.
+
+| Capability | Evidence / qualification |
+| --- | --- |
+| Full hierarchy | Synthetic 30-Site, 22-parent-dependency mocked graph; parent verification precedes dependent POST |
+| Missing candidate | Existing strict HTTP 404 / legacy HTTP 200 / exact name-bound HTTP 400 M_00734 handling, corroborated by fresh Organization tree; M_00734 observed by owner on 10.15.0-2 only |
+| Durable resume | Protected hash/origin-bound journal, destination mappings and pre-POST identity baseline; per-origin process lock and shared per-Site reservations; uncertain absent/mismatched operations never blindly retried |
+| Completion | Returned new identity plus bounded by-ID and hierarchy readback; configurable 1-10 rounds and 0-60-second delays; errors/ambiguity stop the batch |
+| CC 10.10.x primary | Shared experimental implementation; no target-verified POST/completion claim |
+| CC 10.15.x lab | Owner-reported single-Site dry-run success on 10.15.0-2; no live batch or POST/readback executed during development |
+
+No new version endpoint, per-version client, Device API or bulk write endpoint.
+No automatic rollback, root renaming/fallback or source-native-ID reuse.
+Implementation approval is not authorization to modify a controller.
+
 ## CCV-011 - implemented experimental controlled single-Site operation
 
 Owner approval now covers implementation and mocked verification of the bounded

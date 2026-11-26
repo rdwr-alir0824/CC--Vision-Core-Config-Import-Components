@@ -290,6 +290,90 @@ PYTHONPATH=src:tests python -S -B -m unittest \
 This developer command does not add a host Python requirement to deployment.
 Do not rerun a live lookup if adequate protected evidence already exists.
 
+#### CCV-012: full hierarchical Site migration
+
+The existing choice **2** now supports `--sites-dry-run`, `--sites-execute` and
+`--sites-resume`. Single-Site flags and choices 1-4 remain unchanged. This is
+Site-only orchestration, not Device, Scheduler, LDAP or Physical-tree migration.
+Primary target remains **CC 10.10.x**; the current lab is **CC 10.15.0-2**.
+Neither release family has verified create/completion compatibility here.
+
+On the existing authorized Linux destination host, after transferring the
+reviewed updated application, rebuild the **same image/service**:
+
+```sh
+cd /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components
+docker compose --profile destination-discovery config --quiet
+docker compose --profile destination-discovery build ccv-destination-discovery
+```
+
+Keep the original protected backup, snapshot and complete confirmed comparison
+unchanged. From that directory, in Bash:
+
+```bash
+site_inputs=(
+  --input /incoming/vision-backup-20261125T122823Z-3ad1c37f503d/organization-tree/tree.json
+  --comparison /reports/source-destination-site-comparison.json
+  --destination-snapshot /reports/cc-destination-20261126T001502Z-c71a84af2691/organization-sites.json
+  --target-version 10.15.0-2
+  --operation-delay 1
+  --readback-interval 1
+  --readback-attempts 3
+)
+./ccv.sh --sites-dry-run "${site_inputs[@]}"
+```
+
+Use the actual original comparison basename if different. Select **2**, enter
+the approved lab destination (currently `155.1.1.7`) and session credentials.
+This operation authenticates and performs fresh **read-only** Site/tree checks
+for the entire hash-bound list. It does not create Sites. Future child-parent
+IDs are planned dependencies, never substituted with the root or source IDs.
+Existing Sites require exact identity/parent/by-ID/tree agreement. An absence
+candidate, including the exact observed 10.15.0-2 M_00734 response, still requires
+a fresh collision-free Organization tree. Unknown evidence blocks the batch.
+
+**Only after separate owner authorization for controller writes**, review the
+full dry-run, freeze competing writers and use:
+
+```bash
+./ccv.sh --sites-execute "${site_inputs[@]}"
+```
+
+The launcher first repeats the read-only batch preflight, then starts one fresh
+interactive session. The engine displays destination, Site count, reviewed-list
+hash and experimental risks. The terminal must receive the displayed exact
+`MIGRATE <count> SITES <list-hash>` phrase; there is no `--yes` or per-Site prompt.
+This authorizes only the bound list/destination. Each create has fresh parent
+and collision checks, a durable reservation, one POST maximum and bounded
+returned-ID/hierarchy readback before dependent children can run. Unknown
+results stop immediately; no POST retries, rollback, root rename or fallback.
+Delays are 0-60 seconds; readback rounds 1-10, using existing bounded HTTP timeouts.
+
+Sanitized `ccv-sites-report-<random>.json` files in destination-reports contain
+ordered artifact references, dependencies, preview placeholders and cumulative
+created/verified/already-existing/blocked/failed/pending counts. On resume,
+`verified_this_run` separately identifies fresh reconciliation, not cached
+journal evidence. Names, native IDs, credentials and response bodies are absent.
+The deterministic `ccv-sites-<list-hash>-<origin-hash>.journal.json` is **protected,
+not shareable**: it retains destination-native mappings and incomplete-attempt
+evidence. POSIX files are 0600; preserve the private runtime directory and owner.
+The per-origin kernel lock prevents overlapping batches and releases on process
+exit; per-Site guards are shared with the single-Site engine.
+
+For an interrupted batch, retain the **same inputs, origin and reports directory**:
+
+```bash
+./ccv.sh --sites-resume "${site_inputs[@]}"
+```
+
+Resume is explicit and requires batch authorization again. Fresh identity,
+parent and hierarchy evidence must reconcile previous work before continuation.
+A possibly successful POST that still appears absent, or whose identity/parent
+is ambiguous, is **not retried**; manual reconciliation is required. Never delete
+or edit journals/guards to force continuation. Development tests used a synthetic
+30-Site/22-dependency graph with network access denied; Docker builds and the
+owner's real protected snapshots/live batch remain unverified in this environment.
+
 #### CCV-011: experimental controlled single-Site migration
 
 Primary target: **CC 10.10.x**; additional lab target: **CC 10.15.x**.

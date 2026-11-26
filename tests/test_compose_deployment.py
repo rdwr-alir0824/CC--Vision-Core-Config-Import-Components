@@ -218,6 +218,35 @@ class ComposeDeploymentTests(OfflineTestCase):
             self.assertEqual(self.module.main(["discovery", "discover-sites"]), 0)
         self.assertFalse(captured[0].exists())
 
+    def test_batch_commands_reuse_discovery_role_and_forward_only_explicit_batch_options(self):
+        for mode in ("dry-run", "execute", "resume"):
+            with self.subTest(mode=mode):
+                with patch.dict(os.environ, self.environment, clear=True), patch.object(
+                    self.module, "master_main", return_value=0,
+                ) as dispatch:
+                    self.assertEqual(self.module.main([
+                        "discovery", "sites-" + mode, "--input", "/incoming/backup/organization-tree/tree.json",
+                        "--comparison", "/reports/comparison.json", "--destination-snapshot", "/reports/snapshot.json",
+                        "--operation-delay", "0.5", "--readback-interval", "2", "--readback-attempts", "4",
+                    ]), 0)
+                    arguments = dispatch.call_args.args[0]
+                    self.assertEqual(arguments[:2], ["--operation", "site-batch-" + mode])
+                    self.assertNotIn("--site-reference", arguments)
+                    self.assertEqual(arguments[arguments.index("--operation-delay") + 1], "0.5")
+                    self.assertEqual(arguments[arguments.index("--readback-attempts") + 1], "4")
+        with redirect_stderr(io.StringIO()), patch.object(self.module, "master_main") as dispatch:
+            for role, source, extras in (
+                ("source", "/incoming/tree.json", []),
+                ("discovery", "/incoming/../secrets/tree.json", []),
+                ("discovery", "/incoming/tree.json", ["--site-reference", "source:node-2"]),
+            ):
+                with self.assertRaises(SystemExit):
+                    self.module.main([
+                        role, "sites-execute", "--input", source, "--comparison", "/reports/comparison.json",
+                        "--destination-snapshot", "/reports/snapshot.json", *extras,
+                    ])
+            dispatch.assert_not_called()
+
     def test_root_flag_is_forwarded_only_by_discovery_shortcut(self):
         with patch.dict(os.environ, {"CCV_DESTINATION_URL": "https://destination.invalid"}, clear=True):
             with patch.object(self.module, "master_main", return_value=0) as master:
