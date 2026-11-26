@@ -1,4 +1,4 @@
-"""Explicit tree-only CC discovery; product version and compatibility are unknown."""
+"""Explicit CC tree or Default root reads; version and compatibility are unknown."""
 
 import json
 import os
@@ -32,6 +32,7 @@ from .transport import HttpMethod, HttpResponse, TransportConfig, TransportError
 
 _reader = ContractReader("destination-discovery")
 _TREE = ("mgmt", "system", "config", "tree", "Organization")
+_DEFAULT_ROOT = ("mgmt", "system", "config", "tree", "site", "byname", "Default")
 _SITE = "com.radware.insite.model.device.Site"
 _DEVICE = "com.radware.insite.model.device.Device"
 
@@ -154,12 +155,12 @@ class DiscoveryProfile:
         )
 
 
-def _backend(profile: DiscoveryProfile) -> StdlibHttpBackend:
+def _backend(profile: DiscoveryProfile, *, qualify_default_root: bool = False) -> StdlibHttpBackend:
     return StdlibHttpBackend(
         allow_live=True,
         authorization=DestinationAuthorization(profile.transport.base_url, (
             (HttpMethod.POST, "/mgmt/system/user/login"),
-            (HttpMethod.GET, "/" + "/".join(_TREE)),
+            (HttpMethod.GET, "/" + "/".join(_DEFAULT_ROOT if qualify_default_root else _TREE)),
         )),
         max_response_bytes=16 * 1024 * 1024,
         allow_unverified_destination_discovery=profile.transport.unverified_destination_discovery,
@@ -307,7 +308,60 @@ def project_site_tree(payload: object) -> dict[str, object]:
     }
 
 
-def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple[dict[str, object], ExitStatus]:
+def project_default_root(payload: object) -> dict[str, object]:
+    if (
+        not isinstance(payload, dict) or payload.get("status") == "error"
+        or not any(name in payload for name in ("ormID", "name", "type", "parentOrmID"))
+    ):
+        _reader.fail("unsupported_root_lookup_shape", "$", "Expected a successful single root lookup object.")
+    types = {str: ("str", "string"), int: ("int", "number"), float: ("float", "number"),
+             bool: ("bool", "boolean"), dict: ("dict", "object"), list: ("list", "array"),
+             type(None): ("NoneType", "null")}
+
+    def usable(value: object) -> bool:
+        return (
+            isinstance(value, str) and bool(value.strip()) and value == value.strip()
+            and all(character.isprintable() for character in value)
+        )
+
+    fields = {}
+    for name in ("ormID", "name", "type", "parentOrmID"):
+        present = name in payload
+        value = payload.get(name)
+        python_type, json_type = types[type(value)]
+        fields[name] = {
+            "present": present, "python_type": python_type if present else None,
+            "json_type": json_type if present else None, "usable": present and usable(value),
+        }
+    name_match = usable(payload.get("name")) and payload["name"] == "Default"
+    identifier = payload.get("meIdentifier")
+    managed_id = identifier.get("managedElementID") if isinstance(identifier, dict) else None
+    orm_usable = usable(payload.get("ormID"))
+    codes = {"root_type_and_parent_semantics_unqualified", "site_create_parent_acceptance_unqualified"}
+    if not name_match:
+        codes.add("default_root_name_missing_or_mismatched")
+    if not orm_usable:
+        codes.add("root_ormID_missing_or_unusable")
+    return {
+        "status": "collected-unqualified" if name_match and orm_usable else "partial",
+        "field_assessments": fields,
+        "identity_consistency": {
+            "name_matches_Default": name_match,
+            "ormID_equals_managedElementID": (
+                payload["ormID"] == managed_id if orm_usable and usable(managed_id) else None
+            ),
+            "root_correspondence": "unverified",
+            "type_match": "unverified",
+            "site_create_parent_acceptance": "unverified",
+        },
+        "candidate_identifier_kind": "destination-server-assigned-ormID",
+        "issue_codes": sorted(codes),
+    }
+
+
+def run_destination_discovery(
+    profile_path: str, credentials_path: str, *, qualify_default_root: bool = False,
+) -> tuple[dict[str, object], ExitStatus]:
     profile = DiscoveryProfile.read(profile_path)
     try:
         require_execution_exception(profile.transport.base_url, profile.transport.verify_tls, credentials_path)
@@ -323,8 +377,9 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
     projection = None
     failure = None
     authenticated = False
+    segments = _DEFAULT_ROOT if qualify_default_root else _TREE
     try:
-        with SessionManager(lambda: _backend(profile), credentials) as manager:
+        with SessionManager(lambda: _backend(profile, qualify_default_root=qualify_default_root), credentials) as manager:
             manager.initialize(
                 _UnknownVersionRequest(
                     SessionRole.DESTINATION, "cyber-controller", "unknown",
@@ -333,14 +388,14 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
             )
             manager.authenticate(SessionRole.DESTINATION)
             authenticated = True
-            response = manager.request(SessionRole.DESTINATION, HttpMethod.GET, _TREE, expect_json=True)
+            response = manager.request(SessionRole.DESTINATION, HttpMethod.GET, segments, expect_json=True)
             if response.status != 200:
-                _reader.fail("unexpected_discovery_status", "$", "Organization discovery requires HTTP 200 JSON.")
+                _reader.fail("unexpected_discovery_status", "$", "Discovery requires HTTP 200 JSON.")
             try:
                 payload = load_json(response.body.decode("utf-8"))
             except (UnicodeError, ValueError, RecursionError):
-                _reader.fail("invalid_discovery_json", "$", "Organization response must be strict JSON.")
-            projection = project_site_tree(payload)
+                _reader.fail("invalid_discovery_json", "$", "Discovery response must be strict JSON.")
+            projection = project_default_root(payload) if qualify_default_root else project_site_tree(payload)
     except AuthenticationError as error:
         reason = error.failure.transport_reason
         failure = reason.value if reason is not None else error.failure.category.value
@@ -357,9 +412,15 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
         "tls": execution_tls(profile.transport.verify_tls),
         "authenticated": authenticated,
     }
+    if qualify_default_root:
+        report.update(
+            discovery_mode="default-root", execution_authorized=False, import_file_compatible=False,
+        )
     if failure is not None:
         return {**report, "status": "error", "issue_codes": [failure]}, ExitStatus.VALIDATION_FAILED
     assert projection is not None
+    if qualify_default_root:
+        report.update(projection)
     directory_name = "cc-destination-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:12]
     directory = profile.output_directory / directory_name
     try:
@@ -367,27 +428,40 @@ def run_destination_discovery(profile_path: str, credentials_path: str) -> tuple
     except OSError:
         _reader.fail("output_unwritable", "$", "Provision a private writable destination reports directory.")
     snapshot = {
-        "schema_version": 1, "domain": "cc-destination-organization-sites",
+        "schema_version": 1,
+        "domain": "cc-destination-root-qualification" if qualify_default_root else "cc-destination-organization-sites",
         "tls": execution_tls(profile.transport.verify_tls),
         "destination": {"product": "cyber-controller", "name": profile.name, "version": "unknown", "version_verification": "unverified"},
         "collected_at": datetime.now(timezone.utc).isoformat(),
-        "request": {"method": "GET", "path": "/" + "/".join(_TREE)},
+        "request": {"method": "GET", "path": "/" + "/".join(segments)},
         "scope": {
             "read_only": True, "configuration_writes_authorized": False,
             "complete_site_enumeration": False, "migration_input": False, "devices_excluded": True,
         },
         "evidence": {
             "login": "API-01-C-legacy-basic-json-plus-validated-session",
-            "tree": "API-03-legacy-source-observed", "exact_release_compatibility": "unverified",
+            **({"root_lookup": "API-04-documented-plus-owner-supplied-Default-evidence"} if qualify_default_root else {
+                "tree": "API-03-legacy-source-observed",
+            }),
+            "exact_release_compatibility": "unverified",
             "document_version_conflict": "unresolved-10.10.7-versus-10.10.6",
             "root_and_parent_semantics": "legacy-inferred",
         },
         **projection,
     }
-    write_local_export(str(directory / "organization-sites.json"), json.dumps(snapshot, allow_nan=False, indent=2))
+    if qualify_default_root:
+        snapshot.update(
+            execution_authorized=False, migration_ready=False, import_file_compatible=False,
+            configuration_writes_authorized=False,
+        )
+    filename = "root-qualification.json" if qualify_default_root else "organization-sites.json"
+    write_local_export(str(directory / filename), json.dumps(snapshot, allow_nan=False, indent=2))
     return {
-        **report, "status": projection["status"], "counts": projection["counts"],
-        "redacted_fields": projection["redacted_fields"], "issue_codes": projection["issue_codes"],
-        "snapshot_directory": directory_name, "snapshot_file": "organization-sites.json",
+        **report, "status": projection["status"],
+        **({} if qualify_default_root else {
+            "counts": projection["counts"], "redacted_fields": projection["redacted_fields"],
+        }),
+        "issue_codes": projection["issue_codes"],
+        "snapshot_directory": directory_name, "snapshot_file": filename,
         "session_closed_locally": True,
     }, ExitStatus.SUCCESS if projection["status"] == "collected-unqualified" else ExitStatus.VALIDATION_FAILED

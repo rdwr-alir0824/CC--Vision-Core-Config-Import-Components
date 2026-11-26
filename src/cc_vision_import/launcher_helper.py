@@ -202,6 +202,60 @@ def check_backup(folder: Path) -> None:
             raise SetupError("Both native tree artifacts must be present.")
 
 
+def _root_summary(report: dict) -> None:
+    if (
+        report.get("configuration_writes_authorized") is not False
+        or report.get("migration_ready") is not False
+        or report.get("import_file_compatible") is not False
+    ):
+        raise SetupError("Root qualification must remain non-executable.")
+    fields = report.get("field_assessments")
+    if fields is None and report.get("status") == "error":
+        return
+    if not isinstance(fields, dict) or set(fields) != {"ormID", "name", "type", "parentOrmID"}:
+        raise SetupError("Invalid root field assessment.")
+    types = {
+        "str": "string", "int": "number", "float": "number", "bool": "boolean",
+        "dict": "object", "list": "array", "NoneType": "null",
+    }
+    for name in ("ormID", "name", "type", "parentOrmID"):
+        field = fields[name]
+        if (
+            not isinstance(field, dict) or set(field) != {"present", "python_type", "json_type", "usable"}
+            or type(field["present"]) is not bool or type(field["usable"]) is not bool
+            or (field["present"] and (
+                not isinstance(field["python_type"], str) or field["python_type"] not in types
+                or field["json_type"] != types[field["python_type"]]
+            ))
+            or (not field["present"] and (
+                field["python_type"] is not None or field["json_type"] is not None or field["usable"]
+            ))
+        ):
+            raise SetupError("Invalid root field type/presence.")
+    identity = report.get("identity_consistency")
+    if (
+        not isinstance(identity, dict)
+        or set(identity) != {
+            "name_matches_Default", "ormID_equals_managedElementID", "root_correspondence",
+            "type_match", "site_create_parent_acceptance",
+        }
+        or type(identity["name_matches_Default"]) is not bool
+        or (identity["ormID_equals_managedElementID"] is not None
+            and type(identity["ormID_equals_managedElementID"]) is not bool)
+        or any(identity[key] != "unverified" for key in (
+            "root_correspondence", "type_match", "site_create_parent_acceptance",
+        ))
+    ):
+        raise SetupError("Invalid root identity assessment.")
+    for name in ("ormID", "name", "type", "parentOrmID"):
+        field = fields[name]
+        print(f"{name}: present={field['present']}, type={field['python_type']}, usable={field['usable']}")
+    print(f"Name matches Default: {identity['name_matches_Default']}")
+    equality = identity["ormID_equals_managedElementID"]
+    print("Native identifier fields equal: " + ("unverified" if equality is None else str(equality)))
+    print("Root type/correspondence and Site-create parent acceptance remain unverified.")
+
+
 def summary(report: object, selection: str, status: int, output: str, filename: str) -> int:
     if not isinstance(report, dict):
         raise SetupError("Expected a structured application result.")
@@ -229,6 +283,9 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
         allowed = ("collected-unqualified", "partial", "error") if selection == "2" else ("blocked", "error")
         if state not in allowed:
             raise SetupError("Unexpected application status.")
+        root_only = selection == "2" and report.get("discovery_mode") == "default-root"
+        if root_only:
+            _root_summary(report)
         counts = report.get("counts", {})
         allowed_counts = {
             "root_candidates", "site_candidates", "sites_with_usable_identity",
@@ -245,7 +302,8 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
             for key, value in counts.items()
         ):
             raise SetupError("Invalid aggregate counts.")
-        print("CC Site discovery: " + state if selection == "2" else "Offline Site readiness: " + state.upper())
+        print(("CC Default root qualification: " if root_only else "CC Site discovery: ") + state
+              if selection == "2" else "Offline Site readiness: " + state.upper())
         for key, value in sorted(counts.items()):
             print(f"{key.replace('_', ' ')}: {value}")
         if selection == "2":
@@ -259,9 +317,10 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
             if folder is not None:
                 if not isinstance(folder, str) or not re.fullmatch(r"cc-destination-[A-Za-z0-9-]+", folder):
                     raise SetupError("Invalid snapshot directory.")
-                if report.get("snapshot_file") != "organization-sites.json":
+                snapshot_file = "root-qualification.json" if root_only else "organization-sites.json"
+                if report.get("snapshot_file") != snapshot_file:
                     raise SetupError("Invalid snapshot filename.")
-                print(f"Private snapshot: {Path(output) / folder / 'organization-sites.json'}")
+                print(f"Private {'report' if root_only else 'snapshot'}: {Path(output) / folder / snapshot_file}")
         else:
             print(f"Report: {Path(output) / filename}")
             if (

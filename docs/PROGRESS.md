@@ -2,7 +2,143 @@
 
 Last updated: 2026-11-25
 
-## Current task: SOURCE-DESTINATION-SITE-COMPARISON
+## Current task: READ-ONLY-ROOT-ID-QUALIFICATION
+
+- Objective/priority: high; explicitly selected Default root GET through existing
+  discovery/authentication/TLS/launcher infrastructure, without native-value logs
+  or Site-create activation.
+- Dependencies: approved Site-create qualification proposal, exact destination
+  origin/method authorization, validated sessions, shared image/Compose and
+  origin-bound temporary TLS consent/credential cleanup.
+- Approval: owner authorized implementation and mocked offline tests only.
+  No live requests, deployment, commits/pushes or configuration writes.
+- Implementation status: root-only selector and sanitized projection/report
+  implemented. Default tree discovery/menu/collectors/deployment unchanged.
+- Verification status: implemented and verified for mocked/offline acceptance;
+  actual controller response/Docker runtime unverified.
+- Behavior: `./ccv.sh --qualify-default-root`, choose 2. Only validated login POST
+  and exact Default by-name GET at selected HTTPS/443 origin. No Organization/
+  arbitrary read in root mode, no union allowlist or configuration writes.
+  Reports contain only finite presence/type/usability and identity-consistency
+  results, no native IDs or raw bodies. Default name plus usable ormID gives
+  collected-unqualified; missing/mismatched name/ormID partial; unsupported/
+  ambiguous/error responses fail explicitly. Root type/parent/correspondence,
+  create parentOrmID acceptance and migration readiness remain unverified/false.
+- Files affected: ccv.sh; src/cc_vision_import/{destination_discovery,http_backend,
+  master_cli,compose_entrypoint,launcher_helper}.py;
+  tests/{test_destination_discovery,test_compose_deployment,test_unified_launcher}.py;
+  README.md, docs/API_MATRIX.md, docs/PROGRESS.md.
+- Necessary reviewed-proposal dependency: backend's existing session-only
+  unverified-discovery guard now accepts one of two exact operation pairs
+  (login/tree or login/Default), not arbitrary destinations or their union.
+  Launcher helper validates new finite report fields before displaying them.
+  TLS policy, generic transport, Dockerfile/Compose network/service unchanged.
+- Final test evidence: `python -S -B -m unittest test_unified_launcher
+  test_http_backend test_transport test_tls_policy test_site_comparison`:
+  139 passed in 427.770s. `python -S -B -m unittest test_destination_discovery
+  test_compose_deployment
+  test_unified_launcher.UnifiedLauncherTests.test_root_flag_decline_and_production_lock_prevent_insecure_retry
+  test_unified_launcher.UnifiedLauncherTests.test_root_summary_rejects_server_values_disguised_as_types_without_printing_them`:
+  31 tests in 33.689s, 30 passed and one Docker availability skip.
+  Both commands used src/tests on PYTHONPATH. Total final coverage 170 tests,
+  169 passed and one skip; zero live requests. An initial focused 29-test run
+  also passed (one skip) before the final added checks.
+- Static evidence: five runtime AST checks and launcher/25 README/API matrix
+  shell blocks passed. Initial fence scanner failed on existing indented Markdown;
+  corrected extraction passed without runbook changes. Pylance discovery/helper/
+  CLI/Compose diagnostics empty; backend only unused-code hints, no errors/warnings.
+- Scope: no collector, tree comparison, TLS policy, generic transport, Dockerfile,
+  Compose deployment/network or unrelated containment-document changes. Root
+  qualification domain remains rejected by the import parser. Test scratch
+  files are managed/removed by existing test fixtures; no secrets added.
+- Known blockers: real four source field paths/types pending Linux source-only
+  inspection; root ormID/type/identity response not live-qualified; create schema,
+  parent-ID acceptance, returned identity/readback/collision and unknown fields
+  remain blocked. Native values cannot be recovered from sanitized reports.
+- Next action: after separate controller/deployment approval, rebuild existing
+  image and run the documented root-only launcher. Review sanitized evidence
+  without enabling any Site-create method.
+
+## Previous task: SITE-CREATE-API-QUALIFICATION
+
+- Objective/priority: high; qualify the legacy single-Site create contract for
+  Cyber Controller 10.15.0-2 without implementing or authorizing writes.
+- Dependencies: read-only legacy uploader/updater, existing API PDF findings,
+  source Site-readiness/comparison and destination snapshot projection.
+- Approval: owner authorized static qualification and a sanitized non-executable
+  preview; no live requests, deployment, imports or Git operations.
+- Implementation status: documentation matrix and genuine root-child
+  NON-EXECUTABLE preview implemented. No runtime implementation or new validator.
+- Verification status: source/document evidence reviewed; target create schema,
+  parent identity, result and readback/completion remain unverified.
+- Owner-reported comparison evidence: 30 source Sites, zero discovered destination
+  Sites, confirmed Bell Canada -> Default association, 30 conditional creations,
+  22 future destination parent-ID dependencies and no ambiguous/unresolved
+  comparison classifications. Migration remains blocked and non-executable.
+  Attached sanitized report now inspected and supports these results; underlying
+  snapshots are unavailable and comparison was not independently reproduced.
+  GUI 10.15.0-2 is not API version qualification.
+- Findings: legacy POST /mgmt/system/config/tree/site submits name/parentOrmID;
+  destination name lookup returns managedElementID or ormID; failed parent lookup
+  silently falls back to the tree root. Neither ID equivalence nor root fallback
+  is approved. HTTP 200 alone is legacy acceptance, without created identity or
+  readback. Reviewed PDFs document Site lookup/model fields, not Site-create.
+  The legacy updater only updates Devices, not Sites.
+- Files affected: docs/API_MATRIX.md and docs/PROGRESS.md only. Matrix includes
+  one selected but execution-blocked NON-EXECUTABLE JSON preview; no request body,
+  native ID, Site name or synthetic real-input substitution is emitted.
+- Test evidence: static bounded source/document inspection only; no tests run
+  because changes are documentation-only and no reusable validator was added.
+  Legacy scripts were not executed. No network/controller calls or writes.
+- Evidence: attached C:\CCV-Evidence\site-comparison-confirmed-20261126.json is
+  accessible (the earlier supplied C:\DATA path was not). Offline JSON parse and
+  selection checks found 30 records and eight eligible root-children. Selected
+  source:node-2, first in saved source order: explicit/observed source parent
+  source:node-1, confirmed proposed destination parent destination:node-1, no
+  missing source fields or future source-parent destination-ID dependency.
+  Both input bindings pass SHA-256 syntax checks, but underlying input hashes
+  were not independently verified. Evidence-file hash before/after is unchanged.
+  Documented preview JSON parses; reference/parent/classification/order/unknown
+  count and copied input bindings match supplied evidence. Non-executable guards
+  are preserved.
+- Known blockers: target-specific POST required fields, root-parent identifier,
+  naming/collision rules, returned identity and completion/readback unknown.
+  Selected Site has four unprojected fields and incomplete-absence/unknown-field
+  issue codes. Existing root/hierarchy and enumeration/version limits remain.
+- Additional qualification: owner confirms protected inputs exist only on Linux.
+  Discovery projector does not retain top-level ormID/type; no managedElementID
+  equivalence is assumed. Additional owner-supplied Radware Default lookup evidence
+  identifies destination server ormID as candidate parent, not POST qualification.
+  All four unknown field names/types/relevance remain unverified. Documented one
+  offline shared-image extraction command using existing parser traversal and
+  hash-bound inputs, plus a separately approved single-GET proposal. Current
+  discovery allowlist does not support that lookup; no runtime changes were made.
+- Helper verification: documented Python compilation and Bash syntax passed;
+  synthetic offline execution verified four paths/types, root match/presence
+  output, no native IDs/values, unchanged inputs and sanitized fail-closed binding
+  mismatch. No new test framework/files. Real Linux/Docker execution and actual
+  four-field identification remain unverified; temporary fixtures cleaned up.
+- Working-tree inspection requested by owner: read-only Git status/stat showed
+  only the two task documentation files modified and unrelated untracked
+  docs/WINDOWS_WORKER_CONTAINMENT_DESIGN.md. That document was not read or changed.
+- Latest owner snapshot inspection: one Default name match; name str present;
+  type/ormID/managedElementID/parentOrmID absent in inspected representation.
+  Nesting level not established; no API absence or identity equivalence inferred.
+  Four actual source field paths/types still pending Linux inspection. Added
+  source-only offline command so this does not depend on destination identity.
+  Source-only helper syntax/synthetic execution passed for four paths/types,
+  no native values, immutable inputs and sanitized binding-mismatch failure.
+  Actual Linux source inspection remains pending; no fields were invented.
+- Review deliverable: exact opt-in root-only GET allowlist, proposed runtime file
+  changes and mocked acceptance cases documented only. Existing login POST is
+  required authentication, not a configuration write. No runtime allowlist or
+  live request changed; proposed lookup/schema/TLS/cleanup tests are not run.
+- Next action: obtain target-supported create/root-ID/result/readback contract
+  and resolve selected Site's unknown fields/collision evidence with authorized
+  local review. Then request separate approval for a single-Site create/readback test, with
+  reviewed baseline and recovery procedure. No bulk migration authorization.
+
+## Previous task: SOURCE-DESTINATION-SITE-COMPARISON
 
 - Objective/priority: high; first offline Vision source versus saved CC destination
   Site comparison, without Device processing or executable migration plans.
@@ -11,7 +147,9 @@ Last updated: 2026-11-25
 - Approval: owner authorized focused offline comparison, root association proposal/
   explicit confirmation and synthetic tests only; no live calls/imports/Git.
 - Implementation status: implemented; verified complete for synthetic/offline
-  acceptance. Actual saved-input comparison and Docker runtime remain unverified.
+  acceptance. Owner subsequently reports saved-input comparison succeeded;
+  sanitized report inspection is complete; Docker runtime and independent
+  underlying-input comparison remain locally unverified.
 - Behavior: explicit source/destination saved inputs, proposal unless root names
   are both checked and confirmed; no root rename or identity equivalence.
   Per-Site conditional creation, possible existing, ambiguous or blocked
@@ -47,9 +185,9 @@ Last updated: 2026-11-25
   installed CC version remains GUI-observed, not API-verified. Root declaration,
   exact Site-create schema/native parent identity mapping, collision/parent/
   completeness qualification and post-create verification need separate approval.
-- Next action: run documented comparison against the
-  exact transferred backup/snapshot. Confirm roots only after explicit review;
-  separately qualify one Site-create test without enabling an execution engine.
+- Next action: owner reports the real comparison and root review succeeded.
+  Inspect its sanitized evidence and separately qualify one Site-create test
+  without enabling an execution engine.
 
 ## Previous task: TLS-INTERACTIVE-DEFAULT-UX
 

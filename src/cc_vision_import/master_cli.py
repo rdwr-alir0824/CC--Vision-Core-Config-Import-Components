@@ -149,6 +149,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--exported-at", help="ISO-8601 timestamp for supplied export/lookup data.")
     parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
     parser.add_argument("--discovery-profile", help="External JSON profile for explicitly selected CC tree-only discovery; version unknown.")
+    parser.add_argument("--qualify-default-root", action="store_true", help="Destination discovery: read only Default by name instead of the Organization tree.")
     parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
     parser.add_argument("--destination-snapshot", help="Saved read-only destination Organization Site snapshot for offline comparison.")
     parser.add_argument("--source-root-name", help="Reviewed source root name for a proposed offline root association.")
@@ -175,6 +176,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )):
         parser.error("Root mapping and destination snapshot options require site-comparison.")
     destination_discovery = args.operation == "destination-discovery"
+    if args.qualify_default_root and not destination_discovery:
+        parser.error("--qualify-default-root requires destination-discovery.")
     if destination_discovery:
         if args.discovery_profile is None or args.credentials_file is None:
             parser.error("destination-discovery requires --discovery-profile and --credentials-file.")
@@ -276,7 +279,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif destination_discovery:
             from .destination_discovery import run_destination_discovery
 
-            report, status = run_destination_discovery(args.discovery_profile, args.credentials_file)
+            report, status = run_destination_discovery(
+                args.discovery_profile, args.credentials_file, qualify_default_root=args.qualify_default_root,
+            )
         elif site_comparison:
             from .site_comparison import compare_sites
 

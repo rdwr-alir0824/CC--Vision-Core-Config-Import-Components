@@ -21,7 +21,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("role", choices=("source", "destination", "discovery"))
     parser.add_argument("command", nargs="?", choices=("backup", "preflight", "discover-sites"))
+    parser.add_argument("--qualify-default-root", action="store_true")
     args = parser.parse_args(arguments)
+    if args.qualify_default_root and (args.role != "discovery" or args.command != "discover-sites"):
+        parser.error("--qualify-default-root requires discovery discover-sites.")
     if args.command is None:
         parser.print_help()
         return 0
@@ -93,6 +96,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return master_main([
                     "--operation", "destination-discovery", "--discovery-profile", str(profile),
                     "--credentials-file", "/run/secrets/credentials.json",
+                    *(["--qualify-default-root"] if args.qualify_default_root else []),
                 ])
             assert destination is not None
             destination_profile = Path(directory) / "destination.json"

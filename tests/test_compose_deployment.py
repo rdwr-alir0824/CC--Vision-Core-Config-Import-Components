@@ -185,3 +185,18 @@ class ComposeDeploymentTests(OfflineTestCase):
         }, clear=True), patch.object(self.module, "master_main", side_effect=inspect):
             self.assertEqual(self.module.main(["discovery", "discover-sites"]), 0)
         self.assertFalse(captured[0].exists())
+
+    def test_root_flag_is_forwarded_only_by_discovery_shortcut(self):
+        with patch.dict(os.environ, {"CCV_DESTINATION_URL": "https://destination.invalid"}, clear=True):
+            with patch.object(self.module, "master_main", return_value=0) as master:
+                self.assertEqual(self.module.main(["discovery", "discover-sites", "--qualify-default-root"]), 0)
+                self.assertIn("--qualify-default-root", master.call_args.args[0])
+            with redirect_stderr(io.StringIO()):
+                for arguments in (
+                    ["source", "backup", "--qualify-default-root"],
+                    ["destination", "preflight", "--qualify-default-root"],
+                    ["discovery", "--qualify-default-root"],
+                ):
+                    with self.assertRaises(SystemExit) as caught:
+                        self.module.main(arguments)
+                    self.assertEqual(caught.exception.code, 2)

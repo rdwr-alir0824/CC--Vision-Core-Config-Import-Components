@@ -496,10 +496,16 @@ class StdlibHttpBackend:
                 and request.tls_context.verify_mode == ssl.CERT_NONE
                 and request.tls_context.check_hostname is False
                 and self._authorization is not None
-                and set(self._authorization.operations) == {
-                    (HttpMethod.POST, "/mgmt/system/user/login"),
-                    (HttpMethod.GET, "/mgmt/system/config/tree/Organization"),
-                }
+                and set(self._authorization.operations) in (
+                    {
+                        (HttpMethod.POST, "/mgmt/system/user/login"),
+                        (HttpMethod.GET, "/mgmt/system/config/tree/Organization"),
+                    },
+                    {
+                        (HttpMethod.POST, "/mgmt/system/user/login"),
+                        (HttpMethod.GET, "/mgmt/system/config/tree/site/byname/Default"),
+                    },
+                )
             )
             if not verified and not backup_tls and not discovery_tls:
                 raise ValueError("Unverified TLS is not authorized.")

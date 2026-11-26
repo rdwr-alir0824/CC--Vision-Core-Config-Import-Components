@@ -24,6 +24,7 @@ import json, os, pathlib, subprocess, sys
 from unittest.mock import patch
 from cc_vision_import import launcher_helper as helper
 from cc_vision_import import tls_policy
+from cc_vision_import.destination_discovery import project_default_root
 
 root = pathlib.Path(os.environ["MOCK_ROOT"])
 sys.stdout.reconfigure(newline="\n")
@@ -107,6 +108,15 @@ if args[0] == "compose" and "run" in args:
         sys.exit(1)
     service = next(name for name in ("ccv-source", "ccv-destination", "ccv-destination-discovery") if name in args)
     report = json.loads((root / ("source.json" if service == "ccv-source" else "discovery.json" if service.endswith("discovery") else "readiness.json")).read_text())
+    if service == "ccv-destination-discovery" and "--qualify-default-root" in args:
+        report = {
+            "operation": "destination-discovery", "discovery_mode": "default-root",
+            "migration_ready": False, "execution_authorized": False,
+            "import_file_compatible": False, "configuration_writes_authorized": False,
+            "read_only": True, "snapshot_directory": "cc-destination-synthetic",
+            "snapshot_file": "root-qualification.json",
+            **project_default_root({"name": "Default", "ormID": "private-native-id"}),
+        }
     exit_status = 1 if service == "ccv-destination" else 0
     if service != "ccv-destination":
         variable = "CCV_TLS_VERIFY" if service == "ccv-source" else "CCV_DESTINATION_TLS_VERIFY"
@@ -153,7 +163,10 @@ if args[0] == "compose" and "run" in args:
     elif "snapshot_directory" in report:
         folder = root / "reports" / report["snapshot_directory"]
         folder.mkdir(exist_ok=True)
-        (folder / "organization-sites.json").write_text(json.dumps({"domain": "cc-destination-organization-sites", "migration_ready": False, "tls": report["tls"]}))
+        filename = report.get("snapshot_file", "organization-sites.json")
+        (folder / filename).write_text(json.dumps(report if filename == "root-qualification.json" else {
+            "domain": "cc-destination-organization-sites", "migration_ready": False, "tls": report["tls"],
+        }))
     print(json.dumps(report))
     sys.exit(exit_status)
 sys.exit(2)
@@ -236,7 +249,7 @@ class UnifiedLauncherTests(OfflineTestCase):
         for filename in ("docker", "id", "sudo"):
             (self.bin / filename).chmod(0o755)
 
-    def launch(self, selection="2", mode="", inputs=None, uid="10001"):
+    def launch(self, selection="2", mode="", inputs=None, uid="10001", arguments=()):
         environment = {
             **os.environ, "PATH": str(self.bin).replace("\\", "/") + os.pathsep + os.environ.get("PATH", ""),
             "PYTHONPATH": str(ROOT / "src"), "MOCK_ROOT": str(self.directory),
@@ -251,7 +264,7 @@ class UnifiedLauncherTests(OfflineTestCase):
             if key.startswith("CCV_") or key in ("ccv_username", "ccv_password"):
                 del environment[key]
         result = subprocess.run(
-            [BASH, str(ROOT / "ccv.sh").replace("\\", "/")],
+            [BASH, str(ROOT / "ccv.sh").replace("\\", "/"), *arguments],
             input=(inputs if inputs is not None else f"{selection}\ncontroller.invalid\n{USERNAME}\n{SECRET}\n").encode(),
             capture_output=True, env=environment, timeout=30,
         )
@@ -274,6 +287,72 @@ class UnifiedLauncherTests(OfflineTestCase):
         result, calls = self.launch(inputs="9\n")
         self.assertEqual(result.returncode, 2)
         self.assertIn("Select 1, 2, 3 or 4", result.stderr)
+
+    def test_root_flag_routes_through_existing_discovery_and_sanitized_summary(self):
+        result, calls = self.launch(arguments=("--qualify-default-root",))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        operations = [row for row in calls if row["args"][0] == "compose" and "run" in row["args"]]
+        self.assertEqual(len(operations), 1)
+        self.assertIn("discover-sites", operations[0]["args"])
+        self.assertIn("--qualify-default-root", operations[0]["args"])
+        self.assertIn("Name matches Default: True", result.stdout)
+        self.assertNotIn("[y/N]", result.stderr)
+        self.assertIn("Site-create parent acceptance remain unverified", result.stdout)
+        self.assertNotIn("private-native-id", result.stdout + result.stderr)
+        report = self.reports / "cc-destination-synthetic" / "root-qualification.json"
+        self.assertNotIn("private-native-id", report.read_text())
+        self.assertFalse((self.reports / "cc-destination-synthetic" / "organization-sites.json").exists())
+
+    def test_root_flag_rejects_other_menu_roles_before_credentials_or_docker(self):
+        for selection in ("1", "3"):
+            result, calls = self.launch(selection, arguments=("--qualify-default-root",))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("requires menu choice 2", result.stderr)
+            self.assertEqual(calls, [])
+
+    def test_root_flag_preserves_tls_consent_and_origin_scope_on_retry(self):
+        result, calls = self.launch(
+            mode="certificate-failure", arguments=("--qualify-default-root",),
+            inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\ny\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        operations = [row for row in calls if row["args"][0] == "compose" and "run" in row["args"]]
+        self.assertEqual(len(operations), 2)
+        self.assertTrue(all("--qualify-default-root" in row["args"] for row in operations))
+        self.assertEqual([row["env"]["CCV_DESTINATION_TLS_VERIFY"] for row in operations], ["true", "false"])
+        self.assertEqual(operations[0]["env"]["CCV_DESTINATION_URL"], operations[1]["env"]["CCV_DESTINATION_URL"])
+        self.assertEqual(result.stderr.count("Continue without certificate verification for this session only?"), 1)
+        report = json.loads((self.reports / "cc-destination-synthetic" / "root-qualification.json").read_text())
+        self.assertEqual(report["tls"], {"verify": False, "exception_scope": "selected_origin_current_execution"})
+
+    def test_root_flag_decline_and_production_lock_prevent_insecure_retry(self):
+        result, calls = self.launch(
+            mode="certificate-failure", arguments=("--qualify-default-root",),
+            inputs=f"2\ncontroller.invalid\n{USERNAME}\n{SECRET}\n\n",
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(len(self.operation_calls(calls)), 1)
+        self.assertFalse(any("approve-exception" in row["args"] for row in calls))
+        (self.directory / "calls.jsonl").unlink()
+        self.production_lock()
+        result, calls = self.launch(mode="certificate-failure", arguments=("--qualify-default-root",))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertNotIn("[y/N]", result.stderr)
+        self.assertEqual(len(self.operation_calls(calls)), 1)
+
+    def test_root_summary_rejects_server_values_disguised_as_types_without_printing_them(self):
+        module = importlib.import_module("cc_vision_import.destination_discovery")
+        report = {
+            "operation": "destination-discovery", "discovery_mode": "default-root",
+            "migration_ready": False, "configuration_writes_authorized": False,
+            "import_file_compatible": False,
+            **module.project_default_root({"name": "Default", "ormID": SECRET}),
+        }
+        report["field_assessments"]["ormID"]["python_type"] = SECRET
+        stream = io.StringIO()
+        with redirect_stdout(stream), self.assertRaises(self.helper.SetupError):
+            self.helper.summary(report, "2", 0, str(self.reports), "")
+        self.assertNotIn(SECRET, stream.getvalue())
 
     def test_source_and_discovery_route_to_existing_roles_with_private_stdin_credentials(self):
         for selection, profile, service, operation in (

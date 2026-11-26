@@ -38,7 +38,10 @@ build **unknown/unverified**. No environment-declared or specification version
 is treated as discovered. Product-version discovery remains blocked pending
 an exact evidenced method/path, response schema and target applicability.
 
-`destination-discovery` uses only the two established login/Organization paths.
+Default `destination-discovery` uses only the two established login/Organization
+paths. Explicit `--qualify-default-root` instead uses login and the exact
+Default by-name GET, with a separate sanitized, non-executable report; it never
+widens the tree-mode allowlist.
 Basic+JSON login also requires a successful JSON status and validated session
 identifier, using the existing session validator; HTTP 200 alone is rejected.
 TLS/hostname verification starts TRUE on every launcher execution. The single
@@ -86,11 +89,16 @@ Sites permits conditional creation candidates, not verified absence/completeness
 Source parent-before-child order and future parent destination-ID requirements
 are exposed without create payloads or assigned destination IDs.
 
-Owner-reported environment: 30 orderable source Sites and zero destination Sites;
-destination 10.15.0-2 is GUI-observed only. The specified source/destination files
-are unavailable on this development workstation; no real reconciliation result
-has been claimed and no alternate backups were substituted. Synthetic fixtures
-are explicitly test evidence, not observed controller data.
+Owner now reports a successful real comparison: 30 source Sites, zero discovered
+destination Sites, confirmed Bell Canada -> Default root association, 30
+conditional creations and 22 future parent destination-identity dependencies.
+No ambiguous or unresolved comparison classifications were reported. The attached
+sanitized report at `C:\CCV-Evidence\site-comparison-confirmed-20261126.json`
+has now been inspected and supports these counts and confirmed root references.
+The underlying source/destination snapshots were not supplied or independently
+reconciled here; report inspection is not a reproduction of the comparison.
+Destination 10.15.0-2 is GUI-observed only. No alternate backups were substituted.
+Synthetic fixtures are test evidence, not observed controller data.
 
 Destination create/schema/version qualification, native identity to create-parent
 field correspondence, inferred root/parent semantics, incomplete enumeration and
@@ -100,6 +108,542 @@ options. Existing offline Compose passthrough provides network-none/incoming-RO
 execution, without launcher/service/authentication/TLS/discovery changes.
 No endpoints, configuration writes, Device associations or capability activation
 are added. Test evidence is recorded in PROGRESS.md.
+
+## SITE-CREATE-API-QUALIFICATION - legacy evidence, target blocked
+
+Scope: qualify one future Organization Site create, not implement or authorize
+writes. Existing discovery, comparison, Docker deployment and launcher remain
+unchanged. The confirmed root association is not root identity equivalence.
+
+### Compatibility matrix
+
+| Question | Exact evidence | Qualification for CC 10.15.0-2 |
+| --- | --- | --- |
+| Create method/path | [Legacy uploader](../legacy/app/upload_cybercontroller_objects.py), lines 162-168: POST `/mgmt/system/config/tree/site` with JSON | Source-observed only. API-07 is absent from both reviewed PDFs; target support remains unqualified, not proven unsupported. |
+| Create payload | Uploader lines 162-165 submits only `name` and `parentOrmID` | These are fields used by legacy code, not a vendor-qualified list of required/allowed fields, types, defaults or nullability. No complete create schema established. |
+| Parent reference | Uploader lines 86-105: GET `/mgmt/system/config/tree/site/byname/{parent_site_name}`, then prefer `meIdentifier.managedElementID`, otherwise `ormID` | Name is a lookup input, not the submitted parent field. A returned destination identifier is submitted as `parentOrmID`; the two identifier types' equivalence is unqualified. Never substitute a source ID. |
+| Root parent | Uploader lines 146-160: GET `/mgmt/system/config/tree/{tree_type}`, take `meIdentifier.managedElementID`; failed/falsy parent lookup falls back to that root | Root-ID acceptance in `parentOrmID` is unqualified. The silent fallback is unsafe and must not be adopted. A confirmed Bell Canada -> Default association does not qualify the Default identifier for POST. |
+| Source projection | Uploader lines 154-165 consumes source `name` and `parent_site_name`; existing source-readiness projection distinguishes source `id`/`parentOrmID` | Preserve `name` unchanged only conditionally, pending target naming/collision rules. Source `parent_site_name` is dependency evidence, not a create field. Source `id`/`parentOrmID` are not destination identifiers. |
+| Other fields | Lookup `SitePojo`, V/C PDF 255 (printed 245): required strings `ormID`, `name`, `type`; optional strings `description`, `parentOrmID` | Lookup-model Required flags do not qualify create fields. Do not add `ormID`, `type`, `description`, tree selectors or unknown fields from this model. Unprojected source fields remain unchanged and unresolved, not silently discarded as irrelevant. |
+| Creation response/identity | Uploader lines 169-175 considers only HTTP 200 successful; no success-body parsing or returned-ID extraction | Success statuses, response schema, destination identity field, asynchronous completion and failure contracts unknown. HTTP acceptance alone cannot prove creation. No automatic write retry. |
+| Readback | API-05: GET `/mgmt/system/config/tree/site/byid/{id}`, V/C PDF 146 (printed 136), ID described as server `ormID`; API-04 by-name lookup also documented | Candidate readback paths, not target-qualified verification. By-ID requires an evidenced returned destination identity. By-name alone cannot prove unique identity/parent or completion; its documentation has an unresolved extra `id` parameter. |
+| Hierarchy verification | API-03 Organization GET is legacy-observed and used by current read-only discovery. Snapshot projection retains `native`, `reference`, `observed_container_parent`, parent relationship and issue codes | Future readback must verify one destination native identity, unchanged reviewed name, intended root/parent and Organization placement against baseline. Tree/lookup identity correspondence and enumeration completeness remain unqualified. |
+| Site update | [Legacy updater](../legacy/app/update_cybercontroller_objects.py), lines 143-191 updates Devices via PUT `/mgmt/system/config/tree/device` | This updater supplies no Site-update operation or contract; do not infer PUT Site support from Device behavior. Devices are excluded from this task. |
+| Target version | Owner GUI observation: 10.15.0-2. Discovery reports installed version unknown/unverified. Reviewed CC PDF is 10.10.7-labelled with conflicting 10.10.6 metadata | No target-specific Site-create, parent identity, response or completion qualification. Prior PDF evidence and successful read-only discovery do not certify writes on this target. |
+
+### Additional root evidence and four unresolved fields
+
+Owner supplies additional Radware evidence: GET
+`/mgmt/system/config/tree/site/byname/Default` can return `ormID`, `name`, `type`
+and `parentOrmID`. A destination server-assigned root `ormID` is the candidate
+create-parent identifier, never the Vision root ID or `destination:node-1`.
+This supports a lookup candidate, not a demonstrated target response or proof
+that POST accepts this root identifier.
+
+The protected snapshots exist only on the Linux destination. No root response
+was inspected here. Current discovery projection
+(`destination_discovery.py:216-239`) retains name, managed-element identity/class
+and optional parentOrmID, **not top-level ormID or type**. Therefore their absence
+in the projected snapshot cannot prove absence in the server response. Comparison
+reprojection also does not establish either field. No equality between
+managedElementID and ormID is assumed.
+
+| Evidence item | Current qualification |
+| --- | --- |
+| Intended root name | Default is owner-confirmed; saved native name still requires local match check. |
+| Root type | Native managedElementClass may identify the Site class. Lookup `type` and its expected root value remain unverified; a class match is not proof of lookup-type equivalence. |
+| Root ormID | Candidate server identifier per supplied Radware evidence; value/presence and correspondence to the saved Default root unverified. |
+| Four source fields | Only count 4 is available. All four field names, types and create relevance remain unverified; no identities or field names are invented. |
+| Future identity/readback | Need target create success/error and returned server-ID contract, then by-ID readback matching reviewed name, expected parent ormID and Organization placement. By-name root read alone does not qualify creation/completion. |
+
+Owner-reported Linux inspection: exactly one Default name match; name present
+as str; type, ormID, managedElementID and parentOrmID absent from the inspected
+root representation. This is snapshot-representation evidence only. Discovery
+stores the native name at `organization_root.native.name` and managed identity
+at `organization_root.native.meIdentifier.managedElementID`, not directly on the
+root record. The supplied results do not establish which nesting level was
+inspected; do not infer server absence, valid native identity or root-ID equality.
+The lookup's actual response and all create-parent acceptance remain unverified.
+
+Field classification after local key/type extraction: source-specific identity,
+version or runtime metadata must not be copied without portability evidence;
+configuration fields require target create optionality/default/preservation
+evidence; hierarchy fields require explicit destination mapping; opaque/nested
+fields remain blocked pending schema evidence. These are classification rules,
+**not findings about the four unknown fields**. Even `type` is excluded from the
+preview's unknown count by the source parser but is not thereby create-qualified.
+
+### Standalone offline extraction on the destination (no host Python)
+
+Run from the standard checkout using the existing shared Compose image. Set
+these three variables to the actual saved container-visible paths; the comparison
+must be the original report containing the two whole-input bindings. The command
+uses network-none, UID 10001 and existing mounts, makes no writes, and prints only
+match/presence results and the selected Site's unknown field paths/types. Reports
+are already writable in Compose, but this helper opens all inputs read-only.
+If Docker access needs approved sudo, authenticate normally; do not change
+permissions or run the application as root to bypass an input permission error.
+
+```bash
+SOURCE=/incoming/vision-backup-20261125T122823Z-3ad1c37f503d/organization-tree/tree.json
+SNAPSHOT=/reports/cc-destination-20261126T001502Z-c71a84af2691/organization-sites.json
+COMPARISON=/reports/source-destination-site-comparison.json
+# Adjust SNAPSHOT and COMPARISON to the actual existing saved files.
+docker compose --profile destination run --rm -T --entrypoint python \
+  ccv-destination -B - "$SOURCE" "$SNAPSHOT" "$COMPARISON" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+from cc_vision_import.capabilities import ProductClientError
+from cc_vision_import.contracts import ContractValidationError
+from cc_vision_import.site_comparison import _destination
+from cc_vision_import.vision_tree_preview import _tree_rows, inspect_site_migration_readiness
+
+def require(condition):
+    if not condition:
+        raise ValueError("Evidence check failed")
+
+def read(path):
+    raw = Path(path).read_bytes()
+    return raw, json.loads(raw)
+
+def main():
+    require(len(sys.argv) == 4)
+    source_raw, source = read(sys.argv[1])
+    snapshot_raw, snapshot = read(sys.argv[2])
+    _, report = read(sys.argv[3])
+    require(report.get("domain") == "source-destination-site-comparison-report")
+    require(report.get("execution_authorized") is False)
+    require(report.get("configuration_writes_authorized") is False)
+    for slot, raw in (("source-organization-tree", source_raw),
+                      ("destination-organization-sites", snapshot_raw)):
+        bindings = [b for b in report["input_bindings"] if b["slot"] == slot]
+        require(len(bindings) == 1)
+        require(bindings[0]["sha256"] == hashlib.sha256(raw).hexdigest())
+    readiness = inspect_site_migration_readiness(source)
+    _, root, _ = _destination(snapshot)
+    mapping = report["root_mapping"]
+    require(mapping["status"] == "confirmed" and mapping["operator_confirmed"] is True)
+    require(mapping["source_reference"] == "source:" + readiness["root_assessment"]["reference"])
+    require(mapping["destination_reference"] == "destination:" + root["reference"])
+    records = [r for r in report["site_comparisons"] if r["source_reference"] == "source:node-2"]
+    require(len(records) == 1)
+    record = records[0]
+    require(record["classification"] == "candidate_for_creation")
+    require(record["source_order_eligible"] is True and record["missing_source_fields"] == [])
+    require(record["source_parent_reference"] == mapping["source_reference"])
+    require(record["observed_source_container_parent"] == mapping["source_reference"])
+    require(record["parent_destination_reference_candidate"] == mapping["destination_reference"])
+    require(record["requires_destination_identity_from_source_parent"] is None)
+    candidates = [r for r in readiness["site_candidates"] if r["reference"] == "node-2"]
+    require(len(candidates) == 1 and candidates[0]["source_order_eligible"] is True)
+    row = _tree_rows(source["tree"])[1]
+    identifier = row.get("meIdentifier", {})
+    known = {"meIdentifier", "children", "name", "type", "managementIp", "parentOrmID"}
+    fields = [(key, row[key]) for key in sorted(set(row) - known)]
+    fields += [("meIdentifier." + key, identifier[key]) for key in
+               sorted(set(identifier) - {"managedElementID", "managedElementClass"})]
+    require(len(fields) == record["unprojected_source_field_count"] == 4)
+    json_types = {str: "string", int: "number", float: "number", bool: "boolean",
+                  dict: "object", list: "array", type(None): "null"}
+    native = root["native"]
+    root_identifier = native["meIdentifier"]
+    print(json.dumps({
+        "root_checks": {
+            "name_matches_Default": native.get("name") == "Default",
+            "managedElementClass_matches_Site": root_identifier.get("managedElementClass")
+                == "com.radware.insite.model.device.Site",
+            "type_present_in_snapshot": "type" in native,
+            "type_match": "unverified_expected_lookup_type_not_qualified",
+            "ormID_present_in_snapshot": "ormID" in native,
+            "managedElementID_present_in_snapshot": "managedElementID" in root_identifier,
+            "managedElementID_usable": isinstance(root_identifier.get("managedElementID"), str)
+                and bool(root_identifier["managedElementID"].strip())
+        },
+        "unprojected_fields": [
+            {"path": "source:node-2." + key, "python_type": type(value).__name__,
+             "json_type": json_types[type(value)]} for key, value in fields
+        ]
+    }, indent=2))
+    require(native.get("name") == "Default")
+    require(root_identifier.get("managedElementClass") == "com.radware.insite.model.device.Site")
+
+try:
+    main()
+except (OSError, ValueError, KeyError, TypeError, IndexError, RecursionError,
+        ContractValidationError, ProductClientError) as error:
+    print("Offline extraction failed: " + type(error).__name__
+          + ". Check permissions, JSON shape, input bindings and root evidence locally.",
+          file=sys.stderr)
+    sys.exit(1)
+PY
+```
+
+Numbering exactly follows the source parser's depth-first traversal of **all**
+nodes, including Devices; `_tree_rows(...)[1]` is native node-2, not the second
+Site in a filtered array. Unknown paths use the same top-level/identifier
+exclusion sets as `inspect_vision_tree`, not the narrower legacy create payload.
+No child values or nested unknown values are printed. Missing projected ormID
+is reported only as missing in this snapshot, never missing on the controller.
+
+### Pending source-only inspection (independent of destination root fields)
+
+The four real field paths/types have not been supplied. They cannot be derived
+from the sanitized count or inspected on this workstation. Run the following
+source-only variant on Linux: it does not depend on the destination root having
+a managedElementID, unlike the combined command above. Set COMPARISON to the
+actual original comparison report; input bytes must match its source binding.
+No controller credentials, network or host Python are required.
+
+```bash
+SOURCE=/incoming/vision-backup-20261125T122823Z-3ad1c37f503d/organization-tree/tree.json
+COMPARISON=/reports/source-destination-site-comparison.json
+docker compose --profile destination run --rm -T --entrypoint python \
+  ccv-destination -B - "$SOURCE" "$COMPARISON" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+from cc_vision_import.contracts import ContractValidationError
+from cc_vision_import.vision_tree_preview import _tree_rows, inspect_site_migration_readiness
+
+def require(condition):
+    if not condition:
+        raise ValueError("Source evidence check failed")
+
+def main():
+    require(len(sys.argv) == 3)
+    raw = Path(sys.argv[1]).read_bytes()
+    source = json.loads(raw)
+    report = json.loads(Path(sys.argv[2]).read_bytes())
+    require(report.get("domain") == "source-destination-site-comparison-report")
+    require(report.get("execution_authorized") is False)
+    require(report.get("configuration_writes_authorized") is False)
+    bindings = [b for b in report["input_bindings"] if b["slot"] == "source-organization-tree"]
+    require(len(bindings) == 1 and bindings[0]["sha256"] == hashlib.sha256(raw).hexdigest())
+    readiness = inspect_site_migration_readiness(source)
+    mapping = report["root_mapping"]
+    require(mapping["status"] == "confirmed" and mapping["operator_confirmed"] is True)
+    require(mapping["source_reference"] == "source:" + readiness["root_assessment"]["reference"])
+    records = [r for r in report["site_comparisons"] if r["source_reference"] == "source:node-2"]
+    require(len(records) == 1)
+    record = records[0]
+    require(record["classification"] == "candidate_for_creation")
+    require(record["source_order_eligible"] is True and record["missing_source_fields"] == [])
+    require(record["source_parent_reference"] == mapping["source_reference"])
+    require(record["observed_source_container_parent"] == mapping["source_reference"])
+    require(record["parent_destination_reference_candidate"] == mapping["destination_reference"])
+    require(record["requires_destination_identity_from_source_parent"] is None)
+    candidates = [r for r in readiness["site_candidates"] if r["reference"] == "node-2"]
+    require(len(candidates) == 1 and candidates[0]["source_order_eligible"] is True)
+    require(candidates[0]["source_parent_reference"] == readiness["root_assessment"]["reference"])
+    row = _tree_rows(source["tree"])[1]
+    identifier = row.get("meIdentifier", {})
+    known = {"meIdentifier", "children", "name", "type", "managementIp", "parentOrmID"}
+    fields = [(key, row[key]) for key in sorted(set(row) - known)]
+    fields += [("meIdentifier." + key, identifier[key]) for key in
+               sorted(set(identifier) - {"managedElementID", "managedElementClass"})]
+    require(len(fields) == record["unprojected_source_field_count"] == 4)
+    types = {str: "string", int: "number", float: "number", bool: "boolean",
+             dict: "object", list: "array", type(None): "null"}
+    print(json.dumps({"unprojected_fields": [
+        {"path": "source:node-2." + key, "python_type": type(value).__name__,
+         "json_type": types[type(value)]} for key, value in fields
+    ]}, indent=2))
+
+try:
+    main()
+except (OSError, ValueError, KeyError, TypeError, IndexError, RecursionError,
+        ContractValidationError) as error:
+    print("Source inspection failed: " + type(error).__name__
+          + ". Check local permissions, JSON shape, source binding and selected reference.",
+          file=sys.stderr)
+    sys.exit(1)
+PY
+```
+
+Return only this field-path/type output for classification. The command is an
+offline inspection, not completion evidence until run on the real hash-bound
+source. No field value or native identifier is printed.
+Source-only helper validation passed: Python/Bash syntax and synthetic execution
+for four fields including a nested identifier field, Python/JSON types,
+no native value output, unchanged inputs and sanitized hash-mismatch failure.
+Real source inspection remains pending; proposed live lookup tests remain unrun.
+
+### Implemented root-only lookup - offline mock qualification only
+
+Current enforcement is `DestinationAuthorization` exact `(method, target)` plus
+normalized HTTPS origin/443 (`http_backend.py:99-127`). Discovery `_backend`
+permits only:
+
+- POST `/mgmt/system/user/login` (existing authentication, not configuration).
+- GET `/mgmt/system/config/tree/Organization`.
+
+The default pair list is unchanged. Explicitly selected root-only
+mode permits **only** existing login plus GET
+`/mgmt/system/config/tree/site/byname/Default`; no automatic Organization GET,
+by-ID GET, arbitrary name/path/query, redirects or additional write capability.
+Configuration POST, PUT, PATCH and DELETE remain disabled. Existing login POST
+must remain for session establishment; zero POST of any kind would prevent reuse
+of current authentication.
+
+| Implemented file change | Minimal purpose |
+| --- | --- |
+| `destination_discovery.py` | Add default-false `qualify_default_root` selector to runner/backend. Root-only allowlist, one GET after validated login, strict bounded JSON validation and sanitized field assessment. Retain default tree-only path and snapshot format unchanged. |
+| `master_cli.py` | Optional `--qualify-default-root`, valid only with existing destination-discovery operation; no arbitrary lookup target or user-supplied expected type. Pass explicit boolean to runner. |
+| `compose_entrypoint.py` | Accept/forward this flag only for discovery/discover-sites, retaining private credential/profile setup and cleanup. |
+| `ccv.sh` | Optional explicit qualification flag forwarded only for menu choice 2, including the existing approved pre-auth TLS retry. Reject other role selections with the flag. Keep menu/default workflows, secret handling and cleanup unchanged. |
+| `http_backend.py` | Existing unverified discovery TLS guard accepts either the exact login/tree pair or exact login/Default pair, never their union or arbitrary endpoints. Necessary for the existing session-only root-mode TLS consent; normal verified transport/origin enforcement remains unchanged. |
+| `launcher_helper.py` | Validate and display only finite field-presence/type/identity assessments and the sanitized report path; no raw identifier values. Preserve pre-auth certificate prompt eligibility and cleanup. |
+| Existing discovery/launcher/Compose tests | Focused mocked cases listed below; no new framework. |
+
+No Dockerfile, Compose service/network, authentication, TLS policy module,
+generic transport policy or source collector change. The flag is now available
+as `./ccv.sh --qualify-default-root` (choose 2); existing menu/defaults unchanged.
+
+Use `_DiscoveryAuthentication` and `SessionManager` unchanged: validated
+application login status/session identifier, exact destination scope, HTTPS/443,
+10/30/60-second timeouts, zero read retries, existing bounded response limit,
+trusted CA and default verified TLS. Preserve production exception lock and
+single-origin/current-execution approval; no unverified authentication before
+consent, automatic downgrade or restart after authentication. Always clear
+strategy/session state on success/failure. Network policy remains administrator
+managed; an application allowlist does not replace egress filtering.
+
+Implemented response assessment contract:
+
+- Require HTTP 200 and strict JSON object; reject duplicate keys, invalid JSON,
+  application error status and unsupported envelope/array shapes, without logging
+  bodies or guessing a nested wrapper.
+- For exactly `ormID`, `name`, `type`, `parentOrmID`, emit only `present`,
+  JSON/Python type from a finite type map and a static `usable` outcome.
+  Absent is distinct from null, empty and wrong type. No dynamic error text,
+  field values, identifiers, arbitrary unknown keys or API headers in reports.
+- Require name to be usable string exactly Default (no normalization), and
+  ormID to be usable nonempty printable string. Missing/wrong/mismatched evidence
+  yields explicit partial/blocked result, never qualified success.
+- Emit `name_matches_Default`. Emit `type_match=unverified` until vendor evidence
+  establishes expected root type; do not invent a Site/root enum or equate
+  managedElementClass with type. parentOrmID presence/type can be assessed, but
+  allowed root-parent absence/null/value remains unverified.
+- Native ormID is server-assigned candidate identity, not `destination:node-1`.
+  Do not persist the value in this sanitized report. Return
+  `root_correspondence=unverified` where immutable prior identity evidence is
+  absent; a name match alone is insufficient. Keep
+  `site_create_parent_acceptance=unverified`, `migration_ready=false` and
+  `configuration_writes_authorized=false` even with valid name/ormID.
+- Write only a distinct sanitized root-qualification report under existing
+  destination-reports, exclusive create, not a tree/import snapshot. Record
+  request method/path, collection time and existing sanitized TLS scope.
+
+Mocked acceptance cases:
+
+1. Default discovery still makes only login/Organization GET and unchanged
+   snapshots; explicitly selected root mode makes only login/Default GET.
+2. Reject other origins, ports, schemes, names, query/path variants, by-ID/tree
+   requests in root mode and all configuration writes before opening a connection.
+3. Valid lookup emits finite presence/type/usability/name-match results only.
+   Missing/null/empty/wrong-type ormID/name/type/parentOrmID, name mismatch,
+   error JSON, duplicate keys, malformed/oversized JSON, arrays and non-200
+   responses fail or remain blocked with static sanitized issue codes.
+4. Credentials, cookies, tokens, native IDs, response fields/headers/error bodies
+   never appear in stdout/stderr or saved report; reports stay non-importable.
+5. Failed/HTTP-200-only login does not permit lookup. Cookie/session cleanup on
+   success, authentication/transport/validation/output failure and interruption.
+6. Trusted TLS needs no prompt; untrusted fails closed; explicit lab approval
+   retries only pre-auth for same origin/execution; rejection/production lock
+   prohibits lookup. No post-auth retry or cross-origin exception reuse.
+7. CLI/Compose reject flag on other operations/roles; launcher menu and cleanup
+   preserved; source-only helper validates traversal/count/binding and never
+   prints native values. No mocked root result enables parent-ID or write readiness.
+
+### Authorized runtime validation - not executed during development
+
+First run the offline extraction; inspect any separately saved protected lookup
+evidence before requesting again. If no such evidence exists, propose exactly
+one authenticated GET `/mgmt/system/config/tree/site/byname/Default` through the
+existing discovery session. Require successful JSON, exact name Default, usable
+server ormID and qualified expected type/root parent semantics. Correlate with
+the saved Organization root using evidenced identity rules; equal names or two
+present identifiers are not proof of equivalence. Report booleans/match outcomes
+only, retaining any native identifiers exclusively in protected local evidence.
+
+The discovery backend now selects login/Organization or login/Default according
+to the explicit flag, with no shared union. Implementation/mock tests are
+authorized; live execution still needs controller authorization. Reuse existing credentials,
+verified-first session-only TLS consent and administrator egress restrictions;
+no new service, fallback curl, TLS bypass or broad endpoint authorization.
+No live network request or deployment was performed during implementation.
+Sanitized root results cannot be substituted for the Organization snapshot or
+used as an import artifact; no native ormID value is retained in this report.
+
+Exact operator commands, after approved checkout provisioning:
+
+```sh
+cd /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components
+docker compose --profile destination-discovery config --quiet
+docker compose --profile destination-discovery build ccv-destination-discovery
+./ccv.sh --qualify-default-root
+```
+
+Select 2. Existing credentials/CA/TLS exception and private temporary-file cleanup
+are reused. The one-shot container exits and is removed. A sanitized
+`cc-destination-*/root-qualification.json` remains under destination-reports.
+Exit 0 means Default name/usable candidate ormID observed, not create-qualified;
+partial evidence exits 1. No new installation procedure or image.
+
+Helper verification on Windows: Python compilation and Git Bash syntax passed.
+Synthetic offline inputs exercised four field paths/types (including an
+identifier subfield), Default root matching, projected ormID absence, suppression
+of native IDs/values, unchanged input bytes and hash-mismatch failure with a
+sanitized error. These fixtures do not identify the real four fields. Actual
+Linux/Docker execution and protected-root matching remain unverified.
+
+Root-mode implementation verification: 139 launcher/HTTP backend/transport/TLS/
+comparison regressions passed in 427.770s. Final destination/Compose and added
+root-lock/leakage checks: 31 tests in 33.689s, 30 passed and one Docker availability
+skip. Combined final coverage: 170 tests, 169 passed, one skip; no real dispatch.
+Five runtime AST checks, launcher and 25 documented shell blocks passed.
+Four runtime Pylance files have no diagnostics; backend has unused-code hints,
+no error/warning diagnostics. The first shell-block scanner incorrectly consumed
+indented Markdown closing fences; corrected bounded fence extraction passed
+without changing the existing runbook. Docker/controller validation remains
+unverified. No live calls, deployment, Git writes or Site-create activation.
+
+### Single-Site request preview - NON-EXECUTABLE, genuine root-child selected
+
+Evidence: owner-attached sanitized report
+`C:\CCV-Evidence\site-comparison-confirmed-20261126.json`, root mapping at lines
+36-46, selected record at lines 101-121 and input bindings at lines 766-775.
+Select `source:node-2`, the first eligible root-child in the saved source order.
+Its explicit and observed parent references both equal confirmed source root
+`source:node-1`; its proposed destination parent is confirmed root
+`destination:node-1`. It has a source identity, no missing source fields, is
+source-orderable and requires no future destination identity from a source
+parent Site. Eight report records meet these root-child selection checks.
+
+Selection is sufficient for this qualification preview, **not for execution**.
+The Site retains four unprojected fields and three issue codes shown below.
+Zero discovered destination Sites is not verified absence or complete
+enumeration. The destination root also has five unprojected fields. Artifact-local
+references are not native IDs and must never be sent as `parentOrmID`.
+This JSON describes field assessments, not a request body; null version evidence
+is unknown evidence, not a value to send.
+
+```json
+{
+  "domain": "site-create-qualification-preview",
+  "status": "blocked",
+  "execution_authorized": false,
+  "configuration_writes_authorized": false,
+  "import_file_compatible": false,
+  "target": {
+    "product": "cyber-controller",
+    "gui_observed_version": "10.15.0-2",
+    "api_verified_version": null
+  },
+  "snapshot_provenance": {
+    "source_product": "vision",
+    "source_version": "5.4.9",
+    "source_collected_at": "2026-11-25T12:28:29.852332+00:00",
+    "destination_collected_at": "2026-11-26T00:15:02.139394+00:00",
+    "complete_destination_site_enumeration": false
+  },
+  "observed_legacy_operation": {
+    "method": "POST",
+    "path": "/mgmt/system/config/tree/site",
+    "target_contract_qualified": false
+  },
+  "selection": {
+    "status": "selected_genuine_root_child_for_qualification_only",
+    "source_reference": "source:node-2",
+    "source_parent_reference": "source:node-1",
+    "observed_source_container_parent": "source:node-1",
+    "source_parent_relationship": "inferred-from-legacy-nesting",
+    "destination_root_reference": "destination:node-1",
+    "root_association": "operator-confirmed-not-identity-equivalence",
+    "classification": "candidate_for_creation",
+    "source_identity_present": true,
+    "source_order_eligible": true,
+    "missing_source_fields": [],
+    "destination_candidates": [],
+    "destination_identity_assigned": false,
+    "requires_destination_identity_from_source_parent": null,
+    "unprojected_source_field_count": 4,
+    "issue_codes": [
+      "absence_in_incomplete_snapshot_not_verified_absence",
+      "additional_site_fields_not_projected",
+      "unknown_fields_unverified"
+    ]
+  },
+  "input_bindings": [
+    {
+      "slot": "source-organization-tree",
+      "sha256": "5d7e911b1d72c59d8265eace3684ea1a556bd4491f8393f4650e539613cafcee"
+    },
+    {
+      "slot": "destination-organization-sites",
+      "sha256": "8b36ad23bbabb235317996fe0ec325b4a47932a6d0725475f9f3a0e4047feb26"
+    }
+  ],
+  "field_assessments": [
+    {
+      "field": "name",
+      "value_included": false,
+      "status": "conditional_unchanged_source_name_target_rules_unqualified"
+    },
+    {
+      "field": "parentOrmID",
+      "value_included": false,
+      "status": "blocked_destination_root_identifier_contract_unqualified"
+    }
+  ],
+  "request_body_generated": false,
+  "root_parent_qualification": {
+    "candidate_identifier_kind": "destination_server_assigned_ormID",
+    "candidate_lookup": "GET /mgmt/system/config/tree/site/byname/Default",
+    "native_identifier_value_included": false,
+    "saved_root_ormID_presence": "unverified_projector_does_not_retain_field",
+    "managedElementID_equals_ormID": "unverified_not_assumed",
+    "lookup_name_type_root_correspondence": "unverified",
+    "post_parentOrmID_acceptance": "unverified"
+  },
+  "unprojected_fields": {
+    "count": 4,
+    "field_paths_types_and_create_relevance": "unverified_pending_local_extraction"
+  },
+  "returned_destination_identity_contract": "unqualified",
+  "readback_and_completion_contract": "unqualified",
+  "devices_processed": false
+}
+```
+
+Both whole-input bindings are copied exactly from the sanitized report and pass
+64-character hexadecimal SHA-256 syntax checks. They were not recomputed against
+the unavailable underlying snapshots and are not an independent authenticity
+check. No native IDs, names, credentials or raw configuration values are needed
+to establish this reference-based selection.
+
+### Smallest remaining prerequisite before a separately authorized lab test
+
+Obtain target-applicable vendor evidence for POST Site: accepted/required fields,
+the exact destination root identifier accepted by `parentOrmID`, success/error
+and returned-identity schema, plus a completion/readback contract. An approved,
+sanitized existing target transaction may supplement that evidence; this task
+does not authorize capturing one through a new write. Resolve the selected
+root-child's relevant unprojected fields and naming/parent collision checks from
+the actual bound inputs. Then seek separate approval for one create and readback,
+with least-privilege access, a fresh reviewed baseline and a documented recovery
+procedure. Do not enable bulk creation or infer permission to delete.
+
+Verification: source/document inspection, offline JSON parsing, root-child
+selection predicates, binding syntax checks and evidence-file SHA-256 before/
+after read (unchanged). No reusable Python validation was added, so no new tests
+or regression run were needed. Documented preview JSON parses and its selected
+reference/parent/classification/order/unknown count and bindings match supplied
+evidence; non-executable guards remain false. No legacy
+execution, live calls, configuration writes, deployment or Git operations.
 
 ## SITE-MIGRATION-READINESS - source Sites only
 

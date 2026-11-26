@@ -245,13 +245,56 @@ unqualified; product version stays **unknown/unverified**, including the unresol
 10.10.7/10.10.6 documentation conflict. No imports, writes or speculative version
 requests occur. Exit 0 means collected-unqualified, not migration-ready.
 
+#### Optional: read-only Default root ID qualification
+
+After separately authorizing the controller/account and existing restricted
+HTTPS egress, rebuild the same shared image from the reviewed checkout:
+
+```sh
+cd /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components
+docker compose --profile destination-discovery config --quiet
+docker compose --profile destination-discovery build ccv-destination-discovery
+./ccv.sh --qualify-default-root
+```
+
+Select **2** in the unchanged menu. Enter only controller, username and hidden
+password. This explicit mode replaces the Organization read with exactly GET
+`/mgmt/system/config/tree/site/byname/Default`, after existing validated login.
+It allows neither other lookups nor configuration writes. Existing session-only
+TLS consent and production lock apply unchanged; no automatic downgrade.
+
+Output includes only presence/Python/JSON types, usability and identity-match
+results. It never prints or saves native identifier values or response bodies.
+The sanitized `root-qualification.json` is written in a new `cc-destination-*`
+directory under destination-reports. Exit **0** means exact Default name and a
+usable candidate ormID were observed, **not** verified root identity, valid
+create parentOrmID or migration readiness. Missing/mismatched name or missing/
+unusable ormID yields partial evidence and exit **1**; malformed/ambiguous
+response or authentication/transport failure is an explicit error.
+Root type/parent semantics, correspondence to earlier snapshots and Site-create
+acceptance remain unqualified even if response identity fields compare equal.
+
+Normal `./ccv.sh` still performs the original workflows. No Site-create operation
+is enabled. Check [API_MATRIX.md](docs/API_MATRIX.md) for field/schema blockers.
+Offline developer verification (no controller access), from a checkout with
+Python and tests, is:
+
+```sh
+PYTHONPATH=src:tests python -S -B -m unittest \
+  test_destination_discovery test_compose_deployment
+```
+
+This developer command does not add a host Python requirement to deployment.
+Do not rerun a live lookup if adequate protected evidence already exists.
+
 ### Administrator TLS/CA and egress provisioning
 
 Before permitting live operations, authorize the controller/account and restrict
 discovery's Docker egress to the approved CC address on TCP **443**, with approved
 DNS only if required. The dedicated bridge is **not an egress firewall**; the
 launcher never changes host rules or grants broader networking. Application
-discovery permits only POST login and GET Organization tree at the chosen origin.
+discovery permits only POST login and GET Organization tree at the chosen origin,
+or POST login and the exact Default GET in explicitly selected root-only mode.
 Host validation checks syntax only; it does not resolve DNS or prove controller
 identity. Actual TLS verification occurs in the existing selected operation.
 

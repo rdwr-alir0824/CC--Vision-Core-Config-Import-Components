@@ -60,9 +60,14 @@ trap cleanup EXIT
 trap 'printf "\nInterrupted; cleaning this run only.\n" >&2; exit 130' INT
 trap 'printf "\nTerminated; cleaning this run only.\n" >&2; exit 143' TERM
 
+qualify_default_root=0
 if [[ "${1:-}" == "--help" ]]; then
-    printf 'Usage: ./ccv.sh\nInteractive source backup, read-only CC discovery, or offline Site assessment.\nRequires Bash, Docker Compose v2, the built shared image and administrator-provisioned runtime directories.\n'
+    printf 'Usage: ./ccv.sh [--qualify-default-root]\nInteractive source backup, read-only CC discovery, or offline Site assessment.\n--qualify-default-root selects only the Default lookup for menu choice 2.\nRequires Bash, Docker Compose v2, the built shared image and administrator-provisioned runtime directories.\n'
     exit 0
+fi
+if [[ $# -eq 1 && "$1" == "--qualify-default-root" ]]; then
+    qualify_default_root=1
+    shift
 fi
 [[ $# -eq 0 ]] || fail "Use ./ccv.sh without arguments, or --help."
 
@@ -70,6 +75,8 @@ printf '\nCC-Vision Master\n\n1. Source Vision - Full Supported Backup\n2. Desti
 IFS= read -r -p 'Select operation: ' selection || fail "No operation selected."
 [[ "$selection" == "4" ]] && exit 0
 [[ "$selection" =~ ^[123]$ ]] || fail "Select 1, 2, 3 or 4."
+[[ "$qualify_default_root" == "0" || "$selection" == "2" ]] ||
+    fail "--qualify-default-root requires menu choice 2."
 
 command -v docker >/dev/null 2>&1 || fail "Docker is missing; ask the administrator to install/configure Docker."
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is missing or unavailable."
@@ -231,5 +238,9 @@ else
     export CCV_DESTINATION_URL="$origin" CCV_DESTINATION_SECRETS_DIR="$temporary"
     export CCV_DESTINATION_TLS_VERIFY=true CCV_ALLOW_INSECURE_TLS_EXCEPTION="$allow_exceptions"
     export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem
-    run_operation discover-sites
+    if [[ "$qualify_default_root" == "1" ]]; then
+        run_operation discover-sites --qualify-default-root
+    else
+        run_operation discover-sites
+    fi
 fi

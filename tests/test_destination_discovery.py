@@ -346,3 +346,189 @@ class DestinationDiscoveryTests(OfflineTestCase):
             with self.assertRaises(SystemExit) as caught:
                 self.cli.main(["--operation", "destination-discovery"])
             self.assertEqual(caught.exception.code, 2)
+
+    def root_arguments(self):
+        return [
+            "--operation", "destination-discovery", "--discovery-profile", str(self.input_path),
+            "--credentials-file", str(self.credentials), "--qualify-default-root",
+        ]
+
+    def test_default_root_lookup_is_exact_sanitized_and_never_create_qualified(self):
+        payload = {
+            "ormID": "private-root-id", "name": "Default", "type": "private-type",
+            "parentOrmID": None, "meIdentifier": {"managedElementID": "private-root-id"},
+            "token": "private-token", "password": "private-password",
+            "unrecognized": {"opaque": "private-marker"},
+        }
+        before = copy.deepcopy(payload)
+        connections = [
+            self.connection({"status": "ok", "jsessionid": "private-session"}),
+            self.connection(payload),
+        ]
+        status, report, factory = self.invoke(*connections, arguments=self.root_arguments())
+        self.assertEqual(status, 0)
+        self.assertEqual(factory.call_count, 2)
+        self.assertEqual([c.requests[0][:2] for c in connections], [
+            ("POST", "/mgmt/system/user/login"),
+            ("GET", "/mgmt/system/config/tree/site/byname/Default"),
+        ])
+        self.assertEqual(report["discovery_mode"], "default-root")
+        self.assertEqual(report["field_assessments"]["ormID"], {
+            "present": True, "python_type": "str", "json_type": "string", "usable": True,
+        })
+        self.assertEqual(report["field_assessments"]["parentOrmID"]["json_type"], "null")
+        identity = report["identity_consistency"]
+        self.assertTrue(identity["name_matches_Default"])
+        self.assertTrue(identity["ormID_equals_managedElementID"])
+        self.assertEqual(identity["site_create_parent_acceptance"], "unverified")
+        self.assertEqual(identity["root_correspondence"], "unverified")
+        self.assertFalse(report["migration_ready"])
+        self.assertFalse(report["execution_authorized"])
+        self.assertFalse(report["configuration_writes_authorized"])
+        self.assertEqual(report["snapshot_file"], "root-qualification.json")
+        snapshot = json.loads((self.output / report["snapshot_directory"] / report["snapshot_file"]).read_text())
+        self.assertEqual(snapshot["domain"], "cc-destination-root-qualification")
+        self.assertEqual(snapshot["request"]["path"], "/mgmt/system/config/tree/site/byname/Default")
+        self.assertNotIn("private-", json.dumps(snapshot))
+        self.assertNotIn("organization_root", snapshot)
+        self.assertEqual(payload, before)
+        different = self.module.project_default_root({
+            **payload, "meIdentifier": {"managedElementID": "private-other-id"},
+        })
+        self.assertFalse(different["identity_consistency"]["ormID_equals_managedElementID"])
+        self.assertEqual(different["identity_consistency"]["root_correspondence"], "unverified")
+        self.assertTrue(all(c.close_calls and c.response.close_calls for c in connections))
+        with self.assertRaises(importlib.import_module("cc_vision_import.contracts").ContractValidationError):
+            importlib.import_module("cc_vision_import.controller_objects").parse_controller_artifact(snapshot)
+
+    def test_default_root_missing_mismatched_or_unusable_fields_remain_partial(self):
+        for payload in (
+            {"name": "Default"},
+            {"name": "Other", "ormID": "private-id"},
+            {"ormID": "private-id"},
+            {"name": "Default", "ormID": None},
+            {"name": "Default", "ormID": ""},
+            {"name": "Default", "ormID": 123},
+            {"name": ["Default"], "ormID": "private-id"},
+        ):
+            with self.subTest(fields=tuple(payload)):
+                status, report, _ = self.invoke(
+                    self.connection({"status": "ok", "jsessionid": "private-session"}),
+                    self.connection(payload), arguments=self.root_arguments(),
+                )
+                self.assertEqual(status, 1)
+                self.assertEqual(report["status"], "partial")
+                self.assertFalse(report["migration_ready"])
+                self.assertEqual(report["identity_consistency"]["type_match"], "unverified")
+        missing = self.module.project_default_root({"name": "Default"})
+        self.assertEqual(missing["field_assessments"]["ormID"], {
+            "present": False, "python_type": None, "json_type": None, "usable": False,
+        })
+
+    def test_default_root_unexpected_ambiguous_and_error_responses_are_sanitized(self):
+        responses = [
+            self.connection([{"name": "Default", "ormID": "private-id"}]),
+            self.connection({"sites": [{"name": "Default", "ormID": "private-id"}]}),
+            self.connection({"status": "error", "name": "Default", "ormID": "private-id"}),
+            self.connection({"name": "Default", "ormID": "private-id"}, 404),
+            MemoryConnection(MemoryResponse(200, b'{"name":"Default","ormID":"private-id","ormID":"private-other"}',
+                                            [("Content-Type", "application/json")])),
+            MemoryConnection(MemoryResponse(200, b'private-malformed-body', [("Content-Type", "application/json")])),
+        ]
+        for response in responses:
+            status, report, factory = self.invoke(
+                self.connection({"status": "ok", "jsessionid": "private-session"}),
+                response, arguments=self.root_arguments(),
+            )
+            self.assertNotEqual(status, 0)
+            self.assertEqual(report["status"], "error")
+            self.assertNotIn("snapshot_directory", report)
+            self.assertEqual(factory.call_count, 2)
+            self.assertTrue(response.close_calls)
+
+    def test_root_authentication_and_tls_fail_closed_before_lookup(self):
+        for login in ({"status": "error", "message": "private-error"}, {"status": "ok"}):
+            status, report, factory = self.invoke(self.connection(login), arguments=self.root_arguments())
+            self.assertEqual(status, 1)
+            self.assertFalse(report["authenticated"])
+            self.assertEqual(factory.call_count, 1)
+        connection = MemoryConnection(failure=("connect", ssl.SSLCertVerificationError("private-certificate")))
+        status, report, factory = self.invoke(connection, arguments=self.root_arguments())
+        self.assertEqual(status, 1)
+        self.assertEqual(report["issue_codes"], ["tls_certificate_failure"])
+        self.assertEqual(report["discovery_mode"], "default-root")
+        self.assertFalse(report["authenticated"])
+        self.assertEqual(connection.requests, [])
+        self.assertEqual(factory.call_count, 1)
+        strategy = self.module._DiscoveryAuthentication()
+        with patch.object(self.module, "_DiscoveryAuthentication", return_value=strategy):
+            self.invoke(
+                self.connection({"status": "ok", "jsessionid": "private-session"}),
+                self.connection({"status": "error", "name": "Default"}),
+                arguments=self.root_arguments(),
+            )
+        self.assertNotIn("Cookie", strategy.request_headers(
+            self.auth.ResolvedCredentials("private-user", "private-password"),
+        ))
+
+    def test_root_lab_consent_is_required_and_scoped_to_exact_mode(self):
+        self.profile["tls"] = {
+            "verify": False, "lab_authorized": True,
+            "authorized_origin": self.profile["destination"]["base_url"],
+        }
+        self.input_path.write_text(json.dumps(self.profile))
+        with patch("cc_vision_import.tls_policy._private_file"), patch.dict(os.environ, {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "true",
+        }):
+            status, _, factory = self.invoke(arguments=self.root_arguments())
+            self.assertNotEqual(status, 0)
+            factory.assert_not_called()
+            (self.directory / "tls-exception.json").write_text(json.dumps(self.profile["tls"]))
+            status, report, factory = self.invoke(
+                self.connection({"status": "ok", "jsessionid": "private-session"}),
+                self.connection({"name": "Default", "ormID": "private-id"}),
+                arguments=self.root_arguments(),
+            )
+            self.assertEqual(status, 0)
+            self.assertEqual(report["tls"], {"verify": False, "exception_scope": "selected_origin_current_execution"})
+            self.assertEqual(factory.call_count, 2)
+        with patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false"}):
+            status, _, factory = self.invoke(arguments=self.root_arguments())
+            self.assertNotEqual(status, 0)
+            factory.assert_not_called()
+
+    def test_root_allowlist_rejects_tree_other_origins_and_all_configuration_writes(self):
+        from dataclasses import replace
+        self.input_path.write_text(json.dumps(self.profile))
+        profile = self.module.DiscoveryProfile.read(str(self.input_path))
+        backend = self.module._backend(profile, qualify_default_root=True)
+        factory = Mock()
+        with patch.object(self.http.http.client, "HTTPSConnection", factory):
+            transport = self.transport.HttpTransport(profile.transport, backend)
+            targets = (
+                self.module._TREE, (*self.module._DEFAULT_ROOT[:-1], "Other"),
+                (*self.module._DEFAULT_ROOT[:-2], "byid", "private-id"),
+                ("mgmt", "system", "config", "tree", "site"),
+            )
+            for method in self.transport.HttpMethod:
+                for target in targets:
+                    with self.assertRaises(self.transport.TransportError):
+                        transport.request(method, target)
+                if method != self.transport.HttpMethod.GET:
+                    with self.assertRaises(self.transport.TransportError):
+                        transport.request(method, self.module._DEFAULT_ROOT)
+            for origin in ("https://other.invalid", "https://destination.invalid:8443"):
+                other = self.transport.HttpTransport(replace(profile.transport, base_url=origin), backend)
+                with self.assertRaises(self.transport.TransportError):
+                    other.request(self.transport.HttpMethod.GET, self.module._DEFAULT_ROOT)
+            with self.assertRaises(self.transport.TransportError):
+                transport.request(self.transport.HttpMethod.GET, self.module._DEFAULT_ROOT, query=(("name", "Other"),))
+        factory.assert_not_called()
+        backend.close()
+
+    def test_root_flag_cannot_select_other_cli_operations(self):
+        with redirect_stderr(io.StringIO()):
+            for operation in ("operations", "backup-vision", "site-comparison"):
+                with self.assertRaises(SystemExit) as caught:
+                    self.cli.main(["--operation", operation, "--qualify-default-root"])
+                self.assertEqual(caught.exception.code, 2)
