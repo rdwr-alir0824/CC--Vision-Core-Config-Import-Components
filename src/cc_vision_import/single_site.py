@@ -159,8 +159,16 @@ def _candidate_error_diagnostic(response: HttpResponse, name: str) -> dict[str, 
         set(payload) == {"status", "message"} and payload.get("status") == "error"
         and payload.get("message") == "There is no site with name " + name
     )
+    m_00734_matches = response.status == 400 and payload == {
+        "status": "error",
+        "message": f"M_00734: There is no device with name {name} configured in Cyber Controller.",
+    }
     return {
-        "classification": "legacy_absence_signature_unqualified" if matches else "unqualified_http_400",
+        "classification": "m_00734_absence_candidate" if m_00734_matches else
+                          "legacy_absence_signature_unqualified" if matches else "unqualified_http_400",
+        "http_status": response.status,
+        "m_00734_absence_signature_matches": m_00734_matches,
+        **({"signature_evidence_version": "10.15.0-2"} if m_00734_matches else {}),
         "status_is_error": payload.get("status") == "error",
         "message_is_string": isinstance(payload.get("message"), str),
         "only_status_message_keys": set(payload) == {"status", "message"},
@@ -283,7 +291,9 @@ def _tree(payload: object) -> list[dict]:
     return records
 
 
-def _preflight(manager: SessionManager, selection: SiteSelection, report: dict) -> tuple[str, frozenset[str]]:
+def _preflight(
+    manager: SessionManager, selection: SiteSelection, report: dict, backend: SingleSiteBackend,
+) -> tuple[str, frozenset[str]]:
     report["failure_stage"] = "parent_lookup"
     response = _get(manager, _segments("byname", selection.parent_name))
     _require(response.status == 200, "destination_parent_lookup_failed")
@@ -296,11 +306,19 @@ def _preflight(manager: SessionManager, selection: SiteSelection, report: dict) 
     try:
         response = _get(manager, _segments("byname", selection.name))
     except TransportError as error:
-        if error.status != 404:
+        if error.status == 400:
+            diagnostic = backend.candidate_collision_diagnostic
+            if (
+                error.backend_failure is not None or error.cleanup_failed
+                or diagnostic is None or diagnostic.get("m_00734_absence_signature_matches") is not True
+            ):
+                raise
+            report["candidate_collision_diagnostic"] = diagnostic
+        elif error.status != 404:
             raise
         response = None
     collision = None if response is None else _json(response)
-    # Neither a 404 nor the legacy signature is sufficient without the fresh tree check.
+    # Neither qualified M_00734, a 404 nor the legacy signature replaces the fresh tree check.
     absent = (
         response is None or (
             response.status == 200 and isinstance(collision, dict)
@@ -450,7 +468,7 @@ def run_single_site(
                     )
                     manager.authenticate(SessionRole.DESTINATION)
                     report["authenticated"] = True
-                    parent_id, _ = _preflight(manager, selection, report)
+                    parent_id, _ = _preflight(manager, selection, report, backend)
                     report.update(status="dry-run-ready", parent_resolved=True, collision_check_passed=True)
                     if not execute:
                         status = ExitStatus.SUCCESS
@@ -458,7 +476,7 @@ def run_single_site(
                         report.update(status="cancelled", issue_codes=["operator_declined_or_no_terminal"])
                     else:
                         # Recheck after the human decision, within the same authenticated session.
-                        fresh_parent_id, prior_identities = _preflight(manager, selection, report)
+                        fresh_parent_id, prior_identities = _preflight(manager, selection, report, backend)
                         _require(fresh_parent_id == parent_id, "parent_changed_after_approval")
                         guard_descriptor = os.open(guard, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                         with os.fdopen(guard_descriptor, "w", encoding="utf-8") as reservation:

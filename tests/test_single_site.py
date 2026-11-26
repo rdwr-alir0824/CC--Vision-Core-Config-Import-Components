@@ -269,6 +269,110 @@ class SingleSiteTests(OfflineTestCase):
                 self.assertEqual(factory.call_count, 3)
                 approval.assert_not_called()
 
+    def m_00734_response(self, name="private-candidate"):
+        return {
+            "status": "error",
+            "message": f"M_00734: There is no device with name {name} configured in Cyber Controller.",
+        }
+
+    def test_exact_m_00734_candidate_absence_requires_tree_and_preserves_http_400(self):
+        for name in ("private-candidate", "private-candidate with spaces"):
+            with self.subTest(name_has_spaces=" " in name):
+                self.source["tree"]["children"][0]["name"] = name
+                self.save_inputs()
+                connections = [self.login(), self.connection(self.parent),
+                               self.connection(self.m_00734_response(name), 400), self.connection(self.tree)]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertEqual(status, 0)
+                self.assertEqual(report["status"], "dry-run-ready")
+                self.assertNotIn("failure_stage", report)
+                diagnostic = report["candidate_collision_diagnostic"]
+                self.assertEqual(diagnostic["classification"], "m_00734_absence_candidate")
+                self.assertEqual(diagnostic["http_status"], 400)
+                self.assertIs(diagnostic["m_00734_absence_signature_matches"], True)
+                self.assertEqual(diagnostic["signature_evidence_version"], "10.15.0-2")
+                self.assertEqual(report["compatibility"], "experimental-unverified")
+                self.assertTrue(report["parent_resolved"])
+                self.assertTrue(report["collision_check_passed"])
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertTrue(report["read_only"])
+                self.assertFalse(report["configuration_writes_authorized"])
+                self.assertEqual(factory.call_count, 4)
+                self.assertEqual(connections[2].requests[0][:2], (
+                    "GET", "/mgmt/system/config/tree/site/byname/" + name.replace(" ", "%20"),
+                ))
+                self.assertEqual(connections[3].requests[0][:2],
+                                 ("GET", "/mgmt/system/config/tree/Organization"))
+                self.assertFalse(any(r[0] != "GET" and r[1] != "/mgmt/system/user/login"
+                                     for c in connections for r in c.requests))
+                self.assertFalse(list(self.output.glob(".ccv-site-attempt-*")))
+                self.assertEqual(json.loads((self.output / report["report_file"]).read_text()), report)
+                approval.assert_not_called()
+
+    def test_nonexact_m_00734_candidate_http_400_remains_blocked(self):
+        exact = self.m_00734_response()
+        cases = (
+            self.m_00734_response("private-other-candidate"),
+            {**exact, "message": exact["message"].replace("M_00734", "M_00735")},
+            {**exact, "message": exact["message"].replace("no device", "no site")},
+            {**exact, "message": exact["message"].removesuffix(".")},
+            {**exact, "status": "ok"},
+            {**exact, "token": "private-token"},
+            {**exact, "ormID": "destination-created-id"},
+            {**exact, "message": [exact["message"]]},
+            {"message": exact["message"]},
+        )
+        for payload in cases:
+            with self.subTest(keys=tuple(payload)):
+                connections = [self.login(), self.connection(self.parent), self.connection(payload, 400)]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertEqual(status, 1)
+                self.assertEqual(report["http_status"], 400)
+                self.assertEqual(report["failure_stage"], "candidate_collision_lookup")
+                self.assertEqual(report["issue_codes"], ["http_error"])
+                self.assertIs(report["candidate_collision_diagnostic"]["m_00734_absence_signature_matches"], False)
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertEqual(factory.call_count, 3)
+                approval.assert_not_called()
+
+    def test_m_00734_never_bypasses_fresh_collision_or_parent_tree_validation(self):
+        wrong_parent = copy.deepcopy(self.tree)
+        wrong_parent["meIdentifier"]["managedElementID"] = "inconsistent-parent-id"
+        missing_parent = copy.deepcopy(self.tree)
+        del missing_parent["meIdentifier"]["managedElementID"]
+        for tree, code in (
+            (self.result_tree, "fresh_tree_collision"),
+            (wrong_parent, "parent_tree_identity_unverified"),
+            (missing_parent, "tree_identity_missing"),
+        ):
+            with self.subTest(issue_code=code):
+                connections = [self.login(), self.connection(self.parent),
+                               self.connection(self.m_00734_response(), 400), self.connection(tree)]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertEqual(status, 1)
+                self.assertEqual(report["status"], "blocked")
+                self.assertEqual(report["failure_stage"], "organization_tree_lookup")
+                self.assertEqual(report["issue_codes"], [code])
+                self.assertEqual(report["candidate_collision_diagnostic"]["http_status"], 400)
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertEqual(factory.call_count, 4)
+                approval.assert_not_called()
+
+    def test_m_00734_on_parent_or_organization_get_is_not_candidate_absence(self):
+        for index, stage in ((0, "parent_lookup"), (2, "organization_tree_lookup")):
+            with self.subTest(stage=stage):
+                reads = self.preflight()
+                reads[index] = self.connection(self.m_00734_response(), 400)
+                connections = [self.login(), *reads[:index + 1]]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertEqual(status, 1)
+                self.assertEqual(report["http_status"], 400)
+                self.assertEqual(report["failure_stage"], stage)
+                self.assertNotIn("candidate_collision_diagnostic", report)
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertEqual(factory.call_count, index + 2)
+                approval.assert_not_called()
+
     def test_actual_candidate_collision_never_becomes_absence(self):
         connections = [self.login(), self.connection(self.parent), self.connection(self.created)]
         status, report, factory, approval = self.run_engine(connections, use_cli=True)
