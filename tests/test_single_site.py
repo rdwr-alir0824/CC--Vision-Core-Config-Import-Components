@@ -508,11 +508,31 @@ class SingleSiteTests(OfflineTestCase):
 
     def test_missing_returned_identity_does_not_invent_by_name_success(self):
         connections = [self.login(), *self.preflight(), *self.preflight(),
-                       self.connection({"name": "private-candidate", "status": "ok"})]
+                       self.connection({"name": "private-candidate", "status": "ok"}),
+                       *[self.connection({"status": "error"}, 404) for _ in range(3)]]
         status, report, factory, _ = self.run_engine(connections, execute=True)
         self.assertEqual(status, 1)
         self.assertEqual(report["status"], "indeterminate")
-        self.assertEqual(factory.call_count, 8)
+        self.assertEqual(factory.call_count, 11)
+        self.assertEqual(report["issue_codes"], ["bounded_readback_incomplete"])
+        self.assert_one_post(connections)
+
+    def test_incomplete_success_response_is_verified_by_name_id_and_hierarchy(self):
+        connections = [self.login(), *self.preflight(), *self.preflight(),
+                       self.connection({"status": "ok"}), self.connection(self.created),
+                       self.connection(self.created), self.connection(self.result_tree)]
+        status, report, _, _ = self.run_engine(connections, execute=True)
+        self.assertEqual(status, 0)
+        self.assertTrue(report["readback_verified"])
+        self.assert_one_post(connections)
+
+    def test_missing_post_name_with_returned_identity_requires_independent_readback(self):
+        connections = [self.login(), *self.preflight(), *self.preflight(),
+                       self.connection({"status": "ok", "ormID": self.created["ormID"]}),
+                       self.connection(self.created), self.connection(self.result_tree)]
+        status, report, _, _ = self.run_engine(connections, execute=True)
+        self.assertEqual(status, 0)
+        self.assertTrue(report["readback_verified"])
         self.assert_one_post(connections)
 
     def test_returned_identity_already_in_preflight_tree_is_not_a_new_site(self):

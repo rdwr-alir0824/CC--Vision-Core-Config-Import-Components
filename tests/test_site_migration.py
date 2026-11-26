@@ -37,6 +37,8 @@ class SiteServer:
         self.null_root_child_parent = False
         self.null_tree_parent = False
         self.null_non_root_parent = False
+        self.post_response = None
+        self.candidate_404s = 0
 
     def seed(self, name, parent):
         identity = f"destination-site-{len(self.sites)}"
@@ -78,6 +80,8 @@ class SiteServer:
             status = self.post_http_status
             if self.missing_returned_identity:
                 payload.pop("ormID")
+            if self.post_response is not None:
+                payload = copy.deepcopy(self.post_response)
         elif method == "GET" and "/site/byname/" in path:
             name = unquote(path.rsplit("/", 1)[-1])
             payload = self.sites.get(name)
@@ -89,6 +93,9 @@ class SiteServer:
                 )}
             else:
                 payload = copy.deepcopy(payload)
+                if self.posts and name != "Default" and self.candidate_404s:
+                    self.candidate_404s -= 1
+                    status, payload = 404, {"status": "error"}
                 if self.change_parent_after_create and self.posts and name == "Default":
                     payload["ormID"] = "changed-root-id"
         elif method == "GET" and "/site/byid/" in path:
@@ -267,6 +274,17 @@ class SiteMigrationTests(OfflineTestCase):
         self.assertFalse(list(self.output.glob("*.journal.json")))
         approve.assert_not_called()
 
+    def test_all_30_missing_post_identities_are_verified_without_repeated_posts(self):
+        server = SiteServer()
+        server.post_response = {"status": "ok"}
+        server.null_root_child_parent = True
+        server.null_tree_parent = True
+        status, report, _ = self.run_batch(server, mode="execute", use_cli=True, human=True)
+        self.assertEqual(status, 0)
+        self.assertEqual(report["counts"]["verified"], 30)
+        self.assertEqual(len(server.posts), 30)
+        self.assertEqual(len({entry["name"] for entry in server.posts}), 30)
+
     def test_entire_batch_executes_in_verified_parent_order_with_destination_id_remapping(self):
         server = SiteServer()
         def verify_reservation(payload):
@@ -367,6 +385,8 @@ class SiteMigrationTests(OfflineTestCase):
             with self.subTest(fault=fault):
                 server = SiteServer()
                 setattr(server, fault, True)
+                if fault == "missing_returned_identity":
+                    server.candidate_404s = 3
                 status, report, _ = self.run_batch(server, mode="execute")
                 self.assertEqual(status, 1)
                 self.assertEqual(len(server.posts), 1)
@@ -738,12 +758,13 @@ class SiteMigrationTests(OfflineTestCase):
     def test_read_only_reconciliation_preserves_uncertain_post_history_and_resumes_remaining_29(self):
         server = SiteServer()
         server.missing_returned_identity = True
+        server.candidate_404s = 3
         server.null_root_child_parent = True
         server.null_tree_parent = True
         status, report, _ = self.run_batch(server, mode="execute")
         self.assertEqual(status, 1)
-        self.assertEqual(report["issue_codes"], ["site_identity_missing_or_ambiguous"])
-        self.assertEqual(report["failure_stage"], "site_create_response")
+        self.assertEqual(report["issue_codes"], ["bounded_readback_incomplete"])
+        self.assertEqual(report["failure_stage"], "site_identity_readback")
         path = self.output / report["journal_file"]
         before = json.loads(path.read_text())
         first = self.plan.sites[0].selection.reference
@@ -774,6 +795,7 @@ class SiteMigrationTests(OfflineTestCase):
     def test_reconciliation_rejects_unproven_root_membership_wrong_type_and_mismatched_identity(self):
         server = SiteServer()
         server.missing_returned_identity = True
+        server.candidate_404s = 3
         _, report, _ = self.run_batch(server, mode="execute")
         path = self.output / report["journal_file"]
         baseline = path.read_bytes()
@@ -816,3 +838,102 @@ class SiteMigrationTests(OfflineTestCase):
         self.assertEqual(len(server.posts), 2)
         self.assertEqual(report["counts"]["verified"], 1)
         self.assertIn("create_response_parent_mismatch", report["issue_codes"])
+
+    def test_incomplete_post_delayed_visibility_uses_only_bounded_read_polls(self):
+        server = SiteServer()
+        server.post_response = {"status": "ok"}
+        server.candidate_404s = 2
+        with patch.object(self.module.time, "sleep") as pause:
+            status, report, _ = self.run_batch(server, mode="execute", readback_interval=0.25)
+        self.assertEqual(status, 0)
+        self.assertEqual(report["counts"]["verified"], 30)
+        self.assertEqual(len(server.posts), 30)
+        self.assertEqual(sum(call.args == (0.25,) for call in pause.call_args_list), 2)
+
+    def test_incomplete_post_bad_readback_stops_with_one_attempt_and_preserves_post_status(self):
+        for fault in ("missing_tree", "wrong_hierarchy", "duplicate_tree", "wrong_type", "wrong_id", "timeout", "http_error"):
+            with self.subTest(fault=fault):
+                server = SiteServer()
+                server.post_response = {"status": "ok"}
+                original = server.respond
+
+                def respond(request):
+                    response = original(request)
+                    if not server.posts or request[0] != "GET":
+                        return response
+                    path = request[1]
+                    name = server.posts[-1]["name"]
+                    if "/site/byname/" in path and unquote(path.rsplit("/", 1)[-1]) == name:
+                        if fault == "timeout":
+                            raise TimeoutError("private-readback-timeout")
+                        if fault == "http_error":
+                            return MemoryResponse(503, b'{"status":"error"}', [("Content-Type", "application/json")])
+                        if fault == "wrong_type":
+                            payload = {**server.sites[name], "type": "Device"}
+                            return MemoryResponse(200, json.dumps(payload).encode(), [("Content-Type", "application/json")])
+                    if fault == "wrong_id" and "/site/byid/" in path:
+                        payload = {**server.sites[name], "ormID": "private-other-identity"}
+                        return MemoryResponse(200, json.dumps(payload).encode(), [("Content-Type", "application/json")])
+                    if path == "/mgmt/system/config/tree/Organization":
+                        payload = server.tree()
+                        if fault == "missing_tree":
+                            payload["children"] = []
+                        elif fault == "wrong_hierarchy":
+                            payload["children"][0]["parentOrmID"] = "private-wrong-parent"
+                        elif fault == "duplicate_tree":
+                            payload["children"].append(copy.deepcopy(payload["children"][0]))
+                        return MemoryResponse(200, json.dumps(payload).encode(), [("Content-Type", "application/json")])
+                    return response
+
+                with patch.object(server, "respond", side_effect=respond):
+                    status, report, _ = self.run_batch(server, mode="execute")
+                self.assertEqual(status, 1)
+                self.assertEqual(len(server.posts), 1)
+                self.assertEqual(report["counts"]["verified"], 0)
+                self.assertEqual(report["counts"]["pending"], 29)
+                self.assertTrue(report["manual_reconciliation_required"])
+                journal = json.loads((self.output / report["journal_file"]).read_text())
+                self.assertEqual(journal["incomplete_operation"]["http_status"], 200)
+                if fault == "http_error":
+                    self.assertEqual(report["http_status"], 503)
+                if fault == "missing_tree":
+                    self.assertEqual(report["issue_codes"], ["bounded_readback_incomplete"])
+                for path in self.output.glob("*.journal.json"):
+                    path.unlink()
+                for path in self.output.glob(".ccv-site-attempt-*.json"):
+                    path.unlink()
+
+    def test_second_site_readback_interruption_reconciles_then_continues_without_reposting(self):
+        server = SiteServer()
+        server.post_response = {"status": "ok"}
+        original = server.respond
+
+        def interrupted(request):
+            if len(server.posts) == 2 and request[0] == "GET":
+                raise KeyboardInterrupt()
+            return original(request)
+
+        with patch.object(server, "respond", side_effect=interrupted):
+            status, report, _ = self.run_batch(server, mode="execute")
+        self.assertEqual(status, 1)
+        self.assertEqual(report["counts"]["verified"], 1)
+        self.assertEqual(report["counts"]["pending"], 28)
+        self.assertEqual(len(server.posts), 2)
+        path = self.output / report["journal_file"]
+        before = json.loads(path.read_text())
+        second = self.plan.sites[1].selection.reference
+        self.assertEqual(before["incomplete_operation"]["reference"], second)
+        self.assertEqual(before["incomplete_operation"]["http_status"], 200)
+        status, report, approval = self.run_batch(server, mode="reconcile")
+        self.assertEqual(status, 0)
+        approval.assert_not_called()
+        self.assertEqual(len(server.posts), 2)
+        self.assertEqual(report["counts"]["verified"], 2)
+        after = json.loads(path.read_text())
+        self.assertEqual(after["reconciliation_history"][-1]["incomplete_operation"], before["incomplete_operation"])
+        self.assertEqual(after["sites"][second]["create_attempts"], 1)
+        status, report, _ = self.run_batch(server, mode="resume")
+        self.assertEqual(status, 0)
+        self.assertEqual(report["counts"]["verified"], 30)
+        self.assertEqual(len(server.posts), 30)
+        self.assertEqual(len({entry["name"] for entry in server.posts}), 30)

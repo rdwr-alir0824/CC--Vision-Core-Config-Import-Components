@@ -404,7 +404,7 @@ def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: Si
         _require(response.status == 200, "readback_http_failure")
         site = _site_object(_json(response), selection.name)
         _require(site["ormID"] == identity and _site_parent_matches(site, parent_id, selection.parent_is_root)
-                 and ("type" not in site or site["type"] == "Site"), "readback_identity_or_parent_mismatch")
+                 and site.get("type") == "Site", "readback_identity_or_parent_mismatch")
         response = _get(manager, _TREE)
         _require(response.status == 200, "hierarchy_readback_failed")
         tree = _tree(_json(response))
@@ -427,6 +427,58 @@ def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: Si
         )
         return True
     return False
+
+
+def _verify_created_site(
+    manager: SessionManager, backend: SingleSiteBackend, selection: SiteSelection,
+    parent_id: str, response: HttpResponse, prior_identities: frozenset[str], report: dict, *,
+    attempts: int = 3, interval: float = 0, checkpoint: Callable[[str], None] | None = None,
+) -> str:
+    report["failure_stage"] = "site_create_response"
+    created = _json(response)
+    _require(isinstance(created, dict) and created.get("status", "ok") == "ok",
+             "create_response_unqualified")
+    _require(not _text(created.get("name")) or created["name"] == selection.name,
+             "site_identity_missing_or_ambiguous")
+    _require("type" not in created or created["type"] == "Site", "create_response_type_mismatch")
+    if "parentOrmID" in created:
+        _require(_site_parent_matches(created, parent_id, selection.parent_is_root),
+                 "create_response_parent_mismatch")
+    identity = created.get("ormID") if _text(created.get("ormID")) else None
+
+    def remember(value: str) -> None:
+        _require(value not in prior_identities, "created_identity_preexisted")
+        _require(value not in selection.source_identities and value != parent_id, "created_identity_invalid")
+        if checkpoint is not None:
+            checkpoint(value)
+
+    report["failure_stage"] = "site_identity_readback"
+    if identity is not None:
+        remember(identity)
+        _require(_readback(manager, backend, selection, parent_id, identity, attempts=attempts, interval=interval),
+                 "bounded_readback_incomplete")
+        report.pop("failure_stage", None)
+        return identity
+    for attempt in range(attempts):
+        if attempt and interval:
+            time.sleep(interval)
+        candidate = _lookup_candidate(manager, selection, {}, backend)
+        if candidate is None:
+            continue
+        _require(candidate.status == 200, "candidate_lookup_http_unqualified")
+        found = _site_object(_json(candidate), selection.name)
+        _require(found.get("type") == "Site"
+                 and _site_parent_matches(found, parent_id, selection.parent_is_root),
+                 "readback_identity_or_parent_mismatch")
+        resolved = found["ormID"]
+        _require(identity is None or resolved == identity, "readback_identity_changed")
+        if identity is None:
+            remember(resolved)
+            identity = resolved
+        if _readback(manager, backend, selection, parent_id, identity, attempts=1):
+            report.pop("failure_stage", None)
+            return identity
+    raise SiteBlocked("bounded_readback_incomplete")
 
 
 def _interactive_approval(origin: str, reference: str) -> bool:
@@ -554,13 +606,7 @@ def run_single_site(
                         )
                         report["create_http_status"] = response.status
                         _require(response.status in (200, 201), "create_http_outcome_unqualified")
-                        created = _site_object(_json(response), selection.name)
-                        _require(created["ormID"] not in prior_identities, "created_identity_preexisted")
-                        if "parentOrmID" in created:
-                            _require(_site_parent_matches(created, parent_id, selection.parent_is_root),
-                                     "create_response_parent_mismatch")
-                        verified = _readback(manager, backend, selection, parent_id, created["ormID"])
-                        _require(verified, "bounded_readback_incomplete")
+                        _verify_created_site(manager, backend, selection, parent_id, response, prior_identities, report)
                         report.update(status="single-site-verified", manual_reconciliation_required=False,
                                       readback_verified=True)
                         status = ExitStatus.SUCCESS

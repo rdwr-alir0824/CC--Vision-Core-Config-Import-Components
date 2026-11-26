@@ -24,7 +24,7 @@ from .sessions import SessionManager
 from .single_site import (
     SiteBlocked, SiteSelection, SingleSiteBackend, _RISKS, _SITE_PATH, _close_backend,
     _get, _json, _lookup_candidate, _name, _parent_in_tree, _persist, _readback,
-    _require, _segments, _site_object, _site_parent_matches, _text, _tree, load_site_evidence,
+    _require, _segments, _site_object, _site_parent_matches, _text, _tree, _verify_created_site, load_site_evidence,
     reserve_site_attempt, site_attempt_guard,
 )
 from .tls_policy import execution_tls, require_execution_exception, warning
@@ -555,21 +555,15 @@ def run_site_migration(
                         )
                         journal["incomplete_operation"]["http_status"] = response.status
                         _require(response.status in (200, 201), "create_http_outcome_unqualified")
-                        report["failure_stage"] = "site_create_response"
-                        created = _site_object(_json(response), site.selection.name)
-                        identity = created["ormID"]
-                        _require(identity not in prior_ids and identity not in mapping.values(),
-                                 "created_identity_preexisted")
-                        if "parentOrmID" in created:
-                            _require(_site_parent_matches(created, parent_id, site.selection.parent_is_root),
-                                     "create_response_parent_mismatch")
-                        entry.update(destination_identity=identity, parent_identity=parent_id, created=True)
-                        _write_private(journal_path, journal)
+                        def checkpoint(identity: str) -> None:
+                            entry.update(destination_identity=identity, parent_identity=parent_id, created=True)
+                            _write_private(journal_path, journal)
+
                         report["failure_stage"] = "site_identity_readback"
-                        _require(_readback(
-                            manager, backend, site.selection, parent_id, identity,
-                            attempts=readback_attempts, interval=readback_interval,
-                        ), "bounded_readback_incomplete")
+                        identity = _verify_created_site(
+                            manager, backend, site.selection, parent_id, response, prior_ids | frozenset(mapping.values()), report,
+                            attempts=readback_attempts, interval=readback_interval, checkpoint=checkpoint,
+                        )
                         entry.update(status="verified", verified=True)
                         mapping[current] = identity
                         report["verified_this_run"].append(current)
@@ -598,7 +592,8 @@ def run_site_migration(
             code = error.category.value
             if error.status is not None:
                 report["http_status"] = error.status
-                if journal is not None and journal["incomplete_operation"] is not None:
+                if (journal is not None and journal["incomplete_operation"] is not None
+                        and report.get("failure_stage") == "site_create_request"):
                     journal["incomplete_operation"]["http_status"] = error.status
             if report.get("failure_stage") == "candidate_collision_lookup" and backend.candidate_collision_diagnostic:
                 report["candidate_collision_diagnostic"] = dict(backend.candidate_collision_diagnostic)

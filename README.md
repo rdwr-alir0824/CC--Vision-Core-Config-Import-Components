@@ -401,8 +401,13 @@ identity changes, duplicates and wrong placement still block.
 The original one-POST count and incomplete-operation evidence are retained in a
 protected reconciliation history. After a successful report, a **separately
 authorized** `./ccv.sh --sites-resume "${site_inputs[@]}"` can continue pending
-Sites; it never repeats the reconciled POST. An unqualified subsequent POST
-response still stops the batch rather than inventing its identity.
+Sites; it never repeats the reconciled POST. A successful HTTP 200/201 JSON
+acknowledgement need not contain the full Site identity: bounded fresh name
+lookup (when needed), exact type/name/native-ID checks, by-ID and independent
+hierarchy/parent verification can establish completion automatically. Resolved
+IDs must not occur in the pre-create identity baseline. Error/contradictory
+responses, timeout or exhausted verification still stop the batch without
+repeating the POST.
 
 The original `site_identity_missing_or_ambiguous` code comes from parsing an
 expected name/nonempty ormID, not from parent validation. A POST response without

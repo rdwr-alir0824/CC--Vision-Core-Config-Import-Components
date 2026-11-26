@@ -18,6 +18,14 @@ qualification limits are recorded below.
   by-ID agreement and independent Organization membership. Explicit null parent
   is accepted only for proven direct root-child placement. Historical POST
   evidence is retained; no additional create during reconciliation.
+- Recurring create verification: successful HTTP 200/201 non-error JSON
+  acknowledgements may lack name/ormID. Shared single-Site/batch verification
+  uses bounded fresh by-name lookup when identity is missing, rejects identities
+  from the pre-create baseline, and requires exact Site type/name/by-ID identity
+  plus independent hierarchy/verified-parent evidence. A resolved identity is
+  checkpointed in the protected batch journal before completion verification.
+  POST never retries; ambiguity, HTTP error, timeout or exhausted polling stops.
+  Readback HTTP errors do not overwrite the historical POST HTTP status.
 - Device evidence: original `upload_cybercontroller_objects.py` 177-202:
   POST `/mgmt/system/config/tree/device` with `name`, destination `parentOrmID`,
   `type`, `deviceSetup.deviceAccess`. Original
@@ -54,7 +62,7 @@ identities. Existing Sites require fresh exact identity/parent/hierarchy evidenc
 | Full hierarchy | Synthetic 30-Site, 22-parent-dependency mocked graph; parent verification precedes dependent POST |
 | Missing candidate | Existing strict HTTP 404 / legacy HTTP 200 / exact name-bound HTTP 400 M_00734 handling, corroborated by fresh Organization tree; M_00734 observed by owner on 10.15.0-2 only |
 | Durable resume | Protected hash/origin-bound journal, destination mappings and pre-POST identity baseline; per-origin process lock and shared per-Site reservations; uncertain absent/mismatched operations never blindly retried |
-| Completion | Returned new identity plus bounded by-ID and hierarchy readback; configurable 1-10 rounds and 0-60-second delays; errors/ambiguity stop the batch |
+| Completion | Returned or independently resolved new identity plus bounded by-ID and hierarchy readback; configurable 1-10 rounds and 0-60-second delays; errors/ambiguity stop the batch |
 | CC 10.10.x primary | Shared experimental implementation; no target-verified POST/completion claim |
 | CC 10.15.x lab | Owner-reported single-Site dry-run success on 10.15.0-2; no live batch or POST/readback executed during development |
 
@@ -75,8 +83,8 @@ offline comparison remain unchanged and never gain write permission.
 | Parent resolution | Destination by-name lookup consumes destination ormID | Fresh selected-parent GET plus Organization identity/placement crosscheck; rejects source IDs; Default must be tree root with null own parent. Saved artifact references are never native IDs |
 | Source fields | Original minimal projection; four unprojected fields documented below | Only source name projected; opaque data/counters/dbId omitted experimentally, not proven optional on target |
 | Collision evidence | By-name read plus Organization tree | Exact legacy HTTP-200 not-found signature or HTTP-404, corroborated by structurally valid fresh tree; normalized name/identity ambiguity blocks. Completeness and not-found semantics still experimental |
-| Create outcome | Legacy checks HTTP 200 only | Require 200/201, exact expected name and usable new ormID absent from the final preflight identities. Missing/pre-existing identity, 202, timeout or error remains indeterminate; no invented response wrapper/job API |
-| Completion | Legacy does not establish | At most 3 exact returned-by-ID GET + Organization rounds; consistent returned/new identity, expected name and actual parent placement required. Unknown schemas fail closed |
+| Create outcome | Legacy checks HTTP 200 only | Require 200/201 and non-error JSON object. Incomplete identity triggers bounded fresh readback, not success or a second POST. Explicit conflicting name/type/parent, pre-existing identity, 202, timeout or error remains indeterminate; no invented wrapper/job API |
+| Completion | Legacy does not establish | Up to 3 rounds by default (batch configurable 1-10): resolve missing identity by fresh name lookup, then require exact Site type/name/new identity, consistent by-ID and actual Organization parent placement. Missing hierarchy may poll; contradictory evidence fails closed |
 | Failure policy | Legacy unsafe continuation rejected | No POST retries, rollback, second ambiguous create, root rename/fallback, Devices or bulk. Persistent per-canonical-origin/name guard blocks reexecution in shared report directory |
 | CC 10.10.x (primary) | Legacy/PDF evidence, unresolved exact patch/provenance | Shared experimental code; no target-verified POST/absence/completion contract or certification |
 | CC 10.15.x (additional) | Owner's successful Default GET on GUI-observed 10.15.0-2 | Root read evidence retained; not proof of Site-create compatibility. No target POST/readback test performed |

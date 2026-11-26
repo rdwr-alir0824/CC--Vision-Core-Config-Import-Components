@@ -2,6 +2,53 @@
 
 Last updated: 2026-11-26
 
+## CCV-012 follow-up: recurring Site create/readback verification
+
+- Objective/priority: high; complete the same 30-Site parent-first batch when
+  successful POST acknowledgements omit complete identity, without per-Site
+  manual reconciliation or repeated POSTs.
+- Dependencies: unchanged original source/snapshot/comparison binding, protected
+  journal/attempt guards, fresh verified destination parent and finite Site API.
+- Approval: implement and run mocked/offline regressions only. No live calls,
+  configuration writes, deployment, Git operations or operational journal edits.
+- Root cause: both create paths called `_site_object` on POST JSON before any
+  completion readback; missing name/ormID raised
+  `site_identity_missing_or_ambiguous` immediately. Reproduced by the new
+  30-Site acknowledgement-only regression before the fix.
+- Implementation status: implemented. Shared completion helper accepts successful
+  non-error JSON acknowledgements, preserves explicit name/type/parent conflicts
+  as failures, and resolves missing identity through bounded fresh name lookup.
+  Exact Site type/name/new native identity, consistent by-ID response, unique
+  Organization membership and verified parent are required. Root-child null
+  parent remains valid only with independent root membership proof. The first
+  resolved ID is checkpointed before hierarchy completion; subsequent identity
+  changes, timeout/errors/exhaustion stop with the existing attempt reserved.
+  Readback HTTP failures retain the original POST HTTP status in the journal.
+- Recovery: existing read-only reconciliation still handles the unresolved
+  second Site using the same journal/guards. Mock recovery verifies the first
+  two Sites without another POST, preserves incomplete-operation history, then
+  explicitly authorized resume completes the remaining 28. No Device creation
+  logic, authorization, TLS, allowlists or terminal format changes.
+- Files affected:
+  [single_site.py](../src/cc_vision_import/single_site.py),
+  [site_migration.py](../src/cc_vision_import/site_migration.py),
+  [test_single_site.py](../tests/test_single_site.py),
+  [test_site_migration.py](../tests/test_site_migration.py),
+  [README.md](../README.md), [API_MATRIX.md](API_MATRIX.md), this tracker.
+- Verification status/evidence: 89 tests in 80.568s, 88 passed / one POSIX TTY
+  editing skip on Windows; command:
+  `python -S -B -m unittest test_single_site test_site_migration test_device_migration`
+  with source/tests on PYTHONPATH. Covers acknowledgement-only completion for
+  all 30 Sites/22 dependencies, root-child null and nested parents, delayed
+  visibility, missing/wrong/duplicate hierarchy, wrong type/inconsistent IDs,
+  readback HTTP errors/timeouts/exhaustion and interrupted second-Site recovery
+  without repeated POSTs. Reports remain sanitized and inputs immutable.
+  Changed Python syntax passed; checked Pylance diagnostics had no errors.
+- Known blockers/next action: actual POST JSON and operational journals remain
+  unavailable locally; no live CC version certification. Owner must review the
+  change, use read-only reconciliation for the existing second attempt and only
+  separately authorize continuation after reviewing fresh evidence.
+
 ## Current checkpoint: CCV-012 recovery / CCV-013 Device qualification
 
 - Task IDs/objective/priority: CCV-012 recovery and CCV-013, high priority.
