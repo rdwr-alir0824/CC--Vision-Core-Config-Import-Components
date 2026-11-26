@@ -149,6 +149,7 @@ class SingleSiteTests(OfflineTestCase):
         status, report, factory, approval = self.run_engine(connections, use_cli=True)
         self.assertEqual(status, 0)
         self.assertEqual(report["status"], "dry-run-ready")
+        self.assertNotIn("failure_stage", report)
         self.assertEqual(report["create_attempts"], 0)
         self.assertFalse(report["request_preview"]["body_generated"])
         self.assertEqual(factory.call_count, 4)
@@ -158,11 +159,42 @@ class SingleSiteTests(OfflineTestCase):
         self.assertFalse(any(r[0] != "GET" and r[1] != "/mgmt/system/user/login"
                              for c in connections for r in c.requests))
 
+    def test_http_400_reports_only_fixed_preflight_stage_without_sensitive_values(self):
+        for index, stage in enumerate((
+            "parent_lookup", "candidate_collision_lookup", "organization_tree_lookup",
+        )):
+            with self.subTest(stage=stage):
+                reads = self.preflight()
+                reads[index] = self.connection({
+                    "message": "private-candidate private-user private-password private-session",
+                    "name": "Default", "ormID": "destination-root-id",
+                }, 400)
+                connections = [self.login(), *reads[:index + 1]]
+                status, report, factory, approval = self.run_engine(connections, use_cli=True)
+                self.assertNotEqual(status, 0)
+                self.assertEqual(report["status"], "error")
+                self.assertEqual(report["issue_codes"], ["http_error"])
+                self.assertEqual(report["http_status"], 400)
+                self.assertEqual(report["failure_stage"], stage)
+                self.assertTrue(report["authenticated"])
+                self.assertTrue(report["read_only"])
+                self.assertFalse(report["configuration_writes_authorized"])
+                self.assertEqual(report["create_attempts"], 0)
+                self.assertEqual(factory.call_count, index + 2)
+                approval.assert_not_called()
+                saved = json.loads((self.output / report["report_file"]).read_text())
+                self.assertEqual(saved, report)
+                self.assertNotIn("Default", json.dumps(saved))
+                self.assertTrue(all(c.close_calls for c in connections))
+                self.assertFalse(any(r[0] != "GET" and r[1] != "/mgmt/system/user/login"
+                                     for c in connections for r in c.requests))
+
     def test_authorized_one_create_cli_requires_new_destination_identity_and_hierarchy(self):
         connections = self.sequence()
         status, report, factory, approval = self.run_engine(connections, execute=True, use_cli=True)
         self.assertEqual(status, 0)
         self.assertEqual(report["status"], "single-site-verified")
+        self.assertNotIn("failure_stage", report)
         self.assertFalse(report["migration_ready"])
         self.assertTrue(report["readback_verified"])
         self.assertFalse(report["manual_reconciliation_required"])

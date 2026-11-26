@@ -239,7 +239,8 @@ def _tree(payload: object) -> list[dict]:
     return records
 
 
-def _preflight(manager: SessionManager, selection: SiteSelection) -> tuple[str, frozenset[str]]:
+def _preflight(manager: SessionManager, selection: SiteSelection, report: dict) -> tuple[str, frozenset[str]]:
+    report["failure_stage"] = "parent_lookup"
     response = _get(manager, _segments("byname", selection.parent_name))
     _require(response.status == 200, "destination_parent_lookup_failed")
     parent = _site_object(_json(response), selection.parent_name)
@@ -247,6 +248,7 @@ def _preflight(manager: SessionManager, selection: SiteSelection) -> tuple[str, 
     _require(parent_id not in selection.source_identities, "destination_identity_matches_source_identity")
     if selection.parent_is_root:
         _require("parentOrmID" in parent and parent["parentOrmID"] is None, "destination_root_parent_unverified")
+    report["failure_stage"] = "candidate_collision_lookup"
     try:
         response = _get(manager, _segments("byname", selection.name))
     except TransportError as error:
@@ -263,6 +265,7 @@ def _preflight(manager: SessionManager, selection: SiteSelection) -> tuple[str, 
         )
     )
     _require(absent, "site_collision_or_absence_unqualified")
+    report["failure_stage"] = "organization_tree_lookup"
     response = _get(manager, _TREE)
     _require(response.status == 200, "tree_preflight_failed")
     tree = _tree(_json(response))
@@ -278,6 +281,7 @@ def _preflight(manager: SessionManager, selection: SiteSelection) -> tuple[str, 
                      for row in tree), "fresh_tree_collision")
     identities = frozenset(value for row in tree for value in (row["identity"], row["ormID"])
                            if isinstance(value, str))
+    report.pop("failure_stage")
     return parent_id, identities
 
 
@@ -402,7 +406,7 @@ def run_single_site(
                     )
                     manager.authenticate(SessionRole.DESTINATION)
                     report["authenticated"] = True
-                    parent_id, _ = _preflight(manager, selection)
+                    parent_id, _ = _preflight(manager, selection, report)
                     report.update(status="dry-run-ready", parent_resolved=True, collision_check_passed=True)
                     if not execute:
                         status = ExitStatus.SUCCESS
@@ -410,7 +414,7 @@ def run_single_site(
                         report.update(status="cancelled", issue_codes=["operator_declined_or_no_terminal"])
                     else:
                         # Recheck after the human decision, within the same authenticated session.
-                        fresh_parent_id, prior_identities = _preflight(manager, selection)
+                        fresh_parent_id, prior_identities = _preflight(manager, selection, report)
                         _require(fresh_parent_id == parent_id, "parent_changed_after_approval")
                         guard_descriptor = os.open(guard, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                         with os.fdopen(guard_descriptor, "w", encoding="utf-8") as reservation:
