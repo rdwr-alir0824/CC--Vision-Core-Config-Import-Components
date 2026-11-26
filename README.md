@@ -522,6 +522,53 @@ destination identity/schema requirements remain explicit. No source values,
 Device associations, credentials, flat import files or executable plans are
 produced; source identities and hierarchy remain in the unchanged backup.
 
+### Offline Source-to-Destination Site comparison
+
+Use the existing network-disabled destination service; no credentials or launcher
+changes are required. From the standard checkout, select the **exact** saved
+Organization backup and destination Site snapshot:
+
+```sh
+docker compose --profile destination run --rm ccv-destination \
+  --operation site-comparison \
+  --input /incoming/<backup-folder>/organization-tree/tree.json \
+  --destination-snapshot /reports/<discovery-folder>/organization-sites.json \
+  --source-root-name "<reviewed-source-root>" \
+  --destination-root-name "<reviewed-destination-root>" \
+  --destination-gui-version 10.15.0-2 \
+  --output /reports/source-destination-site-comparison.json
+```
+
+Root names declare a **proposal** only. After reviewing both saved root records,
+add `--confirm-root-mapping` to explicitly confirm their association; this is
+neither identity equivalence nor permission to rename either root or write to CC.
+Omit both root-name options to report a missing mapping. The GUI version is an
+optional operator declaration, **not API verification**.
+
+Default stdout is a sanitized text summary; `--report-format json` provides the
+same structured evidence as the new output file. Exit **1** means comparison
+generated but migration **BLOCKED**, including with confirmed roots and potential
+creations. Missing/invalid inputs fail explicitly (3/4); no alternative snapshot
+is selected. Choose a new output name on each run; inputs and existing outputs
+are never overwritten.
+
+The report preserves identities through distinct `source:node-*` and
+`destination:node-*` artifact-local references bound to whole-input SHA-256.
+Native IDs, names and unknown configuration values remain in the unchanged
+protected inputs, not stdout/shared reports. No per-device hashes are emitted.
+Exact Site names identify **potential collisions**, not proven identity matches.
+Source parent-before-child order is retained; children explicitly depend on
+future destination identity resolution after parent creation or qualification.
+No Site is relocated and no Device is compared or associated.
+
+An empty destination snapshot can yield potential creations, **not verified
+absence or complete enumeration**. Unsupported/unprojected fields, root/parent
+semantics, name matching rules, destination version/schema, native identity to
+create-parent-field correspondence and post-create readback remain blockers.
+The custom report domain cannot be used as an import file or executable plan.
+Rebuild the existing shared image using the standard update procedure before
+running the new operation; no new deployment method/service/image is introduced.
+
 ### Inventory/tree reconciliation reference
 
 The [offline reconciler](src/cc_vision_import/inventory_reconciliation.py)

@@ -2,7 +2,56 @@
 
 Last updated: 2026-11-25
 
-## Current task: TLS-INTERACTIVE-DEFAULT-UX
+## Current task: SOURCE-DESTINATION-SITE-COMPARISON
+
+- Objective/priority: high; first offline Vision source versus saved CC destination
+  Site comparison, without Device processing or executable migration plans.
+- Dependencies: existing source Site-readiness parser, destination Site projection,
+  strict local inputs/exclusive report writer and network-none destination Compose.
+- Approval: owner authorized focused offline comparison, root association proposal/
+  explicit confirmation and synthetic tests only; no live calls/imports/Git.
+- Implementation status: implemented; verified complete for synthetic/offline
+  acceptance. Actual saved-input comparison and Docker runtime remain unverified.
+- Behavior: explicit source/destination saved inputs, proposal unless root names
+  are both checked and confirmed; no root rename or identity equivalence.
+  Per-Site conditional creation, possible existing, ambiguous or blocked
+  classifications. Native identities stay in immutable inputs, separately scoped
+  artifact-local references/whole-input bindings appear in sanitized reports.
+  Source dependency order and future parent destination-ID requirements retained.
+  Unclassified/orphan/conflicting destination structure is never reattached to
+  root. Unknown fields/version/enumeration and create-parent-ID semantics stay
+  unqualified. Report cannot be an executable/import-ready payload.
+- Files affected: src/cc_vision_import/site_comparison.py, master_cli.py,
+  tests/test_site_comparison.py, README.md, docs/API_MATRIX.md, docs/PROGRESS.md.
+  Launcher, Compose, Dockerfile, collectors, TLS/authentication, destination
+  discovery and migration execution unchanged.
+- Input availability: both exact destination-relative source backup and destination
+  snapshot paths supplied by the owner are absent on this workstation. No other
+  backup was substituted; real 30/0 reconciliation is not locally verified.
+- Initial evidence: eight focused synthetic cases passed in 0.341s. Initial
+  sanitizer assertions falsely matched the static word private-inputs rather
+  than input values; wording clarified to protected-inputs before the passing
+  run. Parent/orphan/invalid-scope cases were added for final related regressions.
+- Final evidence: `python -S -B -m unittest test_site_comparison
+  test_vision_tree_preview test_destination_discovery test_compose_deployment
+  test_foundation test_mocked_integration` with src/tests on PYTHONPATH:
+  73 tests in 12.735s, 72 passed and one Docker-availability skip. Eleven focused
+  comparison tests cover 30/0, root proposal/confirmation/missing/mismatch, distinct
+  identity namespaces, exact-name collisions/duplicate identities, parent order/
+  conflicts/orphans, future ID requirements, unqualified metadata, input byte/
+  object immutability, non-importable report, missing exact inputs, exclusive
+  output and offline Compose routing. Zero real network attempts. Both runtime
+  AST/Pylance diagnostic checks, comparison Pylance syntax and 20 README shell
+  blocks passed. No collectors, launcher, authentication, TLS or discovery edits.
+- Known blockers: actual saved-input validation and Docker runtime unavailable;
+  installed CC version remains GUI-observed, not API-verified. Root declaration,
+  exact Site-create schema/native parent identity mapping, collision/parent/
+  completeness qualification and post-create verification need separate approval.
+- Next action: run documented comparison against the
+  exact transferred backup/snapshot. Confirm roots only after explicit review;
+  separately qualify one Site-create test without enabling an execution engine.
+
+## Previous task: TLS-INTERACTIVE-DEFAULT-UX
 
 - Objective/priority: high; remove required lab environment setup while preserving
   the menu, verified-first TLS and explicit default-NO session approval.

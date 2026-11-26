@@ -67,6 +67,40 @@ No version request, configuration write, live controller call, deployment or Git
 operation was performed during implementation. Mocked offline evidence is
 recorded in PROGRESS.md; it does not qualify the actual destination release.
 
+## SOURCE-DESTINATION-SITE-COMPARISON - offline saved evidence
+
+Implemented `site-comparison` using the source Site-readiness validator and the
+existing destination Site projection applied only to retained, observed
+root-connected Site containment. Orphans, explicit parent conflicts, missing/
+duplicate identities and names remain blocked/ambiguous; no root attachment or
+identity substitution is invented. Source/destination references are separate
+artifact-local namespaces, bound to whole-input SHA-256 in the CLI report.
+Native values remain in unchanged inputs; safe counts/static issue codes only.
+
+Explicit root-name declarations propose an association. `--confirm-root-mapping`
+records operator confirmation after checking both snapshots, not root identity
+equivalence, renaming, or write approval. Unique exact-name/parent candidates
+are only possible existing Sites; duplicate names, conflicting parents and
+ambiguous native identities are not silently mapped. Zero retained destination
+Sites permits conditional creation candidates, not verified absence/completeness.
+Source parent-before-child order and future parent destination-ID requirements
+are exposed without create payloads or assigned destination IDs.
+
+Owner-reported environment: 30 orderable source Sites and zero destination Sites;
+destination 10.15.0-2 is GUI-observed only. The specified source/destination files
+are unavailable on this development workstation; no real reconciliation result
+has been claimed and no alternate backups were substituted. Synthetic fixtures
+are explicitly test evidence, not observed controller data.
+
+Destination create/schema/version qualification, native identity to create-parent
+field correspondence, inferred root/parent semantics, incomplete enumeration and
+unprojected fields remain blockers before any separately authorized Site-create
+test. The comparison is always non-executable/migration-blocked and rejects live
+options. Existing offline Compose passthrough provides network-none/incoming-RO
+execution, without launcher/service/authentication/TLS/discovery changes.
+No endpoints, configuration writes, Device associations or capability activation
+are added. Test evidence is recorded in PROGRESS.md.
+
 ## SITE-MIGRATION-READINESS - source Sites only
 
 Implemented `tree-readiness-preview --site-readiness` using the existing native

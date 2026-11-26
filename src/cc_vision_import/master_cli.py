@@ -23,7 +23,7 @@ _LOOKUPS = {
 }
 _OPERATIONS = (
     "operations", "profiles", "export", "compare", "plan", "import-preview",
-    "authenticate", "import", "backup-vision", "destination-discovery", "tree-readiness-preview", *_LOOKUPS,
+    "authenticate", "import", "backup-vision", "destination-discovery", "tree-readiness-preview", "site-comparison", *_LOOKUPS,
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -130,7 +130,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Offline consolidation, or explicitly selected read-only Vision backup. Never writes controller configuration.",
     )
     parser.add_argument("--operation", choices=_OPERATIONS, required=True)
-    parser.add_argument("--report-format", choices=("text", "json"), help="Tree readiness stdout format; defaults to text.")
+    parser.add_argument("--report-format", choices=("text", "json"), help="Tree readiness/Site comparison stdout format; defaults to text.")
     parser.add_argument("--legacy-compatibility", action="store_true", help="Assess tree fields against the legacy flat input contract; report only.")
     parser.add_argument("--site-readiness", action="store_true", help="Assess Organization Site source fields and dependencies only; report only.")
     parser.add_argument("--module", choices=("controller-objects", "ldap-permissions", "scheduler"), default="controller-objects")
@@ -150,7 +150,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
     parser.add_argument("--discovery-profile", help="External JSON profile for explicitly selected CC tree-only discovery; version unknown.")
     parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
+    parser.add_argument("--destination-snapshot", help="Saved read-only destination Organization Site snapshot for offline comparison.")
+    parser.add_argument("--source-root-name", help="Reviewed source root name for a proposed offline root association.")
+    parser.add_argument("--destination-root-name", help="Reviewed destination root name for a proposed offline root association.")
+    parser.add_argument("--confirm-root-mapping", action="store_true", help="Explicitly confirm the proposed root association; never renames roots or authorizes writes.")
+    parser.add_argument("--destination-gui-version", help="Optional operator-declared GUI version; never API qualification.")
     args = parser.parse_args(argv)
+    site_comparison = args.operation == "site-comparison"
+    if site_comparison:
+        if args.input is None or args.destination_snapshot is None or args.module != "controller-objects" or any(
+            value is not None for value in (
+                args.request, args.source_profile, args.destination_profile, args.lookup_value,
+                args.format, args.tree, args.controller_id, args.root, args.exported_at,
+                args.backup_profile, args.discovery_profile, args.credentials_file,
+            )
+        ):
+            parser.error("site-comparison requires --input and --destination-snapshot; no profiles, credentials or live options.")
+        if (args.source_root_name is None) != (args.destination_root_name is None) or (
+            args.confirm_root_mapping and args.source_root_name is None
+        ):
+            parser.error("Supply both root names before explicitly confirming their proposed association.")
+    elif args.confirm_root_mapping or any(value is not None for value in (
+        args.destination_snapshot, args.source_root_name, args.destination_root_name, args.destination_gui_version,
+    )):
+        parser.error("Root mapping and destination snapshot options require site-comparison.")
     destination_discovery = args.operation == "destination-discovery"
     if destination_discovery:
         if args.discovery_profile is None or args.credentials_file is None:
@@ -164,8 +187,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.discovery_profile is not None:
         parser.error("--discovery-profile requires destination-discovery.")
     tree_preview = args.operation == "tree-readiness-preview"
-    if args.report_format is not None and not tree_preview:
-        parser.error("--report-format is supported only for tree-readiness-preview.")
+    if args.report_format is not None and not (tree_preview or site_comparison):
+        parser.error("--report-format is supported only for tree-readiness-preview or site-comparison.")
     if args.legacy_compatibility and not tree_preview:
         parser.error("--legacy-compatibility requires tree-readiness-preview.")
     if args.site_readiness and (not tree_preview or args.legacy_compatibility):
@@ -194,13 +217,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("backup profile/credentials options require explicit --operation backup-vision.")
     lookup = args.operation in _LOOKUPS
     standalone_export = args.operation == "export" and args.input is not None
-    if args.output is not None and args.operation != "export" and not lookup and not tree_preview:
+    if args.output is not None and args.operation != "export" and not lookup and not tree_preview and not site_comparison:
         parser.error("--output is supported only for offline export or lookup artifacts.")
     if args.operation == "export" and args.output is None:
         parser.error("offline export requires --output.")
     if args.operation in ("export", "compare", "plan", "import-preview") and args.request is None and not standalone_export:
         parser.error("this operation requires --request.")
-    if args.input is not None and not (lookup or standalone_export or tree_preview):
+    if args.input is not None and not (lookup or standalone_export or tree_preview or site_comparison):
         parser.error("--input is supported only for export or lookup.")
     if args.request is not None and (lookup or standalone_export):
         parser.error("standalone export/lookup cannot be combined with --request.")
@@ -240,6 +263,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "plan": "CC-to-CC offline planning",
                 "import-preview": "same offline plan; not a legacy dry-run or write authorization",
                 "tree-readiness-preview": "offline inspection of real Vision tree backup envelopes; no import plan",
+                "site-comparison": "offline Vision Organization Sites versus saved CC Site snapshot; proposed/confirmed root association, no executable plan",
                 "authenticate": "unavailable: shared authentication exists but is not wired to live execution",
                 "import": "unavailable: no live writes, even after offline planning",
                 "vision-to-cc": _VISION_LIMITATION,
@@ -253,6 +277,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .destination_discovery import run_destination_discovery
 
             report, status = run_destination_discovery(args.discovery_profile, args.credentials_file)
+        elif site_comparison:
+            from .site_comparison import compare_sites
+
+            inputs = OfflineInputs(Path.cwd())
+            report = compare_sites(
+                inputs.read(args.input, "source-organization-tree", base=Path.cwd()),
+                inputs.read(args.destination_snapshot, "destination-organization-sites", base=Path.cwd()),
+                source_root_name=args.source_root_name, destination_root_name=args.destination_root_name,
+                confirm_root_mapping=args.confirm_root_mapping, destination_gui_version=args.destination_gui_version,
+            )
+            report["input_bindings"] = inputs.bindings
+            status = ExitStatus.VALIDATION_FAILED
+            if args.output is not None:
+                _write_export(args.output, json.dumps(report, allow_nan=False, indent=2))
         elif tree_preview:
             from .vision_tree_preview import inspect_legacy_tree_compatibility, inspect_site_migration_readiness, inspect_vision_tree
 
@@ -331,7 +369,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "output_exists", "output_unwritable", "output_cleanup_failed",
         } else ExitStatus.CONTRACT_ERROR
         report = _report(args.operation, "error", errors=[{"code": code} for code in codes])
-    if tree_preview and args.report_format != "json":
+    if site_comparison and args.report_format != "json":
+        from .site_comparison import format_site_comparison
+
+        print(format_site_comparison(report))
+    elif tree_preview and args.report_format != "json":
         from .vision_tree_preview import format_tree_preview
 
         print(format_tree_preview(report))
