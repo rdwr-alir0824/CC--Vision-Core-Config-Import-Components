@@ -340,10 +340,14 @@ full dry-run, freeze competing writers and use:
 ```
 
 The launcher first repeats the read-only batch preflight, then starts one fresh
-interactive session. The engine displays destination, Site count, reviewed-list
-hash and experimental risks. The terminal must receive the displayed exact
-`MIGRATE <count> SITES <list-hash>` phrase; there is no `--yes` or per-Site prompt.
-This authorizes only the bound list/destination. Each create has fresh parent
+interactive session. After fresh read-only preflight, the engine displays the
+destination, Site count and experimental risks, then asks
+`Proceed with creating <count> Sites? [Y/n] (default Yes):`.
+Y/Yes or Enter approves; N/No cancels. Invalid answers re-prompt with terminal
+line editing; noninteractive input, EOF or interruption never approves.
+The reviewed list/destination remain bound internally without typing a hash.
+Compact progress/counts replace console JSON; complete reports and protected
+journals remain in their existing locations. Each create has fresh parent
 and collision checks, a durable reservation, one POST maximum and bounded
 returned-ID/hierarchy readback before dependent children can run. Unknown
 results stop immediately; no POST retries, rollback, root rename or fallback.

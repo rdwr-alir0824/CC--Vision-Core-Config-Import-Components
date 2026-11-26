@@ -132,7 +132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Offline tools, selected controller reads, or explicitly authorized experimental Site migration.",
     )
     parser.add_argument("--operation", choices=_OPERATIONS, required=True)
-    parser.add_argument("--report-format", choices=("text", "json"), help="Tree readiness/Site comparison stdout format; defaults to text.")
+    parser.add_argument("--report-format", choices=("text", "json"), help="Tree/Site report format; batch JSON emits only a compact launcher result.")
     parser.add_argument("--legacy-compatibility", action="store_true", help="Assess tree fields against the legacy flat input contract; report only.")
     parser.add_argument("--site-readiness", action="store_true", help="Assess Organization Site source fields and dependencies only; report only.")
     parser.add_argument("--module", choices=("controller-objects", "ldap-permissions", "scheduler"), default="controller-objects")
@@ -217,8 +217,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.discovery_profile is not None and not site_operation:
         parser.error("--discovery-profile requires destination-discovery.")
     tree_preview = args.operation == "tree-readiness-preview"
-    if args.report_format is not None and not (tree_preview or site_comparison):
-        parser.error("--report-format is supported only for tree-readiness-preview or site-comparison.")
+    if args.report_format is not None and not (tree_preview or site_comparison or site_batch):
+        parser.error("--report-format is supported only for tree-readiness-preview, site-comparison or Site batch operations.")
     if args.legacy_compatibility and not tree_preview:
         parser.error("--legacy-compatibility requires tree-readiness-preview.")
     if args.site_readiness and (not tree_preview or args.legacy_compatibility):
@@ -323,6 +323,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         operation_delay=1 if args.operation_delay is None else args.operation_delay,
                         readback_interval=1 if args.readback_interval is None else args.readback_interval,
                         readback_attempts=3 if args.readback_attempts is None else args.readback_attempts,
+                        terminal=args.report_format != "json",
                     )
                 else:
                     report, status = run_single_site(
@@ -436,7 +437,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             "output_exists", "output_unwritable", "output_cleanup_failed",
         } else ExitStatus.CONTRACT_ERROR
         report = _report(args.operation, "error", errors=[{"code": code} for code in codes])
-    if site_comparison and args.report_format != "json":
+    if site_batch:
+        if args.report_format == "json":
+            result = {key: report[key] for key in (
+                "operation", "status", "mode", "target_origin", "counts", "authenticated", "read_only",
+                "migration_ready", "execution_authorized", "configuration_writes_authorized", "tls",
+                "issue_codes", "manual_reconciliation_required", "report_file",
+            ) if key in report}
+            result.update(
+                operation="site-batch-migration", mode=args.operation.removeprefix("site-batch-"),
+                migration_ready=False, counts=report.get("counts", {"total": 0}),
+                issue_codes=report.get("issue_codes", [row["code"] for row in report.get("errors", [])]),
+            )
+            print(json.dumps(result, allow_nan=False))
+        elif "report_file" not in report:
+            from .launcher_helper import summary
+
+            summary({
+                **report, "operation": "site-batch-migration", "mode": args.operation.removeprefix("site-batch-"),
+                "counts": report.get("counts", {"total": 0}), "migration_ready": False,
+                "issue_codes": report.get("issue_codes", [row["code"] for row in report.get("errors", [])]),
+            }, "2", int(status), "", "")
+    elif site_comparison and args.report_format != "json":
         from .site_comparison import format_site_comparison
 
         print(format_site_comparison(report))

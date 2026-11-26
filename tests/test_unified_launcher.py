@@ -136,6 +136,8 @@ if args[0] == "compose" and "run" in args:
         execute = "sites-execute" in args or "sites-resume" in args
         report = {
             "operation": "site-batch-migration", "status": "batch-verified" if execute else "dry-run-ready",
+            "mode": "resume" if "sites-resume" in args else "execute" if execute else "dry-run",
+            "target_origin": os.environ["CCV_DESTINATION_URL"],
             "migration_ready": False, "create_attempts": 30 if execute else 0,
             "configuration_writes_authorized": execute, "read_only": not execute,
             "counts": {"total": 30, "created": 30 if execute else 0, "verified": 30 if execute else 0,
@@ -149,7 +151,15 @@ if args[0] == "compose" and "run" in args:
             report.pop("opaque")
         if execute and mode == "create-uncertain":
             report.update(status="indeterminate", manual_reconciliation_required=True)
-            print(json.dumps(report))
+            helper.summary(report, "2", 1, str(root / "reports"), "")
+            sys.exit(1)
+        if execute and mode == "batch-declined":
+            report.update(
+                status="blocked", create_attempts=0, read_only=True, configuration_writes_authorized=False,
+                issue_codes=["batch_operator_declined_or_no_terminal"],
+                counts={"total": 30, "created": 0, "verified": 0, "already_existing": 0, "failed": 0, "pending": 30},
+            )
+            helper.summary(report, "2", 1, str(root / "reports"), "")
             sys.exit(1)
     exit_status = 1 if service == "ccv-destination" else 0
     if service != "ccv-destination":
@@ -201,7 +211,10 @@ if args[0] == "compose" and "run" in args:
         (folder / filename).write_text(json.dumps(report if filename == "root-qualification.json" else {
             "domain": "cc-destination-organization-sites", "migration_ready": False, "tls": report["tls"],
         }))
-    print(json.dumps(report))
+    if report.get("operation") == "site-batch-migration" and "--report-format" not in args:
+        helper.summary(report, "2", exit_status, str(root / "reports"), "")
+    else:
+        print(json.dumps(report))
     sys.exit(exit_status)
 sys.exit(2)
 '''
@@ -371,12 +384,28 @@ class UnifiedLauncherTests(OfflineTestCase):
                 self.assertEqual(len(operations), 1 if mode == "dry-run" else 2)
                 self.assertIn("sites-dry-run", operations[0]["args"])
                 self.assertIn("-T", operations[0]["args"])
-                self.assertIn("reviewed Sites: 30", result.stdout)
+                self.assertIn("total Sites: 30", result.stdout)
+                self.assertIn("--report-format", operations[0]["args"])
+                self.assertEqual(operations[0]["args"][-2:], ["--report-format", "json"])
                 self.assertNotIn("private-native-id", result.stdout + result.stderr)
                 if mode != "dry-run":
                     self.assertIn("sites-" + mode, operations[1]["args"])
                     self.assertIn("-it", operations[1]["args"])
+                    self.assertNotIn("--report-format", operations[1]["args"])
                     self.assertEqual(sum("sites-" + mode in row["args"] for row in operations), 1)
+
+    def test_batch_cancellation_displays_compact_result_not_raw_json_or_list_hashes(self):
+        result, calls = self.launch(
+            arguments=("--sites-execute", *self.single_site_arguments()[1:-2]), mode="batch-declined",
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(len(self.operation_calls(calls)), 2)
+        self.assertIn("Cancelled; no new Sites created.", result.stdout)
+        self.assertIn("Issue code: batch_operator_declined_or_no_terminal", result.stdout)
+        self.assertIn("Sanitized report:", result.stdout)
+        self.assertNotIn('"counts"', result.stdout)
+        self.assertNotIn("b" * 32, result.stdout)
+        self.assertNotIn("private-native-id", result.stdout + result.stderr)
 
     def test_batch_uncertain_execution_is_never_restarted(self):
         result, calls = self.launch(

@@ -188,7 +188,7 @@ class SiteMigrationTests(OfflineTestCase):
                              ("destination-organization-sites", self.snapshot_path))]
         self.comparison_path.write_text(json.dumps(comparison))
 
-    def run_batch(self, server, *, mode="dry-run", approval=True, use_cli=False, **options):
+    def run_batch(self, server, *, mode="dry-run", approval=True, use_cli=False, human=False, **options):
         before = [path.read_bytes() for path in (self.source_path, self.snapshot_path, self.comparison_path)]
         factory = Mock(side_effect=lambda *a, **k: ServerConnection(server))
         approve = Mock(return_value=approval)
@@ -199,7 +199,7 @@ class SiteMigrationTests(OfflineTestCase):
                 "username": "private-user", "password": "private-password",
             }),
             patch.object(self.transport.TransportConfig, "tls_context", return_value=self.context),
-            patch.object(self.module, "_approval", approve),
+            patch.object(self.module, "_approval", self.module._approval if approval is None else approve),
             redirect_stdout(out), redirect_stderr(err),
         ):
             if use_cli:
@@ -208,8 +208,16 @@ class SiteMigrationTests(OfflineTestCase):
                     "--credentials-file", str(self.credentials), "--input", str(self.source_path),
                     "--comparison", str(self.comparison_path), "--destination-snapshot", str(self.snapshot_path),
                     "--operation-delay", "0", "--readback-interval", "0",
+                    *([] if human else ["--report-format", "json"]),
                 ])
-                report = json.loads(out.getvalue())
+                if human:
+                    report = json.loads(max(self.output.glob("ccv-sites-report-*.json"),
+                                            key=lambda path: path.stat().st_mtime_ns).read_text())
+                else:
+                    envelope = json.loads(out.getvalue())
+                    self.assertNotIn("dependency_order", envelope)
+                    self.assertNotIn("plan_sha256", envelope)
+                    report = json.loads((self.output / envelope["report_file"]).read_text())
             else:
                 report, status = self.module.run_site_migration(
                     str(self.profile_path), str(self.credentials), str(self.source_path),
@@ -226,6 +234,13 @@ class SiteMigrationTests(OfflineTestCase):
             for secret in ("private-", "destination-root-id", "destination-site-"):
                 self.assertNotIn(secret, path.read_text())
         self.assertEqual(json.loads((self.output / report["report_file"]).read_text()), report)
+        if human:
+            self.assertNotIn('"schema_version"', out.getvalue())
+            self.assertNotIn("dependency_order", out.getvalue())
+            self.assertNotIn(self.plan.digest, out.getvalue() + err.getvalue())
+            self.assertNotIn(self.plan.digest[:12], out.getvalue() + err.getvalue())
+            self.assertTrue(out.getvalue().rstrip().endswith(str(self.output / report["report_file"])))
+        self.console = out.getvalue() + err.getvalue()
         return int(status), report, approve
 
     def test_complete_30_site_dry_run_covers_all_22_dependencies_without_writes(self):
@@ -284,7 +299,7 @@ class SiteMigrationTests(OfflineTestCase):
         self.assertEqual(len(server.posts), 28)
         self.assertFalse(any(row["name"] in ("private-site-1", "private-site-2") for row in server.posts))
 
-    def test_batch_authorization_is_separate_and_default_denial_never_creates(self):
+    def test_batch_authorization_is_separate_and_cancellation_never_creates(self):
         server = SiteServer()
         status, report, approve = self.run_batch(server, mode="execute", approval=False)
         self.assertEqual(status, 1)
@@ -365,7 +380,7 @@ class SiteMigrationTests(OfflineTestCase):
         self.assertEqual(server.posts, [])
         self.assertEqual(report["http_status"], 400)
         journal = self.output / report["journal_file"]
-        journal.unlink()
+        self.assertFalse(journal.exists())
         other = server.seed("private-other-parent", server.root_id)
         server.seed("private-site-1", other)
         server.invalid_lookup = False
@@ -520,3 +535,193 @@ class SiteMigrationTests(OfflineTestCase):
         self.assertEqual(server.posts, [])
         self.assertTrue(report["manual_reconciliation_required"])
         self.assertIn("prior_attempt_requires_manual_reconciliation", report["issue_codes"])
+
+    def test_batch_terminal_summary_and_progress_do_not_change_saved_reports_or_journal(self):
+        server = SiteServer()
+        status, report, _ = self.run_batch(server, mode="execute", use_cli=True, human=True)
+        self.assertEqual(status, 0)
+        self.assertIn("Site 3/30: VERIFIED", self.console)
+        self.assertIn("Destination: https://destination.invalid", self.console)
+        self.assertIn("Operation: Sites execute; total Sites: 30; preflight: PASSED", self.console)
+        self.assertIn("Created: 30 | Verified: 30 | Existing: 0 | Failed: 0 | Pending: 0", self.console)
+        self.assertEqual(report["plan_sha256"], self.plan.digest)
+        self.assertEqual(len(report["dependency_order"]), 30)
+        journal = json.loads((self.output / report["journal_file"]).read_text())
+        self.assertEqual(journal["binding"]["plan"], self.plan.binding)
+        self.assertEqual(journal["sites"][self.plan.sites[0].selection.reference]["destination_identity"],
+                         server.sites[self.plan.sites[0].selection.name]["ormID"])
+
+    def test_cancelled_batch_prints_compact_result_and_does_not_create(self):
+        status, report, _ = self.run_batch(SiteServer(), mode="execute", use_cli=True, human=True, approval=False)
+        self.assertEqual(status, 1)
+        self.assertEqual(report["create_attempts"], 0)
+        self.assertFalse(report["configuration_writes_authorized"])
+        self.assertFalse(list(self.output.glob("*.journal.json")))
+        self.assertIn("Cancelled; no new Sites created.", self.console)
+        self.assertIn("Issue code: batch_operator_declined_or_no_terminal", self.console)
+
+    def test_authorization_accepts_yes_no_and_enter_and_reprompts_without_echoing_invalid_input(self):
+        for answer, expected in (("y", True), ("yes", True), ("Y", True), ("YES", True), ("", True),
+                                 ("n", False), ("no", False), ("N", False), ("NO", False)):
+            with self.subTest(answer=answer):
+                out = io.StringIO()
+                with (
+                    patch.object(self.module.sys.stdin, "isatty", return_value=True), redirect_stdout(out),
+                    patch.object(out, "isatty", return_value=True),
+                    patch("builtins.input", return_value=answer) as prompt,
+                ):
+                    self.assertEqual(self.module._approval("https://destination.invalid", 30, self.plan.digest), expected)
+                prompt.assert_called_once_with("Proceed with creating 30 Sites? [Y/n] (default Yes): ")
+                self.assertNotIn(self.plan.digest[:12], out.getvalue())
+        out = io.StringIO()
+        with (
+            patch.object(self.module.sys.stdin, "isatty", return_value=True), redirect_stdout(out),
+            patch.object(out, "isatty", return_value=True),
+            patch("builtins.input", side_effect=["private-invalid\x1b[A", "yes"]) as prompt,
+        ):
+            self.assertTrue(self.module._approval("https://destination.invalid", 30, self.plan.digest))
+        self.assertEqual(prompt.call_count, 2)
+        self.assertIn("Please enter Y/Yes or N/No.", out.getvalue())
+        self.assertNotIn("private-invalid", out.getvalue())
+        self.assertNotIn("\x1b", out.getvalue())
+
+    def test_authorization_noninteractive_eof_interrupted_and_unusable_terminal_fail_closed(self):
+        for stdin_tty, stdout_tty, error in (
+            (False, True, None), (True, False, None),
+            (True, True, EOFError()), (True, True, KeyboardInterrupt()), (True, True, OSError()),
+            (True, True, ValueError()),
+        ):
+            with self.subTest(stdin_tty=stdin_tty, stdout_tty=stdout_tty, error=type(error).__name__):
+                out, err = io.StringIO(), io.StringIO()
+                with (
+                    patch.object(self.module.sys.stdin, "isatty", return_value=stdin_tty),
+                    redirect_stdout(out), redirect_stderr(err),
+                    patch.object(out, "isatty", return_value=stdout_tty),
+                    patch("builtins.input", side_effect=error) as prompt,
+                ):
+                    self.assertFalse(self.module._approval("https://destination.invalid", 30, self.plan.digest))
+                if not stdin_tty or not stdout_tty:
+                    prompt.assert_not_called()
+                self.assertIn("Authorization cancelled", err.getvalue())
+
+    def test_invalid_then_yes_keeps_one_authenticated_session_and_no_authentication_restart(self):
+        server = SiteServer()
+        original_approval = self.module._approval
+        def approval(origin, count, digest):
+            with patch.object(self.module.sys.stdout, "isatty", return_value=True):
+                return original_approval(origin, count, digest)
+        with (
+            patch.object(self.module.sys.stdin, "isatty", return_value=True),
+            patch("builtins.input", side_effect=["invalid", "yes"]) as prompt,
+            patch.object(self.module, "_approval", side_effect=approval),
+        ):
+            status, report, _ = self.run_batch(server, mode="execute", approval=None)
+        self.assertEqual(status, 0)
+        self.assertEqual(prompt.call_count, 2)
+        self.assertEqual(sum(path == "/mgmt/system/user/login" for _, path in server.calls), 1)
+        self.assertEqual(len(server.posts), 30)
+        self.assertEqual(report["counts"]["verified"], 30)
+
+    def test_dry_run_terminal_output_never_requests_authorization(self):
+        server = SiteServer()
+        status, report, approve = self.run_batch(server, use_cli=True, human=True)
+        self.assertEqual(status, 0)
+        approve.assert_not_called()
+        self.assertEqual(server.posts, [])
+        self.assertIn("Operation: Sites dry-run; total Sites: 30; preflight: PASSED", self.console)
+        self.assertIn("Created: 0 | Verified: 0 | Existing: 0 | Failed: 0 | Pending: 30", self.console)
+        self.assertEqual(report["create_attempts"], 0)
+
+    def test_invalid_preflight_never_reaches_default_yes_authorization(self):
+        server = SiteServer()
+        server.invalid_lookup = True
+        status, report, approve = self.run_batch(server, mode="execute", use_cli=True, human=True)
+        self.assertEqual(status, 1)
+        approve.assert_not_called()
+        self.assertEqual(server.posts, [])
+        self.assertIn("preflight: FAILED", self.console)
+        self.assertIn("Issue code: http_error", self.console)
+        self.assertEqual(report["create_attempts"], 0)
+
+    def test_batch_input_errors_use_compact_text_or_launcher_envelope_without_full_report(self):
+        self.source_path.unlink()
+        for format_name in ("text", "json"):
+            with self.subTest(format_name=format_name):
+                out = io.StringIO()
+                with redirect_stdout(out):
+                    status = self.cli.main([
+                        "--operation", "site-batch-dry-run", "--discovery-profile", str(self.profile_path),
+                        "--credentials-file", str(self.credentials), "--input", str(self.source_path),
+                        "--comparison", str(self.comparison_path), "--destination-snapshot", str(self.snapshot_path),
+                        "--report-format", format_name,
+                    ])
+                self.assertNotEqual(status, 0)
+                self.assertIn("input_unreadable", out.getvalue())
+                if format_name == "json":
+                    report = json.loads(out.getvalue())
+                    self.assertEqual(report["operation"], "site-batch-migration")
+                    self.assertEqual(report["status"], "error")
+                    self.assertNotIn("dependency_order", report)
+                else:
+                    self.assertIn("Issue code:", out.getvalue())
+                    self.assertIn("Sanitized report: unavailable", out.getvalue())
+                    self.assertNotIn('"operation"', out.getvalue())
+
+    def test_cancelled_resume_preserves_original_journal_and_never_repeats_a_post(self):
+        server = SiteServer()
+        server.fault_at, server.fault = 1, TimeoutError("private-timeout")
+        _, report, _ = self.run_batch(server, mode="execute")
+        path = self.output / report["journal_file"]
+        before = path.read_bytes()
+        server.fault_at = None
+        status, _, _ = self.run_batch(server, mode="resume", use_cli=True, human=True, approval=False)
+        self.assertEqual(status, 1)
+        self.assertEqual(len(server.posts), 1)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_tty_authorization_supports_arrow_and_backspace_editing(self):
+        if self.module.os.name != "posix":
+            self.skipTest("Real POSIX TTY/readline editing requires Linux/macOS.")
+        import errno
+        import os
+        import pty
+        import select
+        import subprocess
+        import sys
+
+        master, slave = pty.openpty()
+        process = subprocess.Popen([
+            sys.executable, "-S", "-B", "-u", "-c",
+            "from cc_vision_import.site_migration import _approval; "
+            "print('APPROVED', _approval('https://destination.invalid', 30, 'protected-list-digest'))",
+        ], stdin=slave, stdout=slave, stderr=slave)
+        os.close(slave)
+        def read_until(marker):
+            output = b""
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and marker not in output:
+                if select.select([master], [], [], 0.1)[0]:
+                    try:
+                        chunk = os.read(master, 4096)
+                    except OSError as error:
+                        if error.errno != errno.EIO:
+                            raise
+                        break
+                    if not chunk:
+                        break
+                    output += chunk
+            self.assertIn(marker, output)
+            return output
+        try:
+            read_until(b"(default Yes): ")
+            os.write(master, b"nx\x1b[D\x7fY\x1b[C\x7f\n")
+            output = read_until(b"APPROVED True")
+            self.assertNotIn(b"^[[D", output)
+            self.assertNotIn(b"^[[C", output)
+            self.assertNotIn(b"^?", output)
+            self.assertEqual(process.wait(timeout=10), 0)
+        finally:
+            os.close(master)
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=10)

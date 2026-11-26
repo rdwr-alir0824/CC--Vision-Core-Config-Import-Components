@@ -285,12 +285,39 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
             status == 0 and state not in ("dry-run-ready", "batch-verified")
         ):
             raise SetupError("Invalid Site batch success state.")
-        print(f"Site batch: {state}; reviewed Sites: {total}. Experimental/unverified compatibility.")
+        target = report.get("target_origin")
+        if target is not None:
+            if not isinstance(target, str):
+                raise SetupError("Invalid Site batch destination.")
+            try:
+                TLSPolicy.from_dict({"verify": True}, target)
+            except TLSPolicyError:
+                raise SetupError("Invalid Site batch destination.") from None
+        mode = report.get("mode", "batch")
+        if mode not in ("batch", "dry-run", "execute", "resume"):
+            raise SetupError("Invalid Site batch operation.")
+        codes = report.get("issue_codes", [])
+        if not isinstance(codes, list) or not all(
+            isinstance(code, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,95}", code) for code in codes
+        ):
+            raise SetupError("Invalid Site batch issue codes.")
+        passed = state in ("dry-run-ready", "batch-verified") or report.get("execution_authorized") is True or (
+            "batch_operator_declined_or_no_terminal" in codes
+        )
+        print(f"Destination: {target if target is not None else 'unavailable'}")
+        print(f"Operation: Sites {mode}; total Sites: {total}; preflight: {'PASSED' if passed else 'FAILED'} ({state})")
         for key in ("created", "verified", "verified_this_run", "already_existing", "blocked", "failed", "pending"):
             value = counts.get(key, 0)
             if type(value) is not int or not 0 <= value <= total:
                 raise SetupError("Invalid Site batch count.")
-            print(f"{key}: {value}")
+        print(f"Created: {counts.get('created', 0)} | Verified: {counts.get('verified_this_run', counts.get('verified', 0))}"
+              f" | Existing: {counts.get('already_existing', 0)}"
+              f" | Failed: {counts.get('failed', 0) + counts.get('blocked', 0)} | Pending: {counts.get('pending', 0)}")
+        if codes:
+            explanation = "Cancelled; no new Sites created." if "batch_operator_declined_or_no_terminal" in codes else (
+                "Batch stopped; review the sanitized report."
+            )
+            print(f"{explanation} Issue code: {', '.join(codes)}")
         if report.get("manual_reconciliation_required") is True:
             print("MANUAL RECONCILIATION REQUIRED. No automatic POST retry or rollback.")
         path = report.get("report_file")
@@ -298,13 +325,8 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
             if not isinstance(path, str) or not re.fullmatch(r"ccv-sites-report-[0-9a-f]{32}\.json", path):
                 raise SetupError("Invalid Site batch report path.")
             print(f"Sanitized report: {Path(output) / path}")
-        journal = report.get("journal_file")
-        if journal is not None:
-            if not isinstance(journal, str) or not re.fullmatch(
-                r"ccv-sites-[0-9a-f]{32}-[0-9a-f]{16}\.journal\.json", journal,
-            ):
-                raise SetupError("Invalid Site journal path.")
-            print(f"Protected journal location (native mappings; do not share): {Path(output) / journal}")
+        else:
+            print("Sanitized report: unavailable (report creation was not reached).")
         return 11 if certificate_exception_available(report, selection, status) else 0
     if selection == "2" and report.get("operation") == "single-site-migration":
         state = report.get("status")

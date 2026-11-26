@@ -329,13 +329,29 @@ def _inspect(
 
 
 def _approval(origin: str, count: int, digest: str) -> bool:
-    print(f"EXPERIMENTAL full Site migration: {count} Sites; destination {origin}; reviewed list {digest[:12]}.",
-          file=sys.stderr)
-    print("Unverified target contracts, field omission, parent semantics and enumeration. "
-          "No retries or rollback. Approval covers only this list and destination.", file=sys.stderr)
-    phrase = f"MIGRATE {count} SITES {digest[:12]}"
-    print(f"Authorize this batch? Type {phrase} (default NO): ", end="", file=sys.stderr, flush=True)
-    return sys.stdin.isatty() and sys.stdin.readline().rstrip("\r\n") == phrase
+    print(f"Destination: {origin}; total Sites: {count}.")
+    print("Experimental compatibility. No retries or rollback; approval covers only this list and destination.")
+    try:
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            print("Authorization cancelled: an interactive terminal is required.", file=sys.stderr)
+            return False
+        if os.name != "nt":
+            try:
+                import readline
+            except ImportError:
+                print("Authorization cancelled: terminal line editing is unavailable.", file=sys.stderr)
+                return False
+            readline.set_auto_history(False)
+        while True:
+            answer = input(f"Proceed with creating {count} Sites? [Y/n] (default Yes): ").strip().casefold()
+            if answer in ("", "y", "yes"):
+                return True
+            if answer in ("n", "no"):
+                return False
+            print("Please enter Y/Yes or N/No.")
+    except (EOFError, KeyboardInterrupt, OSError, ValueError):
+        print("\nAuthorization cancelled: terminal input ended or was interrupted.", file=sys.stderr)
+        return False
 
 
 def _refresh_report(report: dict, entries: dict) -> None:
@@ -361,6 +377,7 @@ def run_site_migration(
     profile_path: str, credentials_path: str, source_path: str, comparison_path: str, snapshot_path: str, *,
     mode: str = "dry-run", target_version: str | None = None, operation_delay: float = 1,
     readback_interval: float = 1, readback_attempts: int = 3, approve=None,
+    terminal: bool = False,
 ) -> tuple[dict, ExitStatus]:
     _require(mode in ("dry-run", "execute", "resume"), "invalid_batch_mode")
     _require(all(type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 60
@@ -404,6 +421,9 @@ def run_site_migration(
     current = None
     resources = ExitStack()
     status = ExitStatus.VALIDATION_FAILED
+    if terminal:
+        print(f"Destination: {profile.transport.base_url}")
+        print(f"Operation: Sites {mode}; total Sites: {len(plan.sites)}; preflight: CHECKING", flush=True)
     try:
         _refresh_report(report, entries)
         _write_private(report_path, report)
@@ -428,6 +448,15 @@ def run_site_migration(
             report.pop("failure_stage", None)
             mapping = {plan.root_reference: root_id}
             if mode != "dry-run":
+                preflight_mapping = dict(mapping)
+                for site in plan.sites:
+                    identity, _ = _inspect(
+                        manager, backend, plan, site, preflight_mapping, report, readback_attempts, readback_interval,
+                    )
+                    if identity is not None:
+                        preflight_mapping[site.selection.reference] = identity
+                if terminal:
+                    print("Preflight: PASSED", flush=True)
                 if not (approve or _approval)(profile.transport.base_url, len(plan.sites), plan.digest):
                     raise SiteBlocked("batch_operator_declined_or_no_terminal")
                 report.update(execution_authorized=True, configuration_writes_authorized=True)
@@ -508,6 +537,8 @@ def run_site_migration(
                     _write_private(journal_path, journal)
                 _refresh_report(report, entries)
                 _write_private(report_path, report)
+                if terminal and mode != "dry-run":
+                    print(f"Site {index + 1}/{len(plan.sites)}: {entry['status'].upper()}", flush=True)
             report["failure_stage"] = "final_hierarchy_readback"
             response = _get(manager, _TREE)
             _require(response.status == 200, "hierarchy_readback_failed")
@@ -566,4 +597,8 @@ def run_site_migration(
         resources.close()
     if report["status"] not in ("dry-run-ready", "batch-verified"):
         status = ExitStatus.VALIDATION_FAILED if status == ExitStatus.SUCCESS else status
+    if terminal:
+        from .launcher_helper import summary
+
+        summary(report, "2", int(status), str(profile.output_directory), "")
     return report, status

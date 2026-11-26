@@ -4,6 +4,14 @@ Last updated: 2026-11-26
 
 ## Current task: CCV-012 - full hierarchical Site migration
 
+- CLI UX follow-up: compact batch summaries/progress, short issue codes and final
+  report path; full JSON/journals remain on disk. Y/Yes/Enter approves only after
+  explicit execute/resume and fresh full-list preflight; invalid answers re-prompt
+  using native terminal line editing, while noninteractive/EOF/interruption
+  cancels. List/origin binding, per-Site guards and migration checks retained.
+  Verification: 71 engine/single-Site/Compose tests (69 passed, Docker and POSIX
+  TTY editing checks skipped on this Windows host), six focused launcher tests
+  passed, 47 existing CLI/workflow tests passed; Bash/Pylance syntax passed.
 - Objective/priority: high; migrate the complete supported Site list in verified
   parent-before-child order, preserving the existing single-Site troubleshooting
   path. Primary target CC 10.10.x; additional lab CC 10.15.0-2; source Vision 5.4.9.

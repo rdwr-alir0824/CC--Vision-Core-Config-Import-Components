@@ -161,10 +161,12 @@ allow_exceptions="${paths[4]}"
 
 run_operation() {
     local status summary_status exception_used=0 answer
+    local -a result_arguments=()
+    if [[ -n "$site_batch_mode" ]]; then result_arguments=(--report-format json); fi
     while true; do
         status=0
         "${compose[@]}" --profile "$profile" run --rm --no-deps -T \
-            --name "$operation_name" --label "ccv.launcher.run=$token" "$service" "$@" \
+            --name "$operation_name" --label "ccv.launcher.run=$token" "$service" "$@" "${result_arguments[@]}" \
             >"$temporary/stdout" 2>"$temporary/stderr" &
         operation_pid=$!
         wait "$operation_pid" || status=$?

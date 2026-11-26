@@ -33,6 +33,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--operation-delay", type=float)
     parser.add_argument("--readback-interval", type=float)
     parser.add_argument("--readback-attempts", type=int)
+    parser.add_argument("--report-format", choices=("text", "json"))
     args = parser.parse_args(arguments)
     single_site = args.role == "discovery" and args.command in ("site-dry-run", "site-create")
     site_batch = args.role == "discovery" and args.command in ("sites-dry-run", "sites-execute", "sites-resume")
@@ -50,7 +51,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif any(value is not None for value in (*site_values, args.target_version)):
         parser.error("Single-Site options require discovery site-dry-run or site-create.")
     if not site_batch and any(value is not None for value in (
-        args.operation_delay, args.readback_interval, args.readback_attempts,
+        args.operation_delay, args.readback_interval, args.readback_attempts, args.report_format,
     )):
         parser.error("Batch timing requires a sites-dry-run, sites-execute or sites-resume command.")
     if args.qualify_default_root and (args.role != "discovery" or args.command != "discover-sites"):
@@ -138,6 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         *[part for option, value in (
                             ("--operation-delay", args.operation_delay), ("--readback-interval", args.readback_interval),
                             ("--readback-attempts", args.readback_attempts),
+                            ("--report-format", args.report_format),
                         ) if value is not None for part in (option, str(value))],
                     ] if site_operation else []),
                 ])

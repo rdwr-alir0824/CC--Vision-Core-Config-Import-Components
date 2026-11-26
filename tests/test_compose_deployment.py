@@ -228,12 +228,17 @@ class ComposeDeploymentTests(OfflineTestCase):
                         "discovery", "sites-" + mode, "--input", "/incoming/backup/organization-tree/tree.json",
                         "--comparison", "/reports/comparison.json", "--destination-snapshot", "/reports/snapshot.json",
                         "--operation-delay", "0.5", "--readback-interval", "2", "--readback-attempts", "4",
+                        *(["--report-format", "json"] if mode == "dry-run" else []),
                     ]), 0)
                     arguments = dispatch.call_args.args[0]
                     self.assertEqual(arguments[:2], ["--operation", "site-batch-" + mode])
                     self.assertNotIn("--site-reference", arguments)
                     self.assertEqual(arguments[arguments.index("--operation-delay") + 1], "0.5")
                     self.assertEqual(arguments[arguments.index("--readback-attempts") + 1], "4")
+                    if mode == "dry-run":
+                        self.assertEqual(arguments[arguments.index("--report-format") + 1], "json")
+                    else:
+                        self.assertNotIn("--report-format", arguments)
         with redirect_stderr(io.StringIO()), patch.object(self.module, "master_main") as dispatch:
             for role, source, extras in (
                 ("source", "/incoming/tree.json", []),
