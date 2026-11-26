@@ -17,7 +17,7 @@ from test_site_comparison import site
 class SiteServer:
     def __init__(self):
         self.root_id = "destination-root-id"
-        self.sites = {"Default": {"name": "Default", "ormID": self.root_id, "parentOrmID": None}}
+        self.sites = {"Default": {"name": "Default", "type": "Site", "ormID": self.root_id, "parentOrmID": None}}
         self.posts = []
         self.calls = []
         self.verified = {self.root_id}
@@ -34,16 +34,21 @@ class SiteServer:
         self.duplicate_tree_identity = False
         self.before_post = None
         self.post_http_status = 200
+        self.null_root_child_parent = False
+        self.null_tree_parent = False
+        self.null_non_root_parent = False
 
     def seed(self, name, parent):
         identity = f"destination-site-{len(self.sites)}"
-        self.sites[name] = {"name": name, "ormID": identity, "parentOrmID": parent}
+        self.sites[name] = {"name": name, "type": "Site", "ormID": identity, "parentOrmID": parent}
         return identity
 
     def tree(self):
         def node(item):
             result = site(item["ormID"], item["name"])
             result["parentOrmID"] = item["parentOrmID"]
+            if self.null_tree_parent and item["parentOrmID"] == self.root_id:
+                result["parentOrmID"] = None
             result["children"] = [
                 node(child) for child in self.sites.values() if child["parentOrmID"] == item["ormID"]
                 and not (self.omit_created_from_tree and any(p["name"] == child["name"] for p in self.posts))
@@ -107,6 +112,10 @@ class SiteServer:
                 self.last_readback = None
         else:
             raise AssertionError("Unexpected API operation.")
+        if self.null_root_child_parent and payload.get("parentOrmID") == self.root_id:
+            payload["parentOrmID"] = None
+        if self.null_non_root_parent and payload.get("type") == "Site" and payload.get("parentOrmID") not in (None, self.root_id):
+            payload["parentOrmID"] = None
         return MemoryResponse(status, json.dumps(payload).encode(), [("Content-Type", "application/json")])
 
 
@@ -725,3 +734,85 @@ class SiteMigrationTests(OfflineTestCase):
             if process.poll() is None:
                 process.terminate()
                 process.wait(timeout=10)
+
+    def test_read_only_reconciliation_preserves_uncertain_post_history_and_resumes_remaining_29(self):
+        server = SiteServer()
+        server.missing_returned_identity = True
+        server.null_root_child_parent = True
+        server.null_tree_parent = True
+        status, report, _ = self.run_batch(server, mode="execute")
+        self.assertEqual(status, 1)
+        self.assertEqual(report["issue_codes"], ["site_identity_missing_or_ambiguous"])
+        self.assertEqual(report["failure_stage"], "site_create_response")
+        path = self.output / report["journal_file"]
+        before = json.loads(path.read_text())
+        first = self.plan.sites[0].selection.reference
+        self.assertIsNone(before["sites"][first]["destination_identity"])
+        self.assertEqual(len(server.posts), 1)
+        server.missing_returned_identity = False
+        status, report, approve = self.run_batch(server, mode="reconcile", use_cli=True, human=True)
+        self.assertEqual(status, 0)
+        self.assertEqual(report["status"], "reconciled")
+        self.assertTrue(report["read_only"])
+        self.assertFalse(report["configuration_writes_authorized"])
+        approve.assert_not_called()
+        self.assertEqual(len(server.posts), 1)
+        self.assertEqual(report["counts"]["verified"], 1)
+        self.assertEqual(report["counts"]["pending"], 29)
+        after = json.loads(path.read_text())
+        self.assertEqual(after["binding"], before["binding"])
+        self.assertEqual(after["sites"][first]["create_attempts"], 1)
+        history = after["reconciliation_history"][0]
+        self.assertEqual(history["previous_status"], "indeterminate")
+        self.assertEqual(history["incomplete_operation"], before["incomplete_operation"])
+        status, report, _ = self.run_batch(server, mode="resume")
+        self.assertEqual(status, 0)
+        self.assertEqual(report["counts"]["verified"], 30)
+        self.assertEqual(len(server.posts), 30)
+        self.assertEqual(len({entry["name"] for entry in server.posts}), 30)
+
+    def test_reconciliation_rejects_unproven_root_membership_wrong_type_and_mismatched_identity(self):
+        server = SiteServer()
+        server.missing_returned_identity = True
+        _, report, _ = self.run_batch(server, mode="execute")
+        path = self.output / report["journal_file"]
+        baseline = path.read_bytes()
+        candidate = self.plan.sites[0].selection.name
+        for fault in ("omit_created_from_tree", "wrong_type", "wrong_parent"):
+            with self.subTest(fault=fault):
+                path.write_bytes(baseline)
+                server.omit_created_from_tree = fault == "omit_created_from_tree"
+                server.sites[candidate]["type"] = "Device" if fault == "wrong_type" else "Site"
+                server.null_root_child_parent = True
+                server.sites[candidate]["parentOrmID"] = "private-wrong-parent" if fault == "wrong_parent" else server.root_id
+                status, report, _ = self.run_batch(server, mode="reconcile")
+                self.assertEqual(status, 1)
+                self.assertEqual(len(server.posts), 1)
+                journal = json.loads(path.read_text())
+                self.assertEqual(journal["sites"][self.plan.sites[0].selection.reference]["create_attempts"], 1)
+                self.assertEqual(journal["incomplete_operation"], json.loads(baseline)["incomplete_operation"])
+
+    def test_reconciliation_rejects_changed_previously_checkpointed_identity(self):
+        server = SiteServer()
+        server.wrong_readback_parent = True
+        _, report, _ = self.run_batch(server, mode="execute")
+        path = self.output / report["journal_file"]
+        before = json.loads(path.read_text())
+        first = self.plan.sites[0].selection
+        self.assertIsNotNone(before["sites"][first.reference]["destination_identity"])
+        server.wrong_readback_parent = False
+        server.sites[first.name]["ormID"] = "private-replacement-identity"
+        status, report, _ = self.run_batch(server, mode="reconcile")
+        self.assertEqual(status, 1)
+        self.assertIn("journal_destination_identity_changed", report["issue_codes"])
+        self.assertEqual(len(server.posts), 1)
+        self.assertEqual(json.loads(path.read_text())["incomplete_operation"], before["incomplete_operation"])
+
+    def test_null_parent_is_not_accepted_for_non_root_children(self):
+        server = SiteServer()
+        server.null_non_root_parent = True
+        status, report, _ = self.run_batch(server, mode="execute")
+        self.assertEqual(status, 1)
+        self.assertEqual(len(server.posts), 2)
+        self.assertEqual(report["counts"]["verified"], 1)
+        self.assertIn("create_response_parent_mismatch", report["issue_codes"])

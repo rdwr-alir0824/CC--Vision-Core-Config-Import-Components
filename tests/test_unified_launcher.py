@@ -132,7 +132,7 @@ if args[0] == "compose" and "run" in args:
             report.update(status="indeterminate", manual_reconciliation_required=True)
             print(json.dumps({key: value for key, value in report.items() if key != "opaque"}))
             sys.exit(1)
-    if service == "ccv-destination-discovery" and any(command in args for command in ("sites-dry-run", "sites-execute", "sites-resume")):
+    if service == "ccv-destination-discovery" and any(command in args for command in ("sites-dry-run", "sites-execute", "sites-resume", "sites-reconcile")):
         execute = "sites-execute" in args or "sites-resume" in args
         report = {
             "operation": "site-batch-migration", "status": "batch-verified" if execute else "dry-run-ready",
@@ -149,6 +149,9 @@ if args[0] == "compose" and "run" in args:
         }
         if execute:
             report.pop("opaque")
+        if "sites-reconcile" in args:
+            report.update(status="reconciled", mode="reconcile")
+            report["counts"].update(verified=1, verified_this_run=1, pending=29)
         if execute and mode == "create-uncertain":
             report.update(status="indeterminate", manual_reconciliation_required=True)
             helper.summary(report, "2", 1, str(root / "reports"), "")
@@ -161,7 +164,21 @@ if args[0] == "compose" and "run" in args:
             )
             helper.summary(report, "2", 1, str(root / "reports"), "")
             sys.exit(1)
-    exit_status = 1 if service == "ccv-destination" else 0
+    device_commands = ("devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status")
+    device_command = next((command for command in device_commands if command in args), None)
+    if service == "ccv-destination-discovery" and device_command:
+        report = {
+            "operation": "device-batch-migration", "status": "blocked",
+            "mode": "preview" if device_command == "migration-dry-run" else "status" if device_command == "migration-status"
+            else device_command.removeprefix("devices-"),
+            "target_origin": os.environ["CCV_DESTINATION_URL"], "migration_ready": False,
+            "configuration_writes_authorized": False, "read_only": True, "execution_authorized": False,
+            "counts": {"total": 35, "created": 0, "verified": 0, "already_existing": 0, "blocked": 35, "pending": 0},
+            "sites": {"total": 30, "verified": 30, "pending": 0},
+            "issue_codes": ["device_inventory_only_create_contract_unqualified"],
+            "report_file": "ccv-devices-report-" + "a" * 32 + ".json", "opaque": "private-native-id",
+        }
+    exit_status = 1 if service == "ccv-destination" or device_command else 0
     if service != "ccv-destination":
         variable = "CCV_TLS_VERIFY" if service == "ccv-source" else "CCV_DESTINATION_TLS_VERIFY"
         verify = os.environ[variable] == "true"
@@ -406,6 +423,32 @@ class UnifiedLauncherTests(OfflineTestCase):
         self.assertNotIn('"counts"', result.stdout)
         self.assertNotIn("b" * 32, result.stdout)
         self.assertNotIn("private-native-id", result.stdout + result.stderr)
+
+    def test_site_reconciliation_runs_once_without_execution_or_dry_run_restart(self):
+        result, calls = self.launch(arguments=("--sites-reconcile", *self.single_site_arguments()[1:-2]))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        operations = self.operation_calls(calls)
+        self.assertEqual(len(operations), 1)
+        self.assertIn("sites-reconcile", operations[0]["args"])
+        self.assertIn("-T", operations[0]["args"])
+        self.assertIn("reconciled", result.stdout)
+        self.assertNotIn("private-native-id", result.stdout + result.stderr)
+
+    def test_device_and_combined_modes_remain_one_blocked_nonwriting_operation(self):
+        previous_count = 0
+        for command in ("devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status"):
+            result, calls = self.launch(arguments=("--" + command, *self.single_site_arguments()[1:-2]))
+            self.assertEqual(result.returncode, 1, result.stderr)
+            operations = self.operation_calls(calls)
+            current, previous_count = operations[previous_count:], len(operations)
+            self.assertEqual(len(current), 1)
+            self.assertIn(command, current[0]["args"])
+            self.assertIn("--report-format", current[0]["args"])
+            self.assertNotIn("-it", current[0]["args"])
+            self.assertIn("Devices: 35", result.stdout)
+            self.assertIn("Device write contract unqualified", result.stdout)
+            self.assertNotIn("private-native-id", result.stdout + result.stderr)
+            self.assertNotIn('"counts"', result.stdout)
 
     def test_batch_uncertain_execution_is_never_restarted(self):
         result, calls = self.launch(

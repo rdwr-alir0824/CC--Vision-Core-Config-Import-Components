@@ -275,14 +275,14 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
             print("TLS certificate verification failed: untrusted chain or hostname mismatch. No automatic downgrade.")
     if selection == "2" and report.get("operation") == "site-batch-migration":
         state = report.get("status")
-        if state not in ("dry-run-ready", "batch-verified", "blocked", "error", "indeterminate"):
+        if state not in ("dry-run-ready", "batch-verified", "reconciled", "blocked", "error", "indeterminate"):
             raise SetupError("Invalid Site batch result.")
         counts = report.get("counts")
         if not isinstance(counts, dict) or type(counts.get("total")) is not int or not 0 <= counts["total"] <= 9999:
             raise SetupError("Invalid Site batch counts.")
         total = counts["total"]
         if report.get("migration_ready") is not False or (
-            status == 0 and state not in ("dry-run-ready", "batch-verified")
+            status == 0 and state not in ("dry-run-ready", "batch-verified", "reconciled")
         ):
             raise SetupError("Invalid Site batch success state.")
         target = report.get("target_origin")
@@ -294,14 +294,14 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
             except TLSPolicyError:
                 raise SetupError("Invalid Site batch destination.") from None
         mode = report.get("mode", "batch")
-        if mode not in ("batch", "dry-run", "execute", "resume"):
+        if mode not in ("batch", "dry-run", "execute", "resume", "reconcile"):
             raise SetupError("Invalid Site batch operation.")
         codes = report.get("issue_codes", [])
         if not isinstance(codes, list) or not all(
             isinstance(code, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,95}", code) for code in codes
         ):
             raise SetupError("Invalid Site batch issue codes.")
-        passed = state in ("dry-run-ready", "batch-verified") or report.get("execution_authorized") is True or (
+        passed = state in ("dry-run-ready", "batch-verified", "reconciled") or report.get("execution_authorized") is True or (
             "batch_operator_declined_or_no_terminal" in codes
         )
         print(f"Destination: {target if target is not None else 'unavailable'}")
@@ -324,6 +324,52 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
         if path is not None:
             if not isinstance(path, str) or not re.fullmatch(r"ccv-sites-report-[0-9a-f]{32}\.json", path):
                 raise SetupError("Invalid Site batch report path.")
+            print(f"Sanitized report: {Path(output) / path}")
+        else:
+            print("Sanitized report: unavailable (report creation was not reached).")
+        return 11 if certificate_exception_available(report, selection, status) else 0
+    if selection == "2" and report.get("operation") == "device-batch-migration":
+        if (report.get("status") not in ("blocked", "error") or status == 0
+                or report.get("mode") not in ("dry-run", "execute", "resume", "preview", "status")
+                or report.get("migration_ready") is not False
+                or report.get("configuration_writes_authorized") is not False):
+            raise SetupError("Invalid Device batch result.")
+        target = report.get("target_origin")
+        if target is not None:
+            if not isinstance(target, str):
+                raise SetupError("Invalid Device destination.")
+            TLSPolicy.from_dict({"verify": True}, target)
+        print(f"Destination: {target if target is not None else 'unavailable'}")
+        subject = "Sites + Devices" if report["mode"] in ("preview", "status") else "Devices"
+        print(f"Operation: {subject} {report['mode']}; preflight: BLOCKED (Device write contract unqualified)")
+        sites = report.get("sites", {"total": 0, "verified": 0, "pending": 0})
+        counts = report.get("counts", {"total": 0})
+        for values in (sites, counts):
+            if not isinstance(values, dict) or type(values.get("total")) is not int or not 0 <= values["total"] <= 10000:
+                raise SetupError("Invalid migration counts.")
+            if any(type(value) is not int or not 0 <= value <= values["total"] for value in values.values()):
+                raise SetupError("Invalid migration count.")
+        print(f"Sites: {sites['total']} | Verified: {sites.get('verified', 0)} | Pending: {sites.get('pending', 0)}")
+        print(f"Devices: {counts['total']} | Created: 0 | Verified: {counts.get('verified', 0)}"
+              f" | Existing: {counts.get('already_existing', 0)}"
+              f" | Failed/blocked: {counts.get('failed', 0) + counts.get('blocked', 0)}"
+              f" | Pending: {counts.get('pending', 0)}")
+        print("Inventory verification only; Device access/connectivity NOT configured. No writes or automatic retries.")
+        unsupported = report.get("unsupported_configuration_fields", 0)
+        if type(unsupported) is not int or not 0 <= unsupported <= 1000000:
+            raise SetupError("Invalid unsupported field count.")
+        print(f"Unsupported/unprojected configuration fields: {unsupported}")
+        codes = report.get("issue_codes", [])
+        if not isinstance(codes, list) or not all(
+            isinstance(code, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,95}", code) for code in codes
+        ):
+            raise SetupError("Invalid Device issue codes.")
+        if codes:
+            print(f"Stage blocked; review the sanitized report. Issue code: {', '.join(codes)}")
+        path = report.get("report_file")
+        if path is not None:
+            if not isinstance(path, str) or not re.fullmatch(r"ccv-devices-report-[0-9a-f]{32}\.json", path):
+                raise SetupError("Invalid Device report path.")
             print(f"Sanitized report: {Path(output) / path}")
         else:
             print("Sanitized report: unavailable (report creation was not reached).")

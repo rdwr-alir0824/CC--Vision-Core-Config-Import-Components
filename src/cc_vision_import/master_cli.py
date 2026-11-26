@@ -25,7 +25,9 @@ _OPERATIONS = (
     "operations", "profiles", "export", "compare", "plan", "import-preview",
     "authenticate", "import", "backup-vision", "destination-discovery", "tree-readiness-preview", "site-comparison", *_LOOKUPS,
     "single-site-dry-run", "single-site-create",
-    "site-batch-dry-run", "site-batch-execute", "site-batch-resume",
+    "site-batch-dry-run", "site-batch-execute", "site-batch-resume", "site-batch-reconcile",
+    "device-batch-dry-run", "device-batch-execute", "device-batch-resume",
+    "migration-dry-run", "migration-status",
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -166,13 +168,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--readback-attempts", type=int, help="Site batch: 1-10 readback rounds.")
     args = parser.parse_args(argv)
     single_site = args.operation in ("single-site-dry-run", "single-site-create")
-    site_batch = args.operation in ("site-batch-dry-run", "site-batch-execute", "site-batch-resume")
-    site_operation = single_site or site_batch
+    site_batch = args.operation in ("site-batch-dry-run", "site-batch-execute", "site-batch-resume", "site-batch-reconcile")
+    device_batch = args.operation in (
+        "device-batch-dry-run", "device-batch-execute", "device-batch-resume", "migration-dry-run", "migration-status",
+    )
+    migration_batch = site_batch or device_batch
+    site_operation = single_site or migration_batch
     if site_operation:
         if any(value is None for value in (
             args.input, args.comparison, args.destination_snapshot,
             args.discovery_profile, args.credentials_file,
-        )) or (single_site and args.site_reference is None) or (site_batch and args.site_reference is not None) or args.module != "controller-objects" or any(value is not None for value in (
+        )) or (single_site and args.site_reference is None) or (migration_batch and args.site_reference is not None) or args.module != "controller-objects" or any(value is not None for value in (
             args.request, args.source_profile, args.destination_profile, args.lookup_value,
             args.format, args.tree, args.controller_id, args.root, args.exported_at, args.backup_profile,
             args.output, args.source_root_name, args.destination_root_name, args.destination_gui_version,
@@ -217,7 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.discovery_profile is not None and not site_operation:
         parser.error("--discovery-profile requires destination-discovery.")
     tree_preview = args.operation == "tree-readiness-preview"
-    if args.report_format is not None and not (tree_preview or site_comparison or site_batch):
+    if args.report_format is not None and not (tree_preview or site_comparison or migration_batch):
         parser.error("--report-format is supported only for tree-readiness-preview, site-comparison or Site batch operations.")
     if args.legacy_compatibility and not tree_preview:
         parser.error("--legacy-compatibility requires tree-readiness-preview.")
@@ -292,6 +298,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "site-batch-dry-run": "authenticated full hierarchical Site preflight; no configuration writes",
                 "site-batch-execute": "experimental ordered Site migration; one explicit batch authorization, durable journal, no write retries",
                 "site-batch-resume": "fresh identity/parent reconciliation before continuing the same hash-bound Site batch",
+                "site-batch-reconcile": "read-only reconciliation of attempted Sites; preserves POST history and never creates pending Sites",
+                "device-batch-dry-run": "full Organization Device inventory and fresh read-only collision/parent checks; create contract blocked",
+                "device-batch-execute": "guarded Device stage; no writes while inventory-only create contract remains unqualified",
+                "device-batch-resume": "fresh read-only Device reconciliation using protected journal; no writes while contract blocked",
+                "migration-dry-run": "combined Sites preflight and Device inventory/parent/collision preview; no writes",
+                "migration-status": "fresh read-only Site journal verification and Device status; no writes",
                 "export": "CC 0.0-test supplied source inventory to local artifact",
                 **{operation: "CC 0.0-test request preview / supplied single-response inspection; not a complete export" for operation in _LOOKUPS},
                 "compare": "CC-to-CC offline comparison and candidate actions",
@@ -313,7 +325,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .tls_policy import TLSPolicyError
 
             try:
-                if site_batch:
+                if device_batch:
+                    from .device_migration import run_device_migration
+
+                    report, status = run_device_migration(
+                        args.discovery_profile, args.credentials_file, args.input, args.comparison,
+                        args.destination_snapshot, mode=(
+                            "preview" if args.operation == "migration-dry-run" else
+                            "status" if args.operation == "migration-status" else
+                            args.operation.removeprefix("device-batch-")
+                        ), target_version=args.target_version, terminal=args.report_format != "json",
+                    )
+                elif site_batch:
                     from .site_migration import run_site_migration
 
                     report, status = run_site_migration(
@@ -334,9 +357,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             except (SiteBlocked, TLSPolicyError) as error:
                 code = error.code if isinstance(error, SiteBlocked) else "tls_execution_approval_required"
                 report = _report(
-                    "site-batch-migration" if site_batch else "single-site-migration", "error", issue_codes=[code], migration_ready=False,
+                    "device-batch-migration" if device_batch else "site-batch-migration" if site_batch else "single-site-migration",
+                    "error", issue_codes=[code], migration_ready=False,
                     create_attempts=0, source_reference=None, configuration_writes_authorized=False,
-                    **({"counts": {"total": 0}} if site_batch else {}),
+                    **({"counts": {"total": 0}} if migration_batch else {}),
                 )
                 status = ExitStatus.VALIDATION_FAILED
         elif destination_discovery:
@@ -437,15 +461,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             "output_exists", "output_unwritable", "output_cleanup_failed",
         } else ExitStatus.CONTRACT_ERROR
         report = _report(args.operation, "error", errors=[{"code": code} for code in codes])
-    if site_batch:
+    if migration_batch:
+        report.setdefault("configuration_writes_authorized", False)
+        report.setdefault("execution_authorized", False)
+        report.setdefault("read_only", True)
+        batch_operation = "device-batch-migration" if device_batch else "site-batch-migration"
+        batch_mode = (
+            "preview" if args.operation == "migration-dry-run" else "status" if args.operation == "migration-status"
+            else args.operation.removeprefix("device-batch-" if device_batch else "site-batch-")
+        )
         if args.report_format == "json":
             result = {key: report[key] for key in (
                 "operation", "status", "mode", "target_origin", "counts", "authenticated", "read_only",
                 "migration_ready", "execution_authorized", "configuration_writes_authorized", "tls",
-                "issue_codes", "manual_reconciliation_required", "report_file",
+                "issue_codes", "manual_reconciliation_required", "report_file", "sites", "unsupported_configuration_fields",
             ) if key in report}
             result.update(
-                operation="site-batch-migration", mode=args.operation.removeprefix("site-batch-"),
+                operation=batch_operation, mode=batch_mode,
                 migration_ready=False, counts=report.get("counts", {"total": 0}),
                 issue_codes=report.get("issue_codes", [row["code"] for row in report.get("errors", [])]),
             )
@@ -454,7 +486,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .launcher_helper import summary
 
             summary({
-                **report, "operation": "site-batch-migration", "mode": args.operation.removeprefix("site-batch-"),
+                **report, "operation": batch_operation, "mode": batch_mode,
                 "counts": report.get("counts", {"total": 0}), "migration_ready": False,
                 "issue_codes": report.get("issue_codes", [row["code"] for row in report.get("errors", [])]),
             }, "2", int(status), "", "")

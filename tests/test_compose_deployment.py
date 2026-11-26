@@ -219,7 +219,7 @@ class ComposeDeploymentTests(OfflineTestCase):
         self.assertFalse(captured[0].exists())
 
     def test_batch_commands_reuse_discovery_role_and_forward_only_explicit_batch_options(self):
-        for mode in ("dry-run", "execute", "resume"):
+        for mode in ("dry-run", "execute", "resume", "reconcile"):
             with self.subTest(mode=mode):
                 with patch.dict(os.environ, self.environment, clear=True), patch.object(
                     self.module, "master_main", return_value=0,
@@ -249,6 +249,34 @@ class ComposeDeploymentTests(OfflineTestCase):
                     self.module.main([
                         role, "sites-execute", "--input", source, "--comparison", "/reports/comparison.json",
                         "--destination-snapshot", "/reports/snapshot.json", *extras,
+                    ])
+            dispatch.assert_not_called()
+
+    def test_device_and_combined_commands_reuse_discovery_role_without_site_reference_or_timing(self):
+        for command, operation in (
+            ("devices-dry-run", "device-batch-dry-run"), ("devices-execute", "device-batch-execute"),
+            ("devices-resume", "device-batch-resume"), ("migration-dry-run", "migration-dry-run"),
+            ("migration-status", "migration-status"),
+        ):
+            with self.subTest(command=command), patch.dict(os.environ, self.environment, clear=True), patch.object(
+                self.module, "master_main", return_value=1,
+            ) as dispatch:
+                self.assertEqual(self.module.main([
+                    "discovery", command, "--input", "/incoming/backup/organization-tree/tree.json",
+                    "--comparison", "/reports/comparison.json", "--destination-snapshot", "/reports/snapshot.json",
+                    "--report-format", "json",
+                ]), 1)
+                arguments = dispatch.call_args.args[0]
+                self.assertEqual(arguments[:2], ["--operation", operation])
+                self.assertNotIn("--site-reference", arguments)
+                self.assertNotIn("--operation-delay", arguments)
+        with redirect_stderr(io.StringIO()), patch.object(self.module, "master_main") as dispatch:
+            for extra in (["--site-reference", "source:node-2"], ["--operation-delay", "1"]):
+                with self.assertRaises(SystemExit):
+                    self.module.main([
+                        "discovery", "devices-execute", "--input", "/incoming/backup/organization-tree/tree.json",
+                        "--comparison", "/reports/comparison.json", "--destination-snapshot", "/reports/snapshot.json",
+                        *extra,
                     ])
             dispatch.assert_not_called()
 

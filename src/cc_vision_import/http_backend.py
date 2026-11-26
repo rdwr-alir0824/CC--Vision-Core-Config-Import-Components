@@ -126,6 +126,24 @@ class DestinationAuthorization:
 
 
 @dataclass(frozen=True)
+class DestinationReadAuthorization(DestinationAuthorization):
+    """Finite migration qualification reads; login is the only permitted POST."""
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        for method, target in self.operations:
+            if (method, target) == (HttpMethod.POST, "/mgmt/system/user/login"):
+                continue
+            if method == HttpMethod.GET and (
+                target == "/mgmt/system/config/tree/Organization" or re.fullmatch(
+                    r"/mgmt/system/config/tree/(?:site/(?:byname|byid)|device/byip)/[^/?#]+", target,
+                )
+            ):
+                continue
+            raise ValueError("Destination read authorization cannot include configuration writes or unrelated reads.")
+
+
+@dataclass(frozen=True)
 class SingleSiteAuthorization(DestinationAuthorization):
     """Finite Site-only scope for the separately selected one-create workflow."""
 
@@ -522,7 +540,7 @@ class StdlibHttpBackend:
                 and request.tls_context.verify_mode == ssl.CERT_NONE
                 and request.tls_context.check_hostname is False
                 and self._authorization is not None
-                and set(self._authorization.operations) in (
+                and (isinstance(self._authorization, DestinationReadAuthorization) or set(self._authorization.operations) in (
                     {
                         (HttpMethod.POST, "/mgmt/system/user/login"),
                         (HttpMethod.GET, "/mgmt/system/config/tree/Organization"),
@@ -531,7 +549,7 @@ class StdlibHttpBackend:
                         (HttpMethod.POST, "/mgmt/system/user/login"),
                         (HttpMethod.GET, "/mgmt/system/config/tree/site/byname/Default"),
                     },
-                )
+                ))
             )
             single_site_tls = (
                 self._allow_unverified_single_site and request.unverified_destination_discovery

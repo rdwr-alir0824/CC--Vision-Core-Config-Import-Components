@@ -7,6 +7,39 @@ for selected exact method/path pairs; E-036 synthetic offline subset regressions
 Runtime compatibility is scoped; current owner-reported evidence and remaining
 qualification limits are recorded below.
 
+## CCV-012 recovery / CCV-013 Device qualification
+
+- Owner evidence on CC 10.15.0-2: one Site POST, visible root-child Site,
+  subsequent name/type/nonempty destination ormID lookup with null parent.
+  Original POST response/journal are unavailable here. The exact
+  `site_identity_missing_or_ambiguous` rejection validates name/ormID, not parent.
+  Missing POST identity reproduces that code; the actual response is unknown.
+- Read-only reconciliation now requires fresh exact Site type/name/identity,
+  by-ID agreement and independent Organization membership. Explicit null parent
+  is accepted only for proven direct root-child placement. Historical POST
+  evidence is retained; no additional create during reconciliation.
+- Device evidence: original `upload_cybercontroller_objects.py` 177-202:
+  POST `/mgmt/system/config/tree/device` with `name`, destination `parentOrmID`,
+  `type`, `deviceSetup.deviceAccess`. Original
+  `download_cybercontroller_objects.py` 110-157: Organization Device projection
+  and GET `/mgmt/system/config/tree/device/byip/{ip}` access extraction.
+  Legacy HTTP-200-only success and first-IP/root fallback are not reused.
+- Organization Device inventory, separate controller/access lookup inventories,
+  deterministic hash binding, conservative association candidates, Site-journal
+  parent dependencies and read-only existing Device qualification implemented.
+  Existing qualification checks name/type/IP/native identity and actual parent
+  membership; inventory-only verification is not access/connectivity completion.
+- `DestinationReadAuthorization` permits only finite selected Site/Device GETs,
+  Organization GET and login POST. Existing SingleSiteAuthorization is unchanged.
+  Explicit origin-bound lab TLS consent uses the existing discovery policy;
+  ordinary discovery does not gain additional permissions.
+- Device execution/resume remains blocked: an access-free inventory-only POST
+  schema, returned identity and bounded independent completion contract are not
+  established. No Device/access POST, PUT, automatic update/reparent or retry.
+  Synthetic tests do not qualify a create response by inventing a payload.
+- CC 10.10.x remains primary; owner evidence on CC 10.15.0-2 is not universal
+  certification. No live controller operations performed during development.
+
 ## CCV-012 - shared hierarchical Site orchestration
 
 Implementation extends the existing finite Site API, not its endpoint scope:

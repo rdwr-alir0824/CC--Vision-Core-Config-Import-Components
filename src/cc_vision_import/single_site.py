@@ -284,6 +284,12 @@ def _site_object(payload: object, name: str) -> dict[str, object]:
     return payload
 
 
+def _site_parent_matches(payload: dict, parent_id: str, parent_is_root: bool) -> bool:
+    return "parentOrmID" in payload and (
+        payload["parentOrmID"] == parent_id or parent_is_root and payload["parentOrmID"] is None
+    )
+
+
 def _tree(payload: object) -> list[dict]:
     _require(isinstance(payload, dict), "unexpected_tree_response")
     records: list[dict] = []
@@ -397,7 +403,8 @@ def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: Si
             raise
         _require(response.status == 200, "readback_http_failure")
         site = _site_object(_json(response), selection.name)
-        _require(site["ormID"] == identity and site.get("parentOrmID") == parent_id, "readback_identity_or_parent_mismatch")
+        _require(site["ormID"] == identity and _site_parent_matches(site, parent_id, selection.parent_is_root)
+                 and ("type" not in site or site["type"] == "Site"), "readback_identity_or_parent_mismatch")
         response = _get(manager, _TREE)
         _require(response.status == 200, "hierarchy_readback_failed")
         tree = _tree(_json(response))
@@ -412,7 +419,7 @@ def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: Si
             and len(parent_rows) == 1 and parent_rows[0]["name"] == selection.parent_name
             and (parent_rows[0]["ormID"] if parent_rows[0]["ormID"] is not None
                  else parent_rows[0]["identity"]) == parent_id
-            and (not site_row["parent_field_present"] or site_row["parentOrmID"] == parent_id)
+            and (not site_row["parent_field_present"] or _site_parent_matches(site_row, parent_id, selection.parent_is_root))
             and (not selection.parent_is_root or parent_rows[0] is tree[0])
             and sum(isinstance(row["name"], str) and _name(row["name"]) == _name(selection.name)
                     for row in tree) == 1,
@@ -550,7 +557,8 @@ def run_single_site(
                         created = _site_object(_json(response), selection.name)
                         _require(created["ormID"] not in prior_identities, "created_identity_preexisted")
                         if "parentOrmID" in created:
-                            _require(created["parentOrmID"] == parent_id, "create_response_parent_mismatch")
+                            _require(_site_parent_matches(created, parent_id, selection.parent_is_root),
+                                     "create_response_parent_mismatch")
                         verified = _readback(manager, backend, selection, parent_id, created["ormID"])
                         _require(verified, "bounded_readback_incomplete")
                         report.update(status="single-site-verified", manual_reconciliation_required=False,

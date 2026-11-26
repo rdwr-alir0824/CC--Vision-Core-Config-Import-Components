@@ -22,7 +22,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("role", choices=("source", "destination", "discovery"))
     parser.add_argument("command", nargs="?", choices=(
         "backup", "preflight", "discover-sites", "site-dry-run", "site-create",
-        "sites-dry-run", "sites-execute", "sites-resume",
+        "sites-dry-run", "sites-execute", "sites-resume", "sites-reconcile",
+        "devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status",
     ))
     parser.add_argument("--qualify-default-root", action="store_true")
     parser.add_argument("--input")
@@ -36,13 +37,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--report-format", choices=("text", "json"))
     args = parser.parse_args(arguments)
     single_site = args.role == "discovery" and args.command in ("site-dry-run", "site-create")
-    site_batch = args.role == "discovery" and args.command in ("sites-dry-run", "sites-execute", "sites-resume")
-    site_operation = single_site or site_batch
+    site_batch = args.role == "discovery" and args.command in ("sites-dry-run", "sites-execute", "sites-resume", "sites-reconcile")
+    device_batch = args.role == "discovery" and args.command in (
+        "devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status",
+    )
+    migration_batch = site_batch or device_batch
+    site_operation = single_site or migration_batch
     site_values = (args.input, args.comparison, args.destination_snapshot, args.site_reference)
     if site_operation:
         if any(value is None for value in site_values[:3]) or (
             single_site and args.site_reference is None
-        ) or (site_batch and args.site_reference is not None) or args.qualify_default_root:
+        ) or (migration_batch and args.site_reference is not None) or args.qualify_default_root:
             parser.error("Single-Site mode requires input/comparison/destination-snapshot/site-reference.")
         for value, prefix in ((args.input, "/incoming/"), (args.comparison, "/reports/"),
                               (args.destination_snapshot, "/reports/")):
@@ -50,10 +55,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 parser.error("Use existing container-visible incoming/report paths.")
     elif any(value is not None for value in (*site_values, args.target_version)):
         parser.error("Single-Site options require discovery site-dry-run or site-create.")
-    if not site_batch and any(value is not None for value in (
+    if not migration_batch and any(value is not None for value in (
         args.operation_delay, args.readback_interval, args.readback_attempts, args.report_format,
     )):
         parser.error("Batch timing requires a sites-dry-run, sites-execute or sites-resume command.")
+    if device_batch and any(value is not None for value in (args.operation_delay, args.readback_interval, args.readback_attempts)):
+        parser.error("Device creation timing is unavailable while its write contract is blocked.")
     if args.qualify_default_root and (args.role != "discovery" or args.command != "discover-sites"):
         parser.error("--qualify-default-root requires discovery discover-sites.")
     if args.command is None:
@@ -125,7 +132,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ])
             if args.role == "discovery":
                 return master_main([
-                    "--operation", ("site-batch-" + args.command.removeprefix("sites-")) if site_batch else (
+                    "--operation", (
+                        args.command if args.command.startswith("migration-") else
+                        "device-batch-" + args.command.removeprefix("devices-")
+                    ) if device_batch else ("site-batch-" + args.command.removeprefix("sites-")) if site_batch else (
                         ("single-site-create" if args.command == "site-create" else "single-site-dry-run")
                         if single_site else "destination-discovery"
                     ), "--discovery-profile", str(profile),

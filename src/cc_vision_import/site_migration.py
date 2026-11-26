@@ -1,6 +1,7 @@
 """Ordered Site-only migration with durable reservations and remote reconciliation."""
 
 import hashlib
+import copy
 import json
 import math
 import os
@@ -23,7 +24,7 @@ from .sessions import SessionManager
 from .single_site import (
     SiteBlocked, SiteSelection, SingleSiteBackend, _RISKS, _SITE_PATH, _close_backend,
     _get, _json, _lookup_candidate, _name, _parent_in_tree, _persist, _readback,
-    _require, _segments, _site_object, _text, _tree, load_site_evidence,
+    _require, _segments, _site_object, _site_parent_matches, _text, _tree, load_site_evidence,
     reserve_site_attempt, site_attempt_guard,
 )
 from .tls_policy import execution_tls, require_execution_exception, warning
@@ -245,6 +246,25 @@ def _read_journal(path: Path, binding: dict, plan: SitePlan) -> dict:
     if active is not None:
         _require(next(reference for reference, entry in entries.items() if not entry["verified"])
                  == active["reference"], "invalid_journal_incomplete_operation")
+    history = data.get("reconciliation_history", [])
+    _require(isinstance(history, list) and len(history) <= len(entries), "invalid_journal_reconciliation_history")
+    for item in history:
+        _require(isinstance(item, dict) and set(item) == {
+            "reference", "previous_status", "create_attempts", "incomplete_operation",
+            "destination_identity", "parent_identity",
+        } and isinstance(item["reference"], str) and item["reference"] in entries and item["create_attempts"] == 1
+                 and item["previous_status"] in ("attempting", "indeterminate", "failed", "blocked")
+                 and _text(item["destination_identity"]) and _text(item["parent_identity"]),
+                 "invalid_journal_reconciliation_history")
+        previous = item["incomplete_operation"]
+        _require(isinstance(previous, dict)
+                 and set(previous) == {"reference", "prior_identities", "http_status"}
+                 and previous["reference"] == item["reference"]
+                 and isinstance(previous["prior_identities"], list) and len(previous["prior_identities"]) <= 20000
+                 and all(_text(identity) for identity in previous["prior_identities"])
+                 and (previous["http_status"] is None or (
+                     type(previous["http_status"]) is int and 100 <= previous["http_status"] <= 599
+                 )), "invalid_journal_reconciliation_history")
     return data
 
 
@@ -269,7 +289,8 @@ def _validate_mappings(tree: list[dict], plan: SitePlan, mapping: dict[str, str]
         parent = matched.get(site.parent_reference)
         _require(parent is not None and rows[0]["parent"] == parent["identity"]
                  and (not rows[0]["parent_field_present"]
-                      or rows[0]["parentOrmID"] == mapping[site.parent_reference]), "batch_verified_parent_changed")
+                      or _site_parent_matches(rows[0], mapping[site.parent_reference],
+                                              site.selection.parent_is_root)), "batch_verified_parent_changed")
         matched[reference] = rows[0]
 
 
@@ -318,8 +339,10 @@ def _inspect(
     else:
         _require(parent_id is not None, "existing_site_parent_dependency_unverified")
         _require(candidate.status == 200, "candidate_lookup_http_unqualified")
+        report["failure_stage"] = "candidate_identity"
         found = _site_object(_json(candidate), selection.name)
-        _require(found.get("parentOrmID") == parent_id, "existing_site_parent_mismatch")
+        _require(found.get("type") == "Site", "candidate_site_type_unverified")
+        _require(_site_parent_matches(found, parent_id, selection.parent_is_root), "existing_site_parent_mismatch")
         identity = found["ormID"]
         _require(_readback(manager, backend, selection, parent_id, identity, attempts=attempts, interval=interval),
                  "bounded_readback_incomplete")
@@ -373,13 +396,24 @@ def _refresh_report(report: dict, entries: dict) -> None:
     report["create_attempts"] = sum(entry["create_attempts"] for entry in entries.values())
 
 
+def _journal_context(profile: DiscoveryProfile, plan: SitePlan) -> tuple[dict, Path, Path]:
+    origin = urlsplit(profile.transport.base_url)
+    canonical = [origin.scheme, origin.hostname, origin.port or 443]
+    digest = hashlib.sha256(json.dumps(canonical).encode()).hexdigest()[:16]
+    return (
+        {"origin": canonical, "plan": plan.binding},
+        profile.output_directory / f"ccv-sites-{plan.digest[:32]}-{digest}.journal.json",
+        profile.output_directory / f".ccv-sites-{digest}.lock",
+    )
+
+
 def run_site_migration(
     profile_path: str, credentials_path: str, source_path: str, comparison_path: str, snapshot_path: str, *,
     mode: str = "dry-run", target_version: str | None = None, operation_delay: float = 1,
     readback_interval: float = 1, readback_attempts: int = 3, approve=None,
     terminal: bool = False,
 ) -> tuple[dict, ExitStatus]:
-    _require(mode in ("dry-run", "execute", "resume"), "invalid_batch_mode")
+    _require(mode in ("dry-run", "execute", "resume", "reconcile"), "invalid_batch_mode")
     _require(all(type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 60
                  for value in (operation_delay, readback_interval))
              and type(readback_attempts) is int and 1 <= readback_attempts <= 10, "invalid_batch_timing")
@@ -391,11 +425,7 @@ def run_site_migration(
     message = warning(profile.transport.verify_tls)
     if message:
         print(message, file=sys.stderr)
-    origin = urlsplit(profile.transport.base_url)
-    canonical_origin = [origin.scheme, origin.hostname, origin.port or 443]
-    origin_digest = hashlib.sha256(json.dumps(canonical_origin).encode()).hexdigest()[:16]
-    binding = {"origin": canonical_origin, "plan": plan.binding}
-    journal_path = profile.output_directory / f"ccv-sites-{plan.digest[:32]}-{origin_digest}.journal.json"
+    binding, journal_path, lock_path = _journal_context(profile, plan)
     report_path = profile.output_directory / f"ccv-sites-report-{uuid4().hex}.json"
     entries = _new_entries(plan)
     report = {
@@ -427,8 +457,8 @@ def run_site_migration(
     try:
         _refresh_report(report, entries)
         _write_private(report_path, report)
-        resources.enter_context(_origin_lock(profile.output_directory / f".ccv-sites-{origin_digest}.lock"))
-        if mode == "resume":
+        resources.enter_context(_origin_lock(lock_path))
+        if mode in ("resume", "reconcile"):
             journal = _read_journal(journal_path, binding, plan)
             entries = journal["sites"]
         elif mode == "execute":
@@ -447,7 +477,7 @@ def run_site_migration(
                 _require(journal["root_identity"] == root_id, "batch_root_identity_changed")
             report.pop("failure_stage", None)
             mapping = {plan.root_reference: root_id}
-            if mode != "dry-run":
+            if mode in ("execute", "resume"):
                 preflight_mapping = dict(mapping)
                 for site in plan.sites:
                     identity, _ = _inspect(
@@ -470,6 +500,9 @@ def run_site_migration(
             for index, site in enumerate(plan.sites):
                 current = site.selection.reference
                 entry = entries[current]
+                if mode == "reconcile" and not entry["create_attempts"] and not entry["verified"]:
+                    current = None
+                    break
                 report["current_source_reference"] = current
                 report.pop("candidate_collision_diagnostic", None)
                 if index and operation_delay:
@@ -486,6 +519,12 @@ def run_site_migration(
                         active = journal["incomplete_operation"]
                         _require(active is not None and active["reference"] == current
                                  and identity not in active["prior_identities"], "incomplete_create_identity_ambiguous")
+                        journal.setdefault("reconciliation_history", []).append({
+                            "reference": current, "previous_status": entry["status"],
+                            "create_attempts": entry["create_attempts"],
+                            "incomplete_operation": copy.deepcopy(active),
+                            "destination_identity": identity, "parent_identity": parent_id,
+                        })
                         entry.update(created=True, reconciled=True)
                     entry.update(
                         status="verified" if entry["create_attempts"] else "already-existing",
@@ -498,7 +537,7 @@ def run_site_migration(
                     _require(not entry["create_attempts"] and not entry["verified"]
                              and not site_attempt_guard(profile, site.selection).exists(),
                              "prior_attempt_requires_manual_reconciliation")
-                    if mode != "dry-run":
+                    if mode in ("execute", "resume"):
                         _require(parent_id is not None, "destination_parent_dependency_unresolved")
                         entry.update(status="attempting", create_attempts=1)
                         journal["incomplete_operation"] = {
@@ -508,6 +547,7 @@ def run_site_migration(
                         reserve_site_attempt(profile, site.selection, report_path.name)
                         backend.arm_create()
                         report["read_only"] = False
+                        report["failure_stage"] = "site_create_request"
                         response = manager.request(
                             SessionRole.DESTINATION, HttpMethod.POST, _SITE_PATH,
                             headers={"Content-Type": "application/json"},
@@ -515,14 +555,17 @@ def run_site_migration(
                         )
                         journal["incomplete_operation"]["http_status"] = response.status
                         _require(response.status in (200, 201), "create_http_outcome_unqualified")
+                        report["failure_stage"] = "site_create_response"
                         created = _site_object(_json(response), site.selection.name)
                         identity = created["ormID"]
                         _require(identity not in prior_ids and identity not in mapping.values(),
                                  "created_identity_preexisted")
                         if "parentOrmID" in created:
-                            _require(created["parentOrmID"] == parent_id, "create_response_parent_mismatch")
+                            _require(_site_parent_matches(created, parent_id, site.selection.parent_is_root),
+                                     "create_response_parent_mismatch")
                         entry.update(destination_identity=identity, parent_identity=parent_id, created=True)
                         _write_private(journal_path, journal)
+                        report["failure_stage"] = "site_identity_readback"
                         _require(_readback(
                             manager, backend, site.selection, parent_id, identity,
                             attempts=readback_attempts, interval=readback_interval,
@@ -543,7 +586,9 @@ def run_site_migration(
             response = _get(manager, _TREE)
             _require(response.status == 200, "hierarchy_readback_failed")
             _validate_mappings(_tree(_json(response)), plan, mapping)
-            report["status"] = "dry-run-ready" if mode == "dry-run" else "batch-verified"
+            report["status"] = (
+                "dry-run-ready" if mode == "dry-run" else "reconciled" if mode == "reconcile" else "batch-verified"
+            )
             report.pop("failure_stage", None)
             status = ExitStatus.SUCCESS
     except (SiteBlocked, AuthenticationError, TransportError, ContractValidationError, OSError, KeyboardInterrupt) as error:
@@ -595,7 +640,7 @@ def run_site_migration(
             report["status"] = "error"
             status = ExitStatus.INPUT_ERROR
         resources.close()
-    if report["status"] not in ("dry-run-ready", "batch-verified"):
+    if report["status"] not in ("dry-run-ready", "batch-verified", "reconciled"):
         status = ExitStatus.VALIDATION_FAILED if status == ExitStatus.SUCCESS else status
     if terminal:
         from .launcher_helper import summary

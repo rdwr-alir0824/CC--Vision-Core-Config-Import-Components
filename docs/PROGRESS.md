@@ -2,7 +2,100 @@
 
 Last updated: 2026-11-26
 
-## Current task: CCV-012 - full hierarchical Site migration
+## Current checkpoint: CCV-012 recovery / CCV-013 Device qualification
+
+- Task IDs/objective/priority: CCV-012 recovery and CCV-013, high priority.
+  Reconcile the original indeterminate Site without another POST; implement the
+  complete Organization Device inventory and only evidence-supported operations.
+- Dependencies: original hash-bound backup/snapshot/confirmed comparison,
+  unchanged destination and protected Site journal, existing shared transport,
+  authentication, TLS consent, launcher/image and runtime directories.
+- Approval: implementation and local mocked/offline tests only. No live
+  controller requests, deployment, operational journal edits, Git operations or
+  legacy/prototype modifications performed.
+- Root-cause evidence: `site_identity_missing_or_ambiguous` is raised by the
+  expected-name/nonempty-ormID parser, not null-parent validation. A POST missing
+  identity reproduces it. The original POST response and operational journal
+  are unavailable locally, so the exact failing response remains unknown.
+  Fixed create-request/create-response/readback stages now distinguish failures
+  without recording HTTP bodies. Null root-child parent assumptions were a
+  separate reconciliation blocker.
+- CCV-012 implementation: read-only `--sites-reconcile` loads the same protected
+  journal/bindings, freshly verifies exact Site type/name/identity, by-ID and
+  actual Organization placement, and updates only the attempted/verified prefix.
+  Explicit null parent is accepted only for independently proven direct root
+  children. Historical incomplete-operation/one-POST evidence is retained in
+  protected reconciliation history; no create or write approval in this mode.
+  Existing separately authorized resume can continue the remaining graph.
+- CCV-013 implementation: all recognized Organization Devices are classified
+  deterministically. Controller/access lookup inventories remain separate,
+  automatically located beside the original Organization backup and hash-bound.
+  Source name/type/query-IP corroboration is explicitly not native-ID namespace
+  equivalence. Missing/duplicate/unmatched records and unsupported fields remain
+  visible without exposing values. Only freshly verified Site-journal native
+  mappings resolve parents; unresolved dependencies never fall back to Default.
+- Read-only Device qualification: selected Device-by-IP GET plus fresh
+  Organization verification checks name/type/address/native identity and actual
+  expected Site membership. IP alone is insufficient. Unknown HTTP 400, invalid
+  identities, mismatches and timeouts stop subsequent lookups without retry.
+  Existing inventory is not marked fully configured or connected.
+- Device execution status: BLOCKED. The observed legacy POST embeds
+  `deviceSetup.deviceAccess`; no credential-free inventory create payload or
+  returned-identity/completion contract is qualified. Guarded execute/resume
+  perform only reads and persist a protected zero-attempt Device journal.
+  Unknown/attempted journal states require manual reconciliation. No Device
+  POST, PUT, automatic update/reparent, access write, credential default or
+  speculative successful-create test is enabled.
+- Integration: existing discovery service/image, choice 2 and private mounts;
+  added Device dry-run/execute/resume, combined preview and fresh status. Combined
+  preview includes complete Site preflight. Status leaves both journals intact.
+  Same per-origin lock, atomic private storage, compact terminal/machine envelope
+  and existing origin-bound TLS consent; separate finite destination-read scope
+  does not widen SingleSiteAuthorization or ordinary discovery permissions.
+- Files created:
+  [device_migration.py](../src/cc_vision_import/device_migration.py),
+  [test_device_migration.py](../tests/test_device_migration.py).
+- Files modified:
+  [single_site.py](../src/cc_vision_import/single_site.py),
+  [site_migration.py](../src/cc_vision_import/site_migration.py),
+  [http_backend.py](../src/cc_vision_import/http_backend.py),
+  [master_cli.py](../src/cc_vision_import/master_cli.py),
+  [compose_entrypoint.py](../src/cc_vision_import/compose_entrypoint.py),
+  [launcher_helper.py](../src/cc_vision_import/launcher_helper.py),
+  [ccv.sh](../ccv.sh),
+  [test_site_migration.py](../tests/test_site_migration.py),
+  [test_compose_deployment.py](../tests/test_compose_deployment.py),
+  [test_unified_launcher.py](../tests/test_unified_launcher.py),
+  [README.md](../README.md), [API_MATRIX.md](API_MATRIX.md), this tracker.
+- Verification status/evidence: final Site/Device/HTTP/Compose suite:
+  166 tests in 114.276s, 164 passed / two skips (Docker unavailable and POSIX
+  terminal editing on Windows). HTTP backend recorded zero network attempts
+  across 1080 observations and zero real dispatches across 144 observations.
+  Device/Compose/full launcher integration run: 60 tests in 537.758s,
+  59 passed / Docker skip. Existing foundation/controller workflow/TLS policy:
+  54 tests in 12.120s, all passed. Runs overlap, not additive unique totals.
+  Bash and changed Python syntax passed; checked Pylance diagnostics had no
+  errors (platform/unaccessed-code informational hints remain).
+- Mock coverage: complete 30-Site/22-dependency continuation after first-Site
+  reconciliation, null root-child placement, rejected non-root null/changed
+  identity/wrong type/placement, preserved POST history, synthetic 35 Organization
+  Devices versus 36 controller and 36 access records, verified existing Device
+  inventory, duplicate identities/IPs/access, missing/resumed parents, lookup
+  errors/interruption/no retry, private journal binding/locking, source-ID
+  rejection, authentication failure without journal creation, exact-origin lab
+  TLS consent, compact launcher modes and no Device/configuration writes.
+- Known blockers: original POST response unavailable; actual snapshots and
+  operational journal exist only on the lab host. Docker build and real input
+  validation remain unverified. CC 10.10.x stays primary, without inferring
+  compatibility from CC 10.15.0-2. Device create/access contracts remain blocked.
+- Next action: owner reviews/rebuilds the same image, runs read-only Site
+  reconciliation against original inputs, and separately authorizes Site resume
+  only after reviewing evidence. Run Device/combined dry-run with the same input
+  array. Qualify an inventory-only Device create/independent completion contract
+  before considering write implementation or activation. Exact commands and
+  blocked exit-status behavior are in the README.
+
+## CCV-012 - existing full hierarchical Site migration
 
 - CLI UX follow-up: compact batch summaries/progress, short issue codes and final
   report path; full JSON/journals remain on disk. Y/Yes/Enter approves only after

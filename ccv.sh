@@ -63,9 +63,10 @@ trap 'printf "\nTerminated; cleaning this run only.\n" >&2; exit 143' TERM
 qualify_default_root=0
 single_site_mode=""
 site_batch_mode=""
+inventory_batch_command=""
 single_site_arguments=()
 if [[ "${1:-}" == "--help" ]]; then
-    printf 'Usage: ./ccv.sh [--qualify-default-root]\n       ./ccv.sh --single-site-dry-run|--single-site-create --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... --site-reference source:node-N\n       ./ccv.sh --sites-dry-run|--sites-execute|--sites-resume --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... [--target-version VERSION] [--operation-delay SECONDS] [--readback-interval SECONDS] [--readback-attempts COUNT]\nSelect menu choice 2 for explicit Site modes. Writes require separate interactive authorization; batch authorization covers only the reviewed list and destination.\nRequires Bash, Docker Compose v2 and the existing shared image/runtime directories.\n'
+    printf 'Usage: ./ccv.sh [--qualify-default-root]\n       ./ccv.sh --single-site-dry-run|--single-site-create --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... --site-reference source:node-N\n       ./ccv.sh --sites-dry-run|--sites-execute|--sites-resume|--sites-reconcile --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... [--target-version VERSION] [--operation-delay SECONDS] [--readback-interval SECONDS] [--readback-attempts COUNT]\n       ./ccv.sh --devices-dry-run|--devices-execute|--devices-resume|--migration-dry-run|--migration-status --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... [--target-version VERSION]\nSelect menu choice 2 for migration modes. Device writes remain BLOCKED: inventory-only create contract unqualified. Sites writes require separate interactive authorization.\nRequires Bash, Docker Compose v2 and the existing shared image/runtime directories.\n'
     exit 0
 fi
 if [[ $# -eq 1 && "$1" == "--qualify-default-root" ]]; then
@@ -75,13 +76,18 @@ fi
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --single-site-dry-run|--single-site-create)
-            [[ -z "$single_site_mode" && -z "$site_batch_mode" ]] || fail "Select only one single-Site mode."
+            [[ -z "$single_site_mode" && -z "$site_batch_mode" && -z "$inventory_batch_command" ]] || fail "Select only one migration mode."
             single_site_mode="${1#--single-site-}"
             shift
             ;;
-        --sites-dry-run|--sites-execute|--sites-resume)
-            [[ -z "$single_site_mode" && -z "$site_batch_mode" ]] || fail "Select only one Site mode."
+        --sites-dry-run|--sites-execute|--sites-resume|--sites-reconcile)
+            [[ -z "$single_site_mode" && -z "$site_batch_mode" && -z "$inventory_batch_command" ]] || fail "Select only one migration mode."
             site_batch_mode="${1#--sites-}"
+            shift
+            ;;
+        --devices-dry-run|--devices-execute|--devices-resume|--migration-dry-run|--migration-status)
+            [[ -z "$single_site_mode" && -z "$site_batch_mode" && -z "$inventory_batch_command" ]] || fail "Select only one migration mode."
+            inventory_batch_command="${1#--}"
             shift
             ;;
         --input|--comparison|--destination-snapshot|--site-reference|--target-version|--operation-delay|--readback-interval|--readback-attempts)
@@ -92,7 +98,7 @@ while [[ $# -gt 0 ]]; do
         *) fail "Use ./ccv.sh --help for supported arguments." ;;
     esac
 done
-[[ ${#single_site_arguments[@]} -eq 0 || -n "$single_site_mode" || -n "$site_batch_mode" ]] ||
+[[ ${#single_site_arguments[@]} -eq 0 || -n "$single_site_mode" || -n "$site_batch_mode" || -n "$inventory_batch_command" ]] ||
     fail "Single-Site arguments require an explicitly selected mode."
 [[ $# -eq 0 ]] || fail "Use ./ccv.sh without arguments, or --help."
 
@@ -104,6 +110,10 @@ if [[ -n "$site_batch_mode" ]]; then
     [[ "$qualify_default_root" == "0" ]] || fail "Root qualification and batch Site modes are separate."
     printf 'Explicit override for choice 2: full hierarchical Sites %s. Execution/resume requires one separate batch authorization.\n' "$site_batch_mode"
 fi
+if [[ -n "$inventory_batch_command" ]]; then
+    [[ "$qualify_default_root" == "0" ]] || fail "Root qualification and Device migration modes are separate."
+    printf 'Explicit override for choice 2: %s. Device creation remains blocked pending API contract qualification.\n' "$inventory_batch_command"
+fi
 IFS= read -r -p 'Select operation: ' selection || fail "No operation selected."
 [[ "$selection" == "4" ]] && exit 0
 [[ "$selection" =~ ^[123]$ ]] || fail "Select 1, 2, 3 or 4."
@@ -111,6 +121,7 @@ IFS= read -r -p 'Select operation: ' selection || fail "No operation selected."
     fail "--qualify-default-root requires menu choice 2."
 [[ -z "$single_site_mode" || "$selection" == "2" ]] || fail "Single-Site mode requires menu choice 2."
 [[ -z "$site_batch_mode" || "$selection" == "2" ]] || fail "Site batch mode requires menu choice 2."
+[[ -z "$inventory_batch_command" || "$selection" == "2" ]] || fail "Device migration modes require menu choice 2."
 
 command -v docker >/dev/null 2>&1 || fail "Docker is missing; ask the administrator to install/configure Docker."
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is missing or unavailable."
@@ -162,7 +173,7 @@ allow_exceptions="${paths[4]}"
 run_operation() {
     local status summary_status exception_used=0 answer
     local -a result_arguments=()
-    if [[ -n "$site_batch_mode" ]]; then result_arguments=(--report-format json); fi
+    if [[ -n "$site_batch_mode" || -n "$inventory_batch_command" ]]; then result_arguments=(--report-format json); fi
     while true; do
         status=0
         "${compose[@]}" --profile "$profile" run --rm --no-deps -T \
@@ -290,8 +301,14 @@ else
     export CCV_DESTINATION_URL="$origin" CCV_DESTINATION_SECRETS_DIR="$temporary"
     export CCV_DESTINATION_TLS_VERIFY=true CCV_ALLOW_INSECURE_TLS_EXCEPTION="$allow_exceptions"
     export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem
-    if [[ -n "$site_batch_mode" ]]; then
-        run_operation sites-dry-run "${single_site_arguments[@]}"
+    if [[ -n "$inventory_batch_command" ]]; then
+        run_operation "$inventory_batch_command" "${single_site_arguments[@]}"
+    elif [[ -n "$site_batch_mode" ]]; then
+        if [[ "$site_batch_mode" == "reconcile" ]]; then
+            run_operation sites-reconcile "${single_site_arguments[@]}"
+        else
+            run_operation sites-dry-run "${single_site_arguments[@]}"
+        fi
     elif [[ -n "$single_site_mode" ]]; then
         run_operation site-dry-run "${single_site_arguments[@]}"
     elif [[ "$qualify_default_root" == "1" ]]; then

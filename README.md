@@ -1,8 +1,8 @@
 # CC-Vision Master
 
 One on-demand application for supported, read-only APSolute Vision configuration
-collection, offline export/comparison/planning, and separately selected experimental
-single-Site migration.
+collection, offline export/comparison/planning, separately selected experimental
+Site migration, and read-only Organization Device migration qualification.
 It reuses shared authentication, sessions, HTTP transport and JSON validation.
 Original legacy scripts are references only: none are imported or executed.
 The detailed capability/legacy mapping is maintained in the
@@ -37,9 +37,9 @@ manual JSON policy or administrator TLS provisioning is needed for this choice.
 An optional administrator production lock can prohibit it.
 
 **Source Backup -> Transfer Complete Folder -> Destination Validation ->
-Destination Discovery -> Separately Authorized Single-Site Test.** Bulk import
-remains unavailable. A blocked Site assessment never authorizes writes; only the
-explicit controlled operation below can request authorization for one Site.
+Destination Discovery -> Separately Authorized Site Migration.** Device writes
+remain blocked pending API qualification. A blocked assessment never authorizes
+writes; single-Site and Site batch execution require separate explicit operations.
 Successful collection is not a complete/restorable configuration backup.
 
 The launcher uses **Bash + Docker only**, including offline helpers from the
@@ -311,11 +311,14 @@ Keep the original protected backup, snapshot and complete confirmed comparison
 unchanged. From that directory, in Bash:
 
 ```bash
-site_inputs=(
+migration_inputs=(
   --input /incoming/vision-backup-20261125T122823Z-3ad1c37f503d/organization-tree/tree.json
   --comparison /reports/source-destination-site-comparison.json
   --destination-snapshot /reports/cc-destination-20261126T001502Z-c71a84af2691/organization-sites.json
   --target-version 10.15.0-2
+)
+site_inputs=(
+  "${migration_inputs[@]}"
   --operation-delay 1
   --readback-interval 1
   --readback-attempts 3
@@ -377,6 +380,94 @@ is ambiguous, is **not retried**; manual reconciliation is required. Never delet
 or edit journals/guards to force continuation. Development tests used a synthetic
 30-Site/22-dependency graph with network access denied; Docker builds and the
 owner's real protected snapshots/live batch remain unverified in this environment.
+
+##### Read-only reconciliation of an indeterminate Site
+
+Retain the original protected journal, guards, inputs and destination. Do not edit,
+delete or regenerate them. Before separately authorized continuation:
+
+```bash
+./ccv.sh --sites-reconcile "${migration_inputs[@]}"
+```
+
+Select **2** and the same destination. This authenticates and rechecks only the
+attempted/verified prefix; it never creates pending Sites or asks for write
+approval. A candidate must have exact name/type/unique destination identity,
+by-ID agreement and fresh hierarchy membership. A direct root child may have
+an explicit null parent only when the hierarchy independently proves placement
+under the qualified Default root. Missing parent fields, non-root null parents,
+identity changes, duplicates and wrong placement still block.
+
+The original one-POST count and incomplete-operation evidence are retained in a
+protected reconciliation history. After a successful report, a **separately
+authorized** `./ccv.sh --sites-resume "${site_inputs[@]}"` can continue pending
+Sites; it never repeats the reconciled POST. An unqualified subsequent POST
+response still stops the batch rather than inventing its identity.
+
+The original `site_identity_missing_or_ambiguous` code comes from parsing an
+expected name/nonempty ormID, not from parent validation. A POST response without
+identity reproduces it. The original POST body/journal are unavailable locally,
+so its exact failing response cannot be asserted. New fixed stages distinguish
+create-response parsing from later readback without saving response bodies.
+
+#### CCV-013: Organization Device qualification and combined preview
+
+Reuse `migration_inputs` above; no additional paths, configuration files,
+credentials prompts within a run, images or services. The same transferred
+backup's sibling `controller-objects/device-by-ip-*.json` and
+`device-access/device-by-ip-*.json` records are found and hash-bound automatically.
+
+```bash
+./ccv.sh --devices-dry-run "${migration_inputs[@]}"
+./ccv.sh --migration-dry-run "${migration_inputs[@]}"
+./ccv.sh --migration-status "${migration_inputs[@]}"
+```
+
+Choose **2**, destination and session credentials once per invocation. Combined
+preview includes full read-only Site preflight. Status freshly checks the Site
+journal prefix and Device inventory; it does not change either journal.
+
+Every Organization Device retains its source reference and parent dependency.
+Controller-object/access inventories remain separate, with unmatched records,
+duplicate addresses/identities and uncertain associations reported. Source
+name/type/queried-IP corroboration is an association candidate, **not proof that
+source ormID and tree managedElementID namespaces are equivalent**. No access
+values or credentials are copied to reports. Unsupported/unprojected fields
+are counted, not applied.
+
+Only fresh-verified mappings from the original Site journal can resolve Device
+parents; pending parents block without Default fallback. Read-only existing
+Device qualification requires matching name/type/IP/native identity, unique
+fresh tree membership and the expected verified destination Site. Matching IP
+alone is insufficient. HTTP 400 is not Device absence; unknown responses stop
+further Device lookups. No Device updates, reparenting, access writes or retries.
+Existing inventory objects are never reported as fully configured/connectable.
+
+**Device execution remains deliberately BLOCKED for all target versions.**
+The only source-observed Device POST embeds `deviceSetup.deviceAccess`; an
+inventory-only payload and create/completion contract have not been qualified.
+No Device POST implementation or speculative credential defaults are enabled.
+The explicit guarded entry points:
+
+```bash
+./ccv.sh --devices-execute "${migration_inputs[@]}"
+./ccv.sh --devices-resume "${migration_inputs[@]}"
+```
+
+perform read-only qualification and maintain a protected zero-attempt per-Device
+journal, but never ask for approval or write controller configuration while the
+contract is blocked. Resume freshly checks identities/parents; attempted or
+uncertain future journal states require manual reconciliation, never retry.
+They share the Site engine's per-origin lock, private atomic storage and original
+input/origin binding. A failed authentication does not create a Device journal.
+
+Sanitized `ccv-devices-report-<random>.json` and protected
+`ccv-devices-<plan-hash>-<origin-hash>.journal.json` use the existing reports
+directory. Only the protected journal contains destination-native mappings.
+All Device modes currently return exit **1** (blocked, not migration success),
+even when read-only inventory checks finish. CC 10.10.x remains the primary
+target; neither it nor the 10.15.x lab has qualified Device-create compatibility.
+Docker build and real snapshots remain unverified locally.
 
 #### CCV-011: experimental controlled single-Site migration
 
