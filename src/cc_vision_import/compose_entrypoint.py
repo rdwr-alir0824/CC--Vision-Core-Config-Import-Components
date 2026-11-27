@@ -24,9 +24,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "backup", "preflight", "discover-sites", "site-dry-run", "site-create",
         "sites-dry-run", "sites-execute", "sites-resume", "sites-reconcile",
         "devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status",
+        "migration-execute", "migration-resume", "migration-reconcile", "migration-lab-reset",
     ))
     parser.add_argument("--qualify-default-root", action="store_true")
     parser.add_argument("--input")
+    parser.add_argument("--backup")
+    for name in ("max-files", "max-objects", "max-depth", "max-file-bytes", "max-total-bytes"):
+        parser.add_argument("--backup-" + name, type=int)
     parser.add_argument("--comparison")
     parser.add_argument("--destination-snapshot")
     parser.add_argument("--site-reference")
@@ -36,15 +40,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--readback-attempts", type=int)
     parser.add_argument("--report-format", choices=("text", "json"))
     args = parser.parse_args(arguments)
+    backup_migration = args.role == "discovery" and args.command is not None and args.command.startswith("migration-") and args.backup is not None
+    if args.backup is not None and not backup_migration:
+        parser.error("--backup requires a discovery migration command.")
     single_site = args.role == "discovery" and args.command in ("site-dry-run", "site-create")
     site_batch = args.role == "discovery" and args.command in ("sites-dry-run", "sites-execute", "sites-resume", "sites-reconcile")
     device_batch = args.role == "discovery" and args.command in (
         "devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status",
     )
-    migration_batch = site_batch or device_batch
+    migration_batch = site_batch or device_batch or backup_migration
+    if not backup_migration and any(getattr(args, "backup_" + name) is not None for name in (
+        "max_files", "max_objects", "max_depth", "max_file_bytes", "max_total_bytes",
+    )):
+        parser.error("Backup limits require backup-driven migration.")
     site_operation = single_site or migration_batch
     site_values = (args.input, args.comparison, args.destination_snapshot, args.site_reference)
-    if site_operation:
+    if backup_migration:
+        if any(value is not None for value in site_values) or args.qualify_default_root:
+            parser.error("Backup migration discovers its own source/comparison/snapshot.")
+        if not args.backup.startswith("/incoming/") or ".." in Path(args.backup).parts:
+            parser.error("Use a selected container-visible /incoming/ backup directory.")
+    elif site_operation:
         if any(value is None for value in site_values[:3]) or (
             single_site and args.site_reference is None
         ) or (migration_batch and args.site_reference is not None) or args.qualify_default_root:
@@ -53,13 +69,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                               (args.destination_snapshot, "/reports/")):
             if not value.startswith(prefix) or ".." in Path(value).parts:
                 parser.error("Use existing container-visible incoming/report paths.")
-    elif any(value is not None for value in (*site_values, args.target_version)):
+    elif any(value is not None for value in (*site_values, args.target_version, args.backup)):
         parser.error("Single-Site options require discovery site-dry-run or site-create.")
     if not migration_batch and any(value is not None for value in (
         args.operation_delay, args.readback_interval, args.readback_attempts, args.report_format,
     )):
         parser.error("Batch timing requires a sites-dry-run, sites-execute or sites-resume command.")
-    if device_batch and any(value is not None for value in (args.operation_delay, args.readback_interval, args.readback_attempts)):
+    if device_batch and not backup_migration and any(value is not None for value in (args.operation_delay, args.readback_interval, args.readback_attempts)):
         parser.error("Device creation timing is unavailable while its write contract is blocked.")
     if args.qualify_default_root and (args.role != "discovery" or args.command != "discover-sites"):
         parser.error("--qualify-default-root requires discovery discover-sites.")
@@ -132,7 +148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ])
             if args.role == "discovery":
                 return master_main([
-                    "--operation", (
+                    "--operation", args.command if backup_migration else (
                         args.command if args.command.startswith("migration-") else
                         "device-batch-" + args.command.removeprefix("devices-")
                     ) if device_batch else ("site-batch-" + args.command.removeprefix("sites-")) if site_batch else (
@@ -142,6 +158,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "--credentials-file", "/run/secrets/credentials.json",
                     *(["--qualify-default-root"] if args.qualify_default_root else []),
                     *([
+                        "--backup", args.backup,
+                        *(["--target-version", args.target_version] if args.target_version else []),
+                        *[part for option, value in (
+                            ("--operation-delay", args.operation_delay), ("--readback-interval", args.readback_interval),
+                            ("--readback-attempts", args.readback_attempts), ("--report-format", args.report_format),
+                            *[("--backup-" + name.replace("_", "-"), getattr(args, "backup_" + name))
+                              for name in ("max_files", "max_objects", "max_depth", "max_file_bytes", "max_total_bytes")],
+                        ) if value is not None for part in (option, str(value))],
+                    ] if backup_migration else [
                         "--input", args.input, "--comparison", args.comparison,
                         "--destination-snapshot", args.destination_snapshot,
                         *(["--site-reference", args.site_reference] if single_site else []),

@@ -117,6 +117,30 @@ class ComposeDeploymentTests(OfflineTestCase):
                 self.assertEqual(self.module.main(["destination", "preflight"]), 4)
         self.assertNotIn("private-marker", stdout.getvalue())
 
+    def test_backup_driven_modes_forward_directory_and_limits_without_manual_inputs(self):
+        for mode in ("dry-run", "execute", "resume", "reconcile", "status", "lab-reset"):
+            with patch.dict(os.environ, self.environment, clear=True), patch.object(self.module, "master_main", return_value=0) as dispatch:
+                self.assertEqual(self.module.main([
+                    "discovery", "migration-" + mode, "--backup", "/incoming/customer-snapshot",
+                    "--backup-max-objects", "4000", "--operation-delay", "0",
+                ]), 0)
+            arguments = dispatch.call_args.args[0]
+            self.assertEqual(arguments[:2], ["--operation", "migration-" + mode])
+            self.assertIn("/incoming/customer-snapshot", arguments)
+            self.assertIn("--backup-max-objects", arguments)
+            self.assertNotIn("--input", arguments)
+            self.assertNotIn("--comparison", arguments)
+            self.assertNotIn("--destination-snapshot", arguments)
+
+    def test_backup_paths_cannot_escape_mount_or_be_ignored_by_legacy_mode(self):
+        for arguments in (
+            ["discovery", "migration-execute", "--backup", "/incoming/../reports"],
+            ["discovery", "sites-execute", "--backup", "/incoming/customer"],
+        ):
+            with patch.object(self.module, "master_main") as dispatch, self.assertRaises(SystemExit):
+                self.module.main(arguments)
+            dispatch.assert_not_called()
+
     def test_explicit_tls_settings_and_io_errors_remain_explicit(self):
         def capture(arguments):
             payload = json.loads(Path(arguments[3]).read_text())

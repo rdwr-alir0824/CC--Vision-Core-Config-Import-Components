@@ -70,7 +70,8 @@ class DevicePlan:
     source_identities: frozenset[str]
 
 
-def load_device_plan(source_path: str, comparison_path: str, snapshot_path: str) -> DevicePlan:
+def load_device_plan(source_path: str, comparison_path: str, snapshot_path: str, *,
+                     backup_artifacts: dict[str, tuple[Path, ...]] | None = None) -> DevicePlan:
     sites = load_plan(source_path, comparison_path, snapshot_path)
     evidence = load_site_evidence(source_path, comparison_path, snapshot_path)
     inputs = OfflineInputs(Path.cwd())
@@ -86,7 +87,8 @@ def load_device_plan(source_path: str, comparison_path: str, snapshot_path: str)
                            ("device-access", "vision-device-access")):
         directory = root / folder
         _require(not directory.is_symlink(), "unsafe_device_backup_directory")
-        paths = sorted(directory.glob("device-by-ip-*.json"))
+        paths = sorted(directory.glob("device-by-ip-*.json")) if backup_artifacts is None else sorted(
+            backup_artifacts.get(folder, ()))
         _require(len(paths) <= 10000, "device_inventory_limit")
         records[folder] = []
         for index, path in enumerate(paths):
@@ -102,8 +104,10 @@ def load_device_plan(source_path: str, comparison_path: str, snapshot_path: str)
             rows = payload.get("objects")
             _require(isinstance(request, dict) and request.get("method") == "GET"
                      and request.get("path_template") == "/" + "/".join((*_DEVICE_PATH, "{ip}"))
-                     and isinstance(rows, list) and len(rows) == 1 and isinstance(rows[0], dict),
+                     and isinstance(rows, list) and len(rows) <= 1 and all(isinstance(row, dict) for row in rows),
                      "device_backup_contract_mismatch")
+            if not rows:
+                continue
             row = rows[0]
             setup = row.get("deviceSetup")
             access = row.get("deviceAccess") if folder == "device-access" else (
@@ -305,11 +309,12 @@ def _load_device_journal(path: Path, binding: dict, references: list[str]) -> di
 def run_device_migration(
     profile_path: str, credentials_path: str, source_path: str, comparison_path: str, snapshot_path: str,
     *, mode: str = "dry-run", target_version: str | None = None, terminal: bool = False,
+    backup_artifacts: dict[str, tuple[Path, ...]] | None = None,
 ) -> tuple[dict, ExitStatus]:
     _require(mode in ("dry-run", "execute", "resume", "preview", "status"), "invalid_device_batch_mode")
     _require(target_version is None or bool(re.fullmatch(r"10\.[0-9]+(?:\.[0-9]+)*(?:-[0-9]+)?", target_version)),
              "unsupported_target_declaration")
-    plan = load_device_plan(source_path, comparison_path, snapshot_path)
+    plan = load_device_plan(source_path, comparison_path, snapshot_path, backup_artifacts=backup_artifacts)
     profile = DiscoveryProfile.read(profile_path)
     require_execution_exception(profile.transport.base_url, profile.transport.verify_tls, credentials_path)
     message = warning(profile.transport.verify_tls)
@@ -347,7 +352,7 @@ def run_device_migration(
             "unprojected_fields": device.unprojected_fields,
         } for device in plan.devices],
     }
-    backend = DeviceReadBackend(profile, plan.sites.sites[0].selection)
+    backend = DeviceReadBackend(profile, plan.sites.selection)
     strategy = _DiscoveryAuthentication()
     journal = None
     journal_dirty = False

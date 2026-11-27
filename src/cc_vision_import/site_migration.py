@@ -9,6 +9,7 @@ import re
 import stat
 import sys
 import time
+from collections.abc import Callable
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,11 @@ class SitePlan:
     root_name: str
     binding: dict
     digest: str
+    root_selection: SiteSelection
+
+    @property
+    def selection(self) -> SiteSelection:
+        return self.sites[0].selection if self.sites else self.root_selection
 
 
 def load_plan(source_path: str, comparison_path: str, snapshot_path: str) -> SitePlan:
@@ -54,7 +60,7 @@ def load_plan(source_path: str, comparison_path: str, snapshot_path: str) -> Sit
     order = expected["source_dependency_order"]
     _require(evidence.report.get("source_dependency_order") == order, "batch_dependency_order_mismatch")
     records = {row["source_reference"]: row for row in expected["site_comparisons"]}
-    _require(bool(records) and len(order) == len(set(order)) == len(records)
+    _require(len(order) == len(set(order)) == len(records)
              and set(order) == set(records), "batch_sites_not_completely_orderable")
     root_ref = expected["root_mapping"]["source_reference"]
     root_name = evidence.destination_root["native"]["name"]
@@ -90,7 +96,9 @@ def load_plan(source_path: str, comparison_path: str, snapshot_path: str) -> Sit
         "ordered_sites": [[site.selection.reference, site.parent_reference] for site in sites],
     }
     digest = hashlib.sha256(json.dumps(binding, sort_keys=True).encode()).hexdigest()
-    return SitePlan(tuple(sites), root_ref, root_name, binding, digest)
+    return SitePlan(tuple(sites), root_ref, root_name, binding, digest, SiteSelection(
+        root_ref, root_name, root_name, True, *evidence.digests, evidence.source_identities,
+    ))
 
 
 class BatchSiteBackend(SingleSiteBackend):
@@ -290,12 +298,13 @@ def _validate_mappings(tree: list[dict], plan: SitePlan, mapping: dict[str, str]
         _require(parent is not None and rows[0]["parent"] == parent["identity"]
                  and (not rows[0]["parent_field_present"]
                       or _site_parent_matches(rows[0], mapping[site.parent_reference],
-                                              site.selection.parent_is_root)), "batch_verified_parent_changed")
+                                              site.selection.parent_is_root, tree_parent=parent)),
+                 "batch_verified_parent_changed")
         matched[reference] = rows[0]
 
 
 def _fresh_root(manager: SessionManager, backend: BatchSiteBackend, plan: SitePlan) -> str:
-    selection = plan.sites[0].selection
+    selection = plan.selection
     backend.select(selection)
     response = _get(manager, _segments("byname", plan.root_name))
     _require(response.status == 200, "destination_parent_lookup_failed")
@@ -342,7 +351,17 @@ def _inspect(
         report["failure_stage"] = "candidate_identity"
         found = _site_object(_json(candidate), selection.name)
         _require(found.get("type") == "Site", "candidate_site_type_unverified")
-        _require(_site_parent_matches(found, parent_id, selection.parent_is_root), "existing_site_parent_mismatch")
+        parent_row = _parent_in_tree(tree, selection, parent_id)
+        matches_parent = _site_parent_matches(found, parent_id, selection.parent_is_root, tree_parent=parent_row)
+        if not matches_parent:
+            report["parent_identity_diagnostic"] = {
+                "parent_node_linked_to_destination_identity": True,
+                "lookup_parent_matches_orm_identity": found.get("parentOrmID") == parent_id,
+                "lookup_parent_matches_tree_identity": found.get("parentOrmID") == parent_row["identity"],
+                "lookup_parent_is_null": found.get("parentOrmID") is None,
+                "expected_parent_is_root": selection.parent_is_root,
+            }
+        _require(matches_parent, "existing_site_parent_mismatch")
         identity = found["ormID"]
         _require(_readback(manager, backend, selection, parent_id, identity, attempts=attempts, interval=interval),
                  "bounded_readback_incomplete")
@@ -411,7 +430,8 @@ def run_site_migration(
     profile_path: str, credentials_path: str, source_path: str, comparison_path: str, snapshot_path: str, *,
     mode: str = "dry-run", target_version: str | None = None, operation_delay: float = 1,
     readback_interval: float = 1, readback_attempts: int = 3, approve=None,
-    terminal: bool = False,
+    terminal: bool = False, expected_root_identity: str | None = None,
+    mapping_observer: Callable[[dict[str, str]], None] | None = None,
 ) -> tuple[dict, ExitStatus]:
     _require(mode in ("dry-run", "execute", "resume", "reconcile"), "invalid_batch_mode")
     _require(all(type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 60
@@ -445,7 +465,7 @@ def run_site_migration(
         "dependency_order": plan.binding["ordered_sites"],
         "verified_this_run": [],
     }
-    backend = BatchSiteBackend(profile, plan.sites[0].selection)
+    backend = BatchSiteBackend(profile, plan.selection)
     strategy = _DiscoveryAuthentication()
     journal = None
     current = None
@@ -473,6 +493,8 @@ def run_site_migration(
             report["authenticated"] = True
             report["failure_stage"] = "root_qualification"
             root_id = _fresh_root(manager, backend, plan)
+            _require(expected_root_identity is None or root_id == expected_root_identity,
+                     "backup_destination_root_identity_changed")
             if journal is not None:
                 _require(journal["root_identity"] == root_id, "batch_root_identity_changed")
             report.pop("failure_stage", None)
@@ -487,9 +509,9 @@ def run_site_migration(
                         preflight_mapping[site.selection.reference] = identity
                 if terminal:
                     print("Preflight: PASSED", flush=True)
-                if not (approve or _approval)(profile.transport.base_url, len(plan.sites), plan.digest):
+                if plan.sites and not (approve or _approval)(profile.transport.base_url, len(plan.sites), plan.digest):
                     raise SiteBlocked("batch_operator_declined_or_no_terminal")
-                report.update(execution_authorized=True, configuration_writes_authorized=True)
+                report.update(execution_authorized=bool(plan.sites), configuration_writes_authorized=bool(plan.sites))
                 if journal is None:
                     journal = {
                         "schema_version": 1, "domain": "protected-site-migration-journal",
@@ -580,6 +602,8 @@ def run_site_migration(
             response = _get(manager, _TREE)
             _require(response.status == 200, "hierarchy_readback_failed")
             _validate_mappings(_tree(_json(response)), plan, mapping)
+            if mapping_observer is not None:
+                mapping_observer(dict(mapping))
             report["status"] = (
                 "dry-run-ready" if mode == "dry-run" else "reconciled" if mode == "reconcile" else "batch-verified"
             )

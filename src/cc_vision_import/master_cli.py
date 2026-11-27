@@ -27,7 +27,8 @@ _OPERATIONS = (
     "single-site-dry-run", "single-site-create",
     "site-batch-dry-run", "site-batch-execute", "site-batch-resume", "site-batch-reconcile",
     "device-batch-dry-run", "device-batch-execute", "device-batch-resume",
-    "migration-dry-run", "migration-status",
+    "migration-dry-run", "migration-status", "migration-execute", "migration-resume", "migration-reconcile",
+    "migration-lab-reset", "backup-inventory",
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -128,6 +129,71 @@ def _export_input(
     ), ExitStatus.SUCCESS if valid else ExitStatus.VALIDATION_FAILED
 
 
+def _backup_mode(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    from .backup_inventory import InventoryLimits, discover_backup
+    from .migration import run_migration
+    from .single_site import SiteBlocked
+    from .tls_policy import TLSPolicyError
+
+    offline = args.operation == "backup-inventory"
+    if args.backup is None or not (offline or args.operation.startswith("migration-")):
+        parser.error("--backup requires backup-inventory or a migration operation.")
+    if any(value is not None for value in (
+        args.input, args.comparison, args.destination_snapshot, args.site_reference, args.request,
+        args.source_profile, args.destination_profile, args.lookup_value, args.format, args.tree,
+        args.controller_id, args.root, args.exported_at, args.backup_profile, args.source_root_name,
+        args.destination_root_name, args.destination_gui_version,
+    )) or args.module != "controller-objects" or args.confirm_root_mapping or args.qualify_default_root or args.legacy_compatibility or args.site_readiness:
+        parser.error("Backup-driven mode discovers its inputs and requires interactive review of nonidentical roots.")
+    if offline and (args.output is None or args.discovery_profile is not None or args.credentials_file is not None):
+        parser.error("backup-inventory requires --backup and --output; profiles and credentials are prohibited.")
+    if not offline and (args.discovery_profile is None or args.credentials_file is None or args.output is not None):
+        parser.error("Backup migration requires discovery profile/credentials; reports use the configured report directory.")
+    limits = InventoryLimits(**{
+        key: getattr(args, "backup_" + key) if getattr(args, "backup_" + key) is not None else value
+        for key, value in vars(InventoryLimits()).items()
+    })
+    try:
+        if offline:
+            report = discover_backup(args.backup, limits=limits).report
+            _write_export(args.output, json.dumps(report, indent=2, allow_nan=False))
+            print("Backup inventory saved: " + str(args.output))
+            return int(ExitStatus.SUCCESS)
+        report, status = run_migration(
+            args.discovery_profile, args.credentials_file, args.backup,
+            mode=args.operation.removeprefix("migration-"), target_version=args.target_version, limits=limits,
+            operation_delay=1 if args.operation_delay is None else args.operation_delay,
+            readback_interval=1 if args.readback_interval is None else args.readback_interval,
+            readback_attempts=3 if args.readback_attempts is None else args.readback_attempts,
+            terminal=args.report_format != "json",
+        )
+    except SiteBlocked as error:
+        report = {"operation": "backup-driven-migration", "migration_status": "BLOCKED", "issue_codes": [error.code]}
+        status = ExitStatus.VALIDATION_FAILED
+    except TLSPolicyError:
+        report = {"operation": "backup-driven-migration", "migration_status": "BLOCKED",
+                  "issue_codes": ["tls_execution_approval_required"]}
+        status = ExitStatus.VALIDATION_FAILED
+    except ContractValidationError as error:
+        report = {"operation": "backup-driven-migration", "migration_status": "BLOCKED",
+                  "issue_codes": sorted({issue.code for issue in error.result.issues})}
+        status = ExitStatus.CONTRACT_ERROR
+    except OSError:
+        report = {"operation": "backup-driven-migration", "migration_status": "BLOCKED",
+                  "issue_codes": ["backup_migration_local_io_failure"]}
+        status = ExitStatus.INPUT_ERROR
+    if args.report_format == "json":
+        result = {key: report[key] for key in (
+            "operation", "mode", "target_origin", "migration_status", "plan_status", "preflight_status",
+            "counts", "configuration_writes_authorized", "read_only", "issue_codes", "report_file",
+        ) if key in report}
+        result.update(status="dry-run-ready" if report.get("plan_status") == "READY" else report["migration_status"].lower())
+        print(json.dumps(result, allow_nan=False))
+    elif "report_file" not in report:
+        print("Migration BLOCKED: " + ", ".join(report["issue_codes"]))
+    return int(status)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python master.py",
@@ -152,6 +218,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--root", help="Explicit local root response required for flat export.")
     parser.add_argument("--exported-at", help="ISO-8601 timestamp for supplied export/lookup data.")
     parser.add_argument("--backup-profile", help="External JSON profile for explicit Vision 5.4.9 live backup.")
+    parser.add_argument("--backup", help="Selected native Vision backup directory; schemas and names discovered at runtime.")
+    for name in ("max-files", "max-objects", "max-depth", "max-file-bytes", "max-total-bytes"):
+        parser.add_argument("--backup-" + name, type=int, help="Backup inspection safety limit.")
     parser.add_argument("--discovery-profile", help="External JSON profile for selected CC discovery or Site operation; version unknown.")
     parser.add_argument("--qualify-default-root", action="store_true", help="Destination discovery: read only Default by name instead of the Organization tree.")
     parser.add_argument("--credentials-file", help="Read-only mounted owner-private JSON credentials file; never a password argument.")
@@ -167,6 +236,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--readback-interval", type=float, help="Site batch: delay between bounded readback rounds, 0-60 seconds.")
     parser.add_argument("--readback-attempts", type=int, help="Site batch: 1-10 readback rounds.")
     args = parser.parse_args(argv)
+    if args.backup is not None or args.operation in (
+        "backup-inventory", "migration-execute", "migration-resume", "migration-reconcile", "migration-lab-reset",
+    ):
+        return _backup_mode(args, parser)
+    if any(getattr(args, "backup_" + name) is not None for name in (
+        "max_files", "max_objects", "max_depth", "max_file_bytes", "max_total_bytes",
+    )):
+        parser.error("Backup limits require --backup.")
     single_site = args.operation in ("single-site-dry-run", "single-site-create")
     site_batch = args.operation in ("site-batch-dry-run", "site-batch-execute", "site-batch-resume", "site-batch-reconcile")
     device_batch = args.operation in (

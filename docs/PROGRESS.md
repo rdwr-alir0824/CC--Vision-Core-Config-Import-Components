@@ -2,6 +2,63 @@
 
 Last updated: 2026-11-26
 
+## CCV-012 continuation - dynamic backup-driven migration
+
+- Objective/priority: high; correct qualified Site parent namespaces first,
+  then discover and account for the selected customer's complete native backup,
+  reusing existing Site/Device engines and Docker/launcher.
+- Dependencies: collector envelopes, original hash-bound comparisons, fresh
+  verified native destination identity, existing protected journals/guards,
+  finite HTTP scopes and session-only TLS consent.
+- Approval: implementation and offline/mocked tests only. No live access,
+  deployment, deletion, operational journal edits or Git operations.
+- Hardcoded assumptions corrected: nonempty Site plan/first-Site indexing;
+  normal migration's manual three-path inputs; canonical Device detail paths
+  and source-folder depth. New normal selection accepts arbitrary native
+  filenames and partial/empty module sets. Legacy menu-3 full-six-module
+  assessment and explicit Default troubleshooting remain separate.
+  Generic engines contained no customer names or fixed lab inventory limits.
+- Implementation: shared schema-driven bounded inventory/handler policies,
+  dynamic dependency graph, backup/origin/native-root-bound protected state,
+  automatic internal snapshot/comparison, existing controlled Site execution,
+  noncanonical Device enrichment and read-only qualification, compact CLI,
+  resume/reconcile/status, fail-closed exceptional lab reset.
+  Split parent namespaces require explicit same-row native linkage; unknown
+  aliases and genuine wrong placement still block. No POST retries or guard
+  clearing. Status preserves journals.
+- Implementation status: implemented for qualified Site hierarchy and
+  backup-wide inventory/orchestration; unqualified domain writes explicitly
+  BLOCKED. Not a full multi-domain write-completion milestone.
+- Files affected: new
+  [backup_inventory.py](../src/cc_vision_import/backup_inventory.py),
+  [migration.py](../src/cc_vision_import/migration.py),
+  [test_backup_inventory.py](../tests/test_backup_inventory.py),
+  [test_migration.py](../tests/test_migration.py); updates to
+  single_site/site_migration/device_migration/destination_discovery/master_cli/
+  compose_entrypoint/launcher_helper, ccv.sh, related Site/Compose/launcher
+  tests, README, API matrix and this checkpoint.
+- Verification status/evidence: 126 tests in 104.551s, 124 passed / two
+  environment skips; command with src/tests on PYTHONPATH:
+  `python -S -B -m unittest test_backup_inventory test_migration test_compose_deployment test_single_site test_site_migration test_device_migration`.
+  Covers the retained 30-Site graph and varied empty/small/large/deep/broad
+  deployments, roots/namespace links, malformed/unqualified modules, different
+  Device models and unequal inventories, full-backup/origin binding, native
+  root replacement rejection, interruption/resume, immutable status and
+  zero repeated POSTs. Three targeted launcher regressions also passed:
+  interactive foreground handoff, offline/no-credential selection and sudo/
+  cleanup boundaries. Bash syntax passed. Python syntax checked; checked Pylance diagnostics have
+  no errors. Signature helper still reports a defaults-related mismatch not
+  reproduced by LSP diagnostics or actual CLI tests; no unsafe casts added.
+- Known blockers: real lab namespace/parent evidence unavailable locally;
+  no live version certification or Docker build. Device creation/attributes/
+  access, Physical, LDAP, Scheduler and destructive reset contracts remain
+  unqualified. Multiple source Organization roots require explicit scope
+  qualification rather than an invented root fallback.
+- Next action: owner reviews code,
+  reconciles historical attempts using original bound paths, then performs
+  authorized read-only backup-driven lab validation. Any writes need separate
+  batch authorization; additional domains need actual contract qualification.
+
 ## CCV-012 follow-up: recurring Site create/readback verification
 
 - Objective/priority: high; complete the same 30-Site parent-first batch when

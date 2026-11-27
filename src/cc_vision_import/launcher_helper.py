@@ -170,7 +170,18 @@ def certificate_exception_available(report: dict, selection: str, status: int) -
     )
 
 
-def check_backup(folder: Path) -> None:
+def check_backup(folder: Path, *, dynamic: bool = False) -> None:
+    from .backup_inventory import discover_backup
+    from .single_site import SiteBlocked
+
+    if dynamic:
+        try:
+            inventory = discover_backup(str(folder))
+        except SiteBlocked as error:
+            raise SetupError("Backup rejected: " + error.code) from None
+        if not inventory.artifacts:
+            raise SetupError("No supported valid native backup module found; inspect an offline inventory report.")
+        return
     if not re.fullmatch(r"vision-backup-[A-Za-z0-9_-]+", folder.name) or folder.is_symlink() or not folder.is_dir():
         raise SetupError("Select a native Vision backup directory.")
     count = 0
@@ -465,13 +476,21 @@ def summary(report: object, selection: str, status: int, output: str, filename: 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("settings", "prepare", "approve-exception", "credentials", "backups", "check-backup", "summary"))
+    parser.add_argument("action", choices=("settings", "migration-settings", "prepare", "approve-exception", "credentials", "backups", "check-backup", "summary"))
     parser.add_argument("values", nargs="*")
     args = parser.parse_args(argv)
     try:
         directory = Path("/run/setup")
         if args.action == "settings":
             print("\n".join(settings(load_json(_read()), args.values[0])))
+        elif args.action == "migration-settings":
+            configuration = load_json(_read())
+            values = settings(configuration, "2")
+            incoming = next(row["source"] for row in configuration["services"]["ccv-destination-discovery"]["volumes"]
+                            if row["target"] == "/incoming")
+            if not isinstance(incoming, str) or not incoming or any(c in incoming for c in "\r\n,"):
+                raise SetupError("Unsafe incoming bind path.")
+            print("\n".join([*values, incoming]))
         elif args.action == "prepare":
             print(prepare(_read(), args.values[0], directory, Path("/run/admin"), args.values[1]))
         elif args.action == "approve-exception":
@@ -487,10 +506,10 @@ def main(argv=None) -> int:
         elif args.action == "backups":
             print("\n".join(sorted(
                 path.name for path in Path("/incoming").iterdir()
-                if path.is_dir() and not path.is_symlink() and re.fullmatch(r"vision-backup-[A-Za-z0-9_-]+", path.name)
+                if path.is_dir() and not path.is_symlink() and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. -]{0,199}", path.name)
             )))
         elif args.action == "check-backup":
-            if not re.fullmatch(r"vision-backup-[A-Za-z0-9_-]+", args.values[0]):
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. -]{0,199}", args.values[0]):
                 raise SetupError("Select a backup basename only.")
             check_backup(Path("/incoming") / args.values[0])
         else:

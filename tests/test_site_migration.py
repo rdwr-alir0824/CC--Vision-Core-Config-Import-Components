@@ -15,9 +15,10 @@ from test_site_comparison import site
 
 
 class SiteServer:
-    def __init__(self):
+    def __init__(self, root_name="Default"):
+        self.root_name = root_name
         self.root_id = "destination-root-id"
-        self.sites = {"Default": {"name": "Default", "type": "Site", "ormID": self.root_id, "parentOrmID": None}}
+        self.sites = {root_name: {"name": root_name, "type": "Site", "ormID": self.root_id, "parentOrmID": None}}
         self.posts = []
         self.calls = []
         self.verified = {self.root_id}
@@ -39,6 +40,7 @@ class SiteServer:
         self.null_non_root_parent = False
         self.post_response = None
         self.candidate_404s = 0
+        self.split_parent_namespaces = False
 
     def seed(self, name, parent):
         identity = f"destination-site-{len(self.sites)}"
@@ -49,6 +51,11 @@ class SiteServer:
         def node(item):
             result = site(item["ormID"], item["name"])
             result["parentOrmID"] = item["parentOrmID"]
+            if self.split_parent_namespaces:
+                result["ormID"] = item["ormID"]
+                result["meIdentifier"]["managedElementID"] = "tree:" + item["ormID"]
+                if item["parentOrmID"] is not None:
+                    result["parentOrmID"] = "tree:" + item["parentOrmID"]
             if self.null_tree_parent and item["parentOrmID"] == self.root_id:
                 result["parentOrmID"] = None
             result["children"] = [
@@ -56,7 +63,7 @@ class SiteServer:
                 and not (self.omit_created_from_tree and any(p["name"] == child["name"] for p in self.posts))
             ]
             return result
-        return node(self.sites["Default"])
+        return node(self.sites[self.root_name])
 
     def respond(self, request):
         method, path, body, _ = request
@@ -93,10 +100,10 @@ class SiteServer:
                 )}
             else:
                 payload = copy.deepcopy(payload)
-                if self.posts and name != "Default" and self.candidate_404s:
+                if self.posts and name != self.root_name and self.candidate_404s:
                     self.candidate_404s -= 1
                     status, payload = 404, {"status": "error"}
-                if self.change_parent_after_create and self.posts and name == "Default":
+                if self.change_parent_after_create and self.posts and name == self.root_name:
                     payload["ormID"] = "changed-root-id"
         elif method == "GET" and "/site/byid/" in path:
             identity = unquote(path.rsplit("/", 1)[-1])
@@ -123,6 +130,8 @@ class SiteServer:
             payload["parentOrmID"] = None
         if self.null_non_root_parent and payload.get("type") == "Site" and payload.get("parentOrmID") not in (None, self.root_id):
             payload["parentOrmID"] = None
+        if self.split_parent_namespaces and isinstance(payload.get("parentOrmID"), str):
+            payload["parentOrmID"] = "tree:" + payload["parentOrmID"]
         return MemoryResponse(status, json.dumps(payload).encode(), [("Content-Type", "application/json")])
 
 
@@ -195,8 +204,9 @@ class SiteMigrationTests(OfflineTestCase):
         self.source_path.write_text(json.dumps(self.source))
         self.snapshot_path.write_text(json.dumps(self.snapshot))
         comparison = importlib.import_module("cc_vision_import.site_comparison").compare_sites(
-            self.source, self.snapshot, source_root_name="private-source-root",
-            destination_root_name="Default", confirm_root_mapping=True,
+            self.source, self.snapshot, source_root_name=self.source["tree"]["name"],
+            destination_root_name=importlib.import_module("cc_vision_import.site_comparison")._destination(self.snapshot)[1]["native"]["name"],
+            confirm_root_mapping=True,
         )
         comparison["input_bindings"] = [{
             "slot": slot, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -937,3 +947,41 @@ class SiteMigrationTests(OfflineTestCase):
         self.assertEqual(report["counts"]["verified"], 30)
         self.assertEqual(len(server.posts), 30)
         self.assertEqual(len({entry["name"] for entry in server.posts}), 30)
+
+    def test_nested_sites_with_explicitly_linked_parent_namespaces_are_verified(self):
+        server = SiteServer()
+        server.split_parent_namespaces = True
+        server.post_response = {"status": "ok"}
+        status, report, _ = self.run_batch(server, mode="execute")
+        self.assertEqual(status, 0)
+        self.assertEqual(report["counts"]["verified"], len(self.plan.sites))
+        self.assertEqual(len(server.posts), len(self.plan.sites))
+        self.assertTrue(all(not item["parentOrmID"].startswith("tree:") for item in server.posts))
+
+    def test_varied_empty_small_large_deep_and_broad_graphs_with_different_roots(self):
+        for index, (size, deep) in enumerate(((0, False), (5, False), (27, True), (200, False))):
+            with self.subTest(size=size, deep=deep):
+                root = site("private-source-root-id", f"private-customer-root-{index}")
+                parent = root
+                for number in range(size):
+                    child = site(f"private-source-{number}", f"private-site-{number}")
+                    parent["children"].append(child)
+                    if deep:
+                        parent = child if number % 12 else root
+                self.source["tree"] = root
+                server = SiteServer(root_name=f"Tenant-{index}")
+                self.snapshot.update(self.discovery.project_site_tree(server.tree()))
+                profile = json.loads(self.profile_path.read_text())
+                profile["destination"]["base_url"] = f"https://customer-{index}.invalid"
+                self.profile_path.write_text(json.dumps(profile))
+                self.save_inputs()
+                self.plan = self.module.load_plan(str(self.source_path), str(self.comparison_path), str(self.snapshot_path))
+                status, report, approval = self.run_batch(server, mode="execute")
+                self.assertEqual(status, 0)
+                self.assertEqual(report["counts"]["total"], len(self.plan.sites))
+                self.assertEqual(report["counts"]["verified"], len(self.plan.sites))
+                self.assertEqual(len(server.posts), len(self.plan.sites))
+                self.assertEqual(len({item["name"] for item in server.posts}), len(server.posts))
+                if not self.plan.sites:
+                    approval.assert_not_called()
+                    self.assertFalse(report["configuration_writes_authorized"])

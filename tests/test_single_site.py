@@ -549,11 +549,21 @@ class SingleSiteTests(OfflineTestCase):
 
     def test_wrong_parent_and_incomplete_tree_never_report_success(self):
         connections = [self.login(), *self.preflight(), *self.preflight(), self.connection(self.created),
-                       self.connection({**self.created, "parentOrmID": "wrong-parent"})]
+                       self.connection({**self.created, "parentOrmID": "wrong-parent"}), self.connection(self.result_tree)]
         status, report, factory, _ = self.run_engine(connections, execute=True)
         self.assertEqual(status, 1)
         self.assertEqual(report["status"], "indeterminate")
-        self.assertEqual(factory.call_count, 9)
+        self.assertEqual(factory.call_count, 10)
+        self.assertEqual(report["issue_codes"], ["readback_identity_or_parent_mismatch"])
+        self.assert_one_post(connections)
+
+    def test_missing_post_identity_cannot_hide_conflicting_byname_parent(self):
+        connections = [self.login(), *self.preflight(), *self.preflight(), self.connection({"status": "ok"}),
+                       self.connection({**self.created, "parentOrmID": "wrong-parent"}),
+                       self.connection(self.created), self.connection(self.result_tree)]
+        status, report, _, _ = self.run_engine(connections, execute=True)
+        self.assertEqual(status, 1)
+        self.assertEqual(report["issue_codes"], ["readback_lookup_parent_mismatch"])
         self.assert_one_post(connections)
 
     def test_readback_polling_is_bounded_and_never_recreates(self):

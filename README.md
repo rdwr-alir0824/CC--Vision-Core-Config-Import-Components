@@ -10,6 +10,79 @@ The detailed capability/legacy mapping is maintained in the
 
 ## Operator Quick Start
 
+### Backup-driven migration
+
+Use the existing image, launcher and incoming/reports mounts. The selected
+native Vision backup is inspected by schema rather than customer filenames or
+fixed inventory counts. No new image service or dependency is required.
+
+```sh
+./ccv.sh --migration-dry-run
+./ccv.sh --migration-execute --backup /incoming/CUSTOMER-BACKUP
+./ccv.sh --migration-resume --backup /incoming/CUSTOMER-BACKUP
+./ccv.sh --migration-reconcile --backup /incoming/CUSTOMER-BACKUP
+./ccv.sh --migration-status --backup /incoming/CUSTOMER-BACKUP
+```
+
+Choose menu **2**. Without `--backup`, choose an incoming folder once. Enter the
+authorized destination and credentials. Different source/destination root names
+require interactive review; no unresolved object is silently assigned to Default.
+Execution/resume separately requires fresh preflight and batch authorization.
+Captured TLS discovery remains read-only; root review and batch input run with
+Docker stdin/TTY in the foreground.
+
+Only experimental Organization Site creation is currently write-capable.
+Devices receive inventory/association and qualified-existing-object read checks;
+Device creation, controller attributes, access/credential restoration, Physical
+hierarchy, LDAP and Scheduler writes remain **BLOCKED** by unqualified contracts.
+Populated unsupported modules, unknown schemas and unprojected settings remain
+explicitly outstanding. `COMPLETED` means every **selected-backup in-scope**
+record is verified (or the validated scope is genuinely empty), not that source
+enumeration or full controller/version compatibility has been certified.
+`PARTIAL` and `BLOCKED` must not be presented as full migration success.
+
+Native root identity, original snapshot/comparison and the entire backup's
+content binding are retained in protected migration state. Existing Site
+journals/one-POST guards remain authoritative. Resume never clears an uncertain
+attempt; reconcile verifies remote state without creating anything. Status does
+not change journals. Historical path-based single/batch Site commands remain
+available: use their **original** source/comparison/snapshot to reconcile the two
+historical lab attempts, not newly generated evidence or manually edited JSON.
+
+`--migration-lab-reset` is an explicit **blocked** recovery entry point: no
+qualified deletion/definitive-absence contract exists. It never deletes objects,
+resets progress or clears guards; use read-only reconciliation instead.
+
+Inspection limits are configurable with `--backup-max-files`,
+`--backup-max-objects`, `--backup-max-depth`, `--backup-max-file-bytes` and
+`--backup-max-total-bytes`. Defaults: 4,096 files, 10,000 domain records,
+48 hierarchy levels, 16 MiB/file and 128 MiB total. Existing execution ceilings
+remain 10,000 tree nodes/64 levels; Device detail readers retain 4 MiB/file and
+64 MiB aggregate. Limits fail explicitly, never truncate.
+
+Exact current lab read-only validation:
+
+```sh
+cd /opt/radware/storage/scripts/CC--Vision-Core-Config-Import-Components
+./ccv.sh --migration-dry-run \
+  --backup /incoming/vision-backup-20261125T122823Z-3ad1c37f503d \
+  --target-version 10.15.0-2
+```
+
+Choose **2**, then the authorized lab destination `155.1.1.7`. This command was
+**not live-tested or deployed** during development. CC 10.10.x remains the
+primary, unverified target; CC 10.15.0-2 observations are not universal contracts.
+For an entirely offline inventory using the same application:
+
+```sh
+python master.py --operation backup-inventory \
+  --backup /path/to/customer-backup --output /path/to/inventory-report.json
+```
+
+The older menu **3** full-six-module offline assessment retains its original
+format checks; use the backup-driven commands for partial/targeted backups or
+noncanonical filenames.
+
 On an **authorized appliance Docker host or approved adjacent Docker host**:
 
 ```sh

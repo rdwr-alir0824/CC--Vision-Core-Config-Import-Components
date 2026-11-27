@@ -231,12 +231,12 @@ class SingleSiteBackend(StdlibHttpBackend):
         self._candidate_lookup_url = build_url(self._site_origin, _segments("byname", selection.name))
         self._candidate_name = selection.name
         self.candidate_collision_diagnostic: dict[str, object] | None = None
-        self._operations = (
+        self._operations = tuple(dict.fromkeys((
             (HttpMethod.POST, "/mgmt/system/user/login"),
             (HttpMethod.GET, "/" + "/".join(_TREE)),
             *((HttpMethod.GET, urlsplit(build_url(self._site_origin, _segments("byname", value))).path)
               for value in (selection.parent_name, selection.name)),
-        )
+        )))
     def arm_create(self) -> None:
         _require(not self.create_armed and self.create_count == 0, "create_already_authorized")
         self.create_armed = True
@@ -284,9 +284,16 @@ def _site_object(payload: object, name: str) -> dict[str, object]:
     return payload
 
 
-def _site_parent_matches(payload: dict, parent_id: str, parent_is_root: bool) -> bool:
+def _site_parent_matches(
+    payload: dict, parent_id: str, parent_is_root: bool, *, tree_parent: dict | None = None,
+) -> bool:
+    aliases = {parent_id}
+    if tree_parent is not None:
+        linked = tree_parent["ormID"] if tree_parent["ormID"] is not None else tree_parent["identity"]
+        _require(linked == parent_id and tree_parent["site"], "parent_identity_namespace_unverified")
+        aliases.add(tree_parent["identity"])
     return "parentOrmID" in payload and (
-        payload["parentOrmID"] == parent_id or parent_is_root and payload["parentOrmID"] is None
+        any(payload["parentOrmID"] == alias for alias in aliases) or parent_is_root and payload["parentOrmID"] is None
     )
 
 
@@ -351,7 +358,7 @@ def _lookup_candidate(
     return None if absent else response
 
 
-def _parent_in_tree(tree: list[dict], selection: SiteSelection, parent_id: str) -> None:
+def _parent_in_tree(tree: list[dict], selection: SiteSelection, parent_id: str) -> dict:
     parents = [row for row in tree if row["site"] and row["name"] == selection.parent_name
                and (row["ormID"] if row["ormID"] is not None else row["identity"]) == parent_id]
     _require(len(parents) == 1, "parent_tree_identity_unverified")
@@ -360,6 +367,7 @@ def _parent_in_tree(tree: list[dict], selection: SiteSelection, parent_id: str) 
              "parent_name_ambiguous")
     if selection.parent_is_root:
         _require(parents[0] is tree[0], "parent_not_organization_root")
+    return parents[0]
 
 
 def _preflight(
@@ -389,7 +397,8 @@ def _preflight(
 
 
 def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: SiteSelection, parent_id: str,
-              identity: str, *, attempts: int = 3, interval: float = 0) -> bool:
+              identity: str, *, attempts: int = 3, interval: float = 0, response_parent: dict | None = None,
+              lookup_parent: dict | None = None) -> bool:
     _require(identity not in selection.source_identities and identity != parent_id, "created_identity_invalid")
     backend.authorize_readback(identity)
     for attempt in range(attempts):
@@ -403,8 +412,7 @@ def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: Si
             raise
         _require(response.status == 200, "readback_http_failure")
         site = _site_object(_json(response), selection.name)
-        _require(site["ormID"] == identity and _site_parent_matches(site, parent_id, selection.parent_is_root)
-                 and site.get("type") == "Site", "readback_identity_or_parent_mismatch")
+        _require(site["ormID"] == identity and site.get("type") == "Site", "readback_identity_or_parent_mismatch")
         response = _get(manager, _TREE)
         _require(response.status == 200, "hierarchy_readback_failed")
         tree = _tree(_json(response))
@@ -414,12 +422,22 @@ def _readback(manager: SessionManager, backend: SingleSiteBackend, selection: Si
         _require(len(matches) == 1, "readback_ambiguous")
         site_row = matches[0]
         parent_rows = [row for row in tree if row["identity"] == site_row["parent"]]
+        qualified_parent = _parent_in_tree(tree, selection, parent_id)
+        _require(_site_parent_matches(site, parent_id, selection.parent_is_root, tree_parent=qualified_parent),
+                 "readback_identity_or_parent_mismatch")
+        if response_parent is not None:
+            _require(_site_parent_matches(response_parent, parent_id, selection.parent_is_root,
+                                          tree_parent=qualified_parent), "create_response_parent_mismatch")
+        if lookup_parent is not None:
+            _require(_site_parent_matches(lookup_parent, parent_id, selection.parent_is_root,
+                                          tree_parent=qualified_parent), "readback_lookup_parent_mismatch")
         _require(
             (site_row["ormID"] if site_row["ormID"] is not None else site_row["identity"]) == identity
             and len(parent_rows) == 1 and parent_rows[0]["name"] == selection.parent_name
             and (parent_rows[0]["ormID"] if parent_rows[0]["ormID"] is not None
                  else parent_rows[0]["identity"]) == parent_id
-            and (not site_row["parent_field_present"] or _site_parent_matches(site_row, parent_id, selection.parent_is_root))
+            and (not site_row["parent_field_present"] or _site_parent_matches(
+                site_row, parent_id, selection.parent_is_root, tree_parent=qualified_parent))
             and (not selection.parent_is_root or parent_rows[0] is tree[0])
             and sum(isinstance(row["name"], str) and _name(row["name"]) == _name(selection.name)
                     for row in tree) == 1,
@@ -441,9 +459,9 @@ def _verify_created_site(
     _require(not _text(created.get("name")) or created["name"] == selection.name,
              "site_identity_missing_or_ambiguous")
     _require("type" not in created or created["type"] == "Site", "create_response_type_mismatch")
-    if "parentOrmID" in created:
-        _require(_site_parent_matches(created, parent_id, selection.parent_is_root),
-                 "create_response_parent_mismatch")
+    if "parentOrmID" in created and not _text(created["parentOrmID"]):
+        _require(created["parentOrmID"] is None and selection.parent_is_root, "create_response_parent_mismatch")
+    response_parent = created if "parentOrmID" in created else None
     identity = created.get("ormID") if _text(created.get("ormID")) else None
 
     def remember(value: str) -> None:
@@ -455,7 +473,8 @@ def _verify_created_site(
     report["failure_stage"] = "site_identity_readback"
     if identity is not None:
         remember(identity)
-        _require(_readback(manager, backend, selection, parent_id, identity, attempts=attempts, interval=interval),
+        _require(_readback(manager, backend, selection, parent_id, identity, attempts=attempts, interval=interval,
+                          response_parent=response_parent),
                  "bounded_readback_incomplete")
         report.pop("failure_stage", None)
         return identity
@@ -467,15 +486,15 @@ def _verify_created_site(
             continue
         _require(candidate.status == 200, "candidate_lookup_http_unqualified")
         found = _site_object(_json(candidate), selection.name)
-        _require(found.get("type") == "Site"
-                 and _site_parent_matches(found, parent_id, selection.parent_is_root),
+        _require(found.get("type") == "Site",
                  "readback_identity_or_parent_mismatch")
         resolved = found["ormID"]
         _require(identity is None or resolved == identity, "readback_identity_changed")
         if identity is None:
             remember(resolved)
             identity = resolved
-        if _readback(manager, backend, selection, parent_id, identity, attempts=1):
+        if _readback(manager, backend, selection, parent_id, identity, attempts=1,
+                     response_parent=response_parent, lookup_parent=found):
             report.pop("failure_stage", None)
             return identity
     raise SiteBlocked("bounded_readback_incomplete")

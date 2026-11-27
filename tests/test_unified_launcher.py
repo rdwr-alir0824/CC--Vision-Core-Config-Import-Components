@@ -69,6 +69,11 @@ if args[0] == "run":
     raw = sys.stdin.read()
     if action == "settings":
         print("\n".join(helper.settings(json.loads(raw), values[0])))
+    elif action == "migration-settings":
+        configuration = json.loads(raw)
+        incoming = next(row["source"] for row in configuration["services"]["ccv-destination-discovery"]["volumes"]
+                        if row["target"] == "/incoming")
+        print("\n".join([*helper.settings(configuration, "2"), incoming]))
     elif action == "prepare":
         if mode == "tls-invalid":
             sys.exit(3)
@@ -164,6 +169,9 @@ if args[0] == "compose" and "run" in args:
             )
             helper.summary(report, "2", 1, str(root / "reports"), "")
             sys.exit(1)
+    if service == "ccv-destination-discovery" and "--backup" in args:
+        print("Backup-driven migration: BLOCKED; detailed sanitized report saved.")
+        sys.exit(1)
     device_commands = ("devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status")
     device_command = next((command for command in device_commands if command in args), None)
     if service == "ccv-destination-discovery" and device_command:
@@ -623,6 +631,23 @@ class UnifiedLauncherTests(OfflineTestCase):
         result, calls = self.launch()
         self.assertEqual(result.returncode, 2)
         self.assertIn("runtime directory is missing", result.stderr)
+
+    def test_backup_driven_launcher_uses_interactive_foreground_and_read_only_tls_probe(self):
+        result, calls = self.launch(arguments=(
+            "--migration-dry-run", "--backup", "/incoming/vision-backup-synthetic",
+        ))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        operations = [call["args"] for call in self.operation_calls(calls)]
+        discovery = next(call for call in operations if "discover-sites" in call)
+        migration = next(call for call in operations if "migration-dry-run" in call)
+        self.assertIn("-T", discovery)
+        self.assertNotIn("--report-format", discovery)
+        self.assertIn("-it", migration)
+        self.assertIn("--backup", migration)
+        self.assertNotIn("--input", migration)
+        self.assertNotIn("--comparison", migration)
+        self.assertNotIn(SECRET, result.stdout + result.stderr)
+        self.assertNotIn("private-native-id", result.stdout)
 
     def test_missing_docker_and_incomplete_or_invalid_backup_selection(self):
         (self.bin / "docker").unlink()

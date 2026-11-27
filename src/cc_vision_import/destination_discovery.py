@@ -215,7 +215,7 @@ def project_site_tree(payload: object) -> dict[str, object]:
             codes.add("site_name_missing_or_unverified_type")
         if kind == "root" and native_class != _SITE:
             codes.add("root_site_class_unverified")
-        unprojected = len(set(value) - {"meIdentifier", "children", "name", "parentOrmID"})
+        unprojected = len(set(value) - {"meIdentifier", "children", "name", "parentOrmID", "ormID"})
         unprojected += len(set(identifier) - {"managedElementID", "managedElementClass"})
         if kind in ("root", "site") and unprojected:
             codes.add("additional_fields_not_projected")
@@ -230,8 +230,13 @@ def project_site_tree(payload: object) -> dict[str, object]:
             },
             parent, codes, unprojected,
         )
+        if "ormID" in value:
+            if text(value["ormID"]) is not None:
+                row.native["ormID"] = value["ormID"]
+            else:
+                codes.add("native_identity_missing_or_unverified_type")
         if "parentOrmID" in value and kind in ("root", "site"):
-            if isinstance(value["parentOrmID"], str):
+            if isinstance(value["parentOrmID"], str) or value["parentOrmID"] is None:
                 row.native["parentOrmID"] = value["parentOrmID"]
             else:
                 codes.add("explicit_parent_type_unverified")
@@ -271,7 +276,11 @@ def project_site_tree(payload: object) -> dict[str, object]:
         if inferred and parent is not None:
             parent_identity = parent.identity
             inferred = parent_identity is not None and identities[parent_identity] == 1
-            if "parentOrmID" in row.native and row.native["parentOrmID"] != parent_identity:
+            parent_aliases = {parent_identity, parent.native.get("ormID", parent_identity)}
+            if "parentOrmID" in row.native and not (
+                row.native["parentOrmID"] in parent_aliases
+                or row.native["parentOrmID"] is None and parent.parent is None
+            ):
                 codes.add("explicit_parent_conflicts_with_containment")
                 inferred = False
         if "explicit_parent_type_unverified" in codes:

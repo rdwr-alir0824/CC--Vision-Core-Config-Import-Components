@@ -64,8 +64,12 @@ qualify_default_root=0
 single_site_mode=""
 site_batch_mode=""
 inventory_batch_command=""
+backup_path=""
+backup_mode=0
+discovery_read_preflight=0
 single_site_arguments=()
 if [[ "${1:-}" == "--help" ]]; then
+    printf 'Backup-driven workflow: ./ccv.sh --migration-dry-run|--migration-execute|--migration-resume|--migration-reconcile|--migration-status [--backup /incoming/CUSTOMER-BACKUP] [--target-version VERSION]\nThe backup is selected once; roots are discovered and reviewed. Only qualified Sites are writable; other domains and destructive lab reset remain BLOCKED.\n'
     printf 'Usage: ./ccv.sh [--qualify-default-root]\n       ./ccv.sh --single-site-dry-run|--single-site-create --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... --site-reference source:node-N\n       ./ccv.sh --sites-dry-run|--sites-execute|--sites-resume|--sites-reconcile --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... [--target-version VERSION] [--operation-delay SECONDS] [--readback-interval SECONDS] [--readback-attempts COUNT]\n       ./ccv.sh --devices-dry-run|--devices-execute|--devices-resume|--migration-dry-run|--migration-status --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... [--target-version VERSION]\nSelect menu choice 2 for migration modes. Device writes remain BLOCKED: inventory-only create contract unqualified. Sites writes require separate interactive authorization.\nRequires Bash, Docker Compose v2 and the existing shared image/runtime directories.\n'
     exit 0
 fi
@@ -85,10 +89,27 @@ while [[ $# -gt 0 ]]; do
             site_batch_mode="${1#--sites-}"
             shift
             ;;
+        --migration-execute|--migration-resume|--migration-reconcile|--migration-lab-reset)
+            [[ -z "$single_site_mode" && -z "$site_batch_mode" && -z "$inventory_batch_command" ]] || fail "Select only one migration mode."
+            inventory_batch_command="${1#--}"
+            backup_mode=1
+            shift
+            ;;
         --devices-dry-run|--devices-execute|--devices-resume|--migration-dry-run|--migration-status)
             [[ -z "$single_site_mode" && -z "$site_batch_mode" && -z "$inventory_batch_command" ]] || fail "Select only one migration mode."
             inventory_batch_command="${1#--}"
+            if [[ "$1" == --migration-* ]]; then backup_mode=1; fi
             shift
+            ;;
+        --backup)
+            [[ $# -ge 2 && "$2" == /incoming/* && "$2" != *"/../"* ]] || fail "Use a selected /incoming/ backup directory."
+            backup_path="$2"
+            shift 2
+            ;;
+        --backup-max-files|--backup-max-objects|--backup-max-depth|--backup-max-file-bytes|--backup-max-total-bytes)
+            [[ $# -ge 2 && "$2" =~ ^[1-9][0-9]*$ ]] || fail "Backup limits must be positive integers."
+            single_site_arguments+=("$1" "$2")
+            shift 2
             ;;
         --input|--comparison|--destination-snapshot|--site-reference|--target-version|--operation-delay|--readback-interval|--readback-attempts)
             [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || fail "Missing single-Site argument value."
@@ -98,6 +119,12 @@ while [[ $# -gt 0 ]]; do
         *) fail "Use ./ccv.sh --help for supported arguments." ;;
     esac
 done
+if [[ "$backup_mode" == "1" ]]; then
+    for argument in "${single_site_arguments[@]}"; do
+        if [[ "$argument" == "--input" ]]; then backup_mode=0; fi
+    done
+fi
+[[ -z "$backup_path" || "$backup_mode" == "1" ]] || fail "--backup requires a backup-driven migration mode."
 [[ ${#single_site_arguments[@]} -eq 0 || -n "$single_site_mode" || -n "$site_batch_mode" || -n "$inventory_batch_command" ]] ||
     fail "Single-Site arguments require an explicitly selected mode."
 [[ $# -eq 0 ]] || fail "Use ./ccv.sh without arguments, or --help."
@@ -157,11 +184,15 @@ offline() {
         "${helper_mounts[@]}" --entrypoint python "$image" -B -m cc_vision_import.launcher_helper "$@"
 }
 helper_mounts=()
-settings="$(printf '%s' "$configuration" | offline settings "$selection" 2>"$temporary/stderr")" ||
+settings_action=settings
+if [[ "$backup_mode" == "1" ]]; then settings_action=migration-settings; fi
+settings="$(printf '%s' "$configuration" | offline "$settings_action" "$selection" 2>"$temporary/stderr")" ||
     fail "Image/configuration mismatch; rebuild the approved shared image and verify Compose settings."
 unset configuration
 mapfile -t paths <<< "$settings"
-[[ ${#paths[@]} -eq 5 && "${paths[0]}" == "$image" ]] ||
+expected_paths=5
+if [[ "$backup_mode" == "1" ]]; then expected_paths=6; fi
+[[ ${#paths[@]} -eq "$expected_paths" && "${paths[0]}" == "$image" ]] ||
     fail "Configured Compose image differs from the inspected shared image; use the same CC_VISION_IMAGE on both hosts."
 output="${paths[1]}"
 config_directory="${paths[2]}"
@@ -169,11 +200,28 @@ requested_ca="${paths[3]}"
 allow_exceptions="${paths[4]}"
 [[ "$allow_exceptions" =~ ^(true|false)$ ]] || fail "Invalid administrator TLS restriction; rebuild the shared image."
 [[ -d "$output" ]] || fail "Required runtime directory is missing; administrator must provision: $output"
+if [[ "$backup_mode" == "1" ]]; then
+    [[ "$selection" == "2" && -d "${paths[5]}" ]] || fail "Choose destination migration with an existing incoming backup directory."
+    if [[ -z "$backup_path" ]]; then
+        helper_mounts=(--mount "type=bind,source=${paths[5]},target=/incoming,readonly")
+        folders="$(offline backups </dev/null 2>"$temporary/stderr")" || fail "Cannot inspect incoming backup directories."
+        [[ -n "$folders" ]] || fail "No incoming backups found."
+        mapfile -t available <<< "$folders"
+        for index in "${!available[@]}"; do printf '%d. %s\n' "$((index + 1))" "${available[$index]}"; done
+        IFS= read -r -p 'Select backup: ' choice || fail "No backup selected."
+        [[ "$choice" =~ ^[1-9][0-9]{0,4}$ ]] && (( choice <= ${#available[@]} )) || fail "Select a displayed backup number."
+        backup_path="/incoming/${available[$((choice - 1))]}"
+        helper_mounts=()
+    fi
+    single_site_arguments+=(--backup "$backup_path")
+fi
 
 run_operation() {
     local status summary_status exception_used=0 answer
     local -a result_arguments=()
-    if [[ -n "$site_batch_mode" || -n "$inventory_batch_command" ]]; then result_arguments=(--report-format json); fi
+    if [[ "$discovery_read_preflight" == "0" && ( -n "$site_batch_mode" || -n "$inventory_batch_command" ) ]]; then
+        result_arguments=(--report-format json)
+    fi
     while true; do
         status=0
         "${compose[@]}" --profile "$profile" run --rm --no-deps -T \
@@ -227,6 +275,7 @@ run_operation() {
                 site-create "${single_site_arguments[@]}" || status=$?
             exit "$status"
         fi
+        if [[ "$discovery_read_preflight" == "1" && "$status" == "0" ]]; then return 0; fi
         exit "$status"
     done
 }
@@ -301,7 +350,18 @@ else
     export CCV_DESTINATION_URL="$origin" CCV_DESTINATION_SECRETS_DIR="$temporary"
     export CCV_DESTINATION_TLS_VERIFY=true CCV_ALLOW_INSECURE_TLS_EXCEPTION="$allow_exceptions"
     export CCV_DESTINATION_TRUSTED_CA=/run/secrets/ca.pem
-    if [[ -n "$inventory_batch_command" ]]; then
+    if [[ "$backup_mode" == "1" ]]; then
+        if [[ "$inventory_batch_command" != "migration-lab-reset" ]]; then
+            discovery_read_preflight=1
+            run_operation discover-sites
+            discovery_read_preflight=0
+        fi
+        status=0
+        "${compose[@]}" --profile "$profile" run --rm --no-deps -it \
+            --name "$operation_name" --label "ccv.launcher.run=$token" "$service" \
+            "$inventory_batch_command" "${single_site_arguments[@]}" || status=$?
+        exit "$status"
+    elif [[ -n "$inventory_batch_command" ]]; then
         run_operation "$inventory_batch_command" "${single_site_arguments[@]}"
     elif [[ -n "$site_batch_mode" ]]; then
         if [[ "$site_batch_mode" == "reconcile" ]]; then

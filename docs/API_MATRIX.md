@@ -7,6 +7,47 @@ for selected exact method/path pairs; E-036 synthetic offline subset regressions
 Runtime compatibility is scoped; current owner-reported evidence and remaining
 qualification limits are recorded below.
 
+## CCV-012 - backup-driven orchestration and parent namespaces
+
+This extends existing engines; it does not qualify additional write endpoints.
+Source collector envelopes are discovered by domain/schema/request provenance.
+Counts come from actual arrays/tree descendants, with roots and managed-device
+inventory metadata reported separately. Unknown counts remain unknown.
+
+| Domain | Input / dependency | Actual destination support |
+|---|---|---|
+| Organization Sites | Native Organization tree; reviewed root and dynamic parent graph | Experimental Site POST plus fresh name/by-ID/tree collision, identity and hierarchy verification; protected mapping/journal and safe resume |
+| Organization Devices / associations | Organization nodes plus unique controller/access candidate correlations and verified destination Site mappings | Read-only inventory and qualified existing-object checks; create/completion contract BLOCKED |
+| Controller objects / attributes | Managed-device inventory and lookup envelopes; qualified identity bridge | Separate records, orphan/missing associations reported; attribute writes BLOCKED |
+| Device access / credentials | Access envelopes and qualified device/credential references | Counts/dependencies preserved; restoration/write contract BLOCKED |
+| Physical hierarchy | Physical tree, separate root/parent mapping | Root and descendants inventoried; destination root/write/verification contracts BLOCKED |
+| LDAP | Native permission arrays; qualified authorization mappings | Records preserved/accounted; destination scope/write/verification BLOCKED |
+| Scheduler | Native task arrays; qualified task/identity dependencies | Records preserved/accounted; destination writes/completion BLOCKED |
+| Other schema/version | All selected-backup files | Unqualified/malformed content reported, never silently omitted or treated as migrated |
+
+Parent alias correction: API `ormID` and Organization
+`meIdentifier.managedElementID` are accepted as equivalent parent references
+**only on the same fresh Site row explicitly linked to the expected native
+identity**. By-name/by-ID parent fields, POST parent evidence and actual
+containment must all agree within that qualified alias set. Root-child null
+requires actual root containment; nested null, missing link, wrong placement,
+duplicate/changing identities still block. No name-only namespace inference.
+Discovery preserves explicit native `ormID` and projects qualified containment,
+including root/root-child null context, without claiming completed operations.
+
+126 offline/mocked regressions passed with two environment skips (124 passed).
+This includes the original 30-Site fixture, varied 0/5/27/200-Site graphs,
+different roots, linked split namespaces, missing POST identity, interruption,
+no repeated POSTs, dynamic module accounting, independent backup/origin state,
+root-identity change rejection, and preserved Device write blocking.
+No real parent-namespace response was available locally: the specific lab
+`existing_site_parent_mismatch` is **not live-verified fixed**. CC 10.10.x remains
+primary/unverified; the exact M_00734 absence candidate is owner-observed only
+on CC 10.15.0-2 and still requires fresh tree/parent evidence.
+
+No DELETE/reset contract was qualified. Exceptional lab reset stays BLOCKED;
+historical guards/journals must be preserved and reconciled read-only.
+
 ## CCV-012 recovery / CCV-013 Device qualification
 
 - Owner evidence on CC 10.15.0-2: one Site POST, visible root-child Site,
