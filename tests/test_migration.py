@@ -43,7 +43,7 @@ class MigrationTests(OfflineTestCase):
         self.server.split_parent_namespaces = True
         self.context = ssl.create_default_context()
 
-    def run_engine(self, mode="dry-run", approval=True, root_approval=True, cli=False):
+    def run_engine(self, mode="dry-run", approval=True, root_approval=True, cli=False, original_inputs=None):
         factory = Mock(side_effect=lambda *args, **kwargs: ServerConnection(self.server))
         approve, approve_root = Mock(return_value=approval), Mock(return_value=root_approval)
         out, err = io.StringIO(), io.StringIO()
@@ -61,15 +61,27 @@ class MigrationTests(OfflineTestCase):
                         "--operation", "migration-" + mode, "--backup", str(self.backup),
                         "--discovery-profile", str(self.profile), "--credentials-file", str(self.credentials),
                         "--operation-delay", "0", "--readback-interval", "0", "--report-format", "json",
+                        *([part for option, value in zip(
+                            ("--input", "--comparison", "--destination-snapshot"), original_inputs,
+                        ) for part in (option, str(value))] if original_inputs else []),
                     ])
                 result = json.loads(out.getvalue())
                 report = json.loads((self.output / result["report_file"]).read_text())
             else:
-                report, status = self.module.run_migration(
-                    str(self.profile), str(self.credentials), str(self.backup), mode=mode,
-                    approve=approve, approve_root=approve_root, operation_delay=0,
-                    readback_interval=0, terminal=True,
-                )
+                if mode == "recovery-assess":
+                    from cc_vision_import.migration_recovery import run_recovery_assessment
+
+                    report, status = run_recovery_assessment(
+                        str(self.profile), str(self.credentials), str(self.backup), terminal=True,
+                        **dict(zip(("source_path", "comparison_path", "snapshot_path"),
+                                   map(str, original_inputs))) if original_inputs else {},
+                    )
+                else:
+                    report, status = self.module.run_migration(
+                        str(self.profile), str(self.credentials), str(self.backup), mode=mode,
+                        approve=approve, approve_root=approve_root, operation_delay=0,
+                        readback_interval=0, terminal=True,
+                    )
         return report, int(status), approve, approve_root, out.getvalue(), factory
 
     def test_backup_driven_plan_and_execution_use_all_discovered_sites_and_ids(self):
@@ -268,3 +280,219 @@ class MigrationTests(OfflineTestCase):
         self.assertEqual(self.server.posts, [])
         approve.assert_not_called()
         self.assertNotIn("private-api-device", out)
+
+    def protected_history(self):
+        return {path: path.read_bytes() for path in self.output.iterdir()
+                if path.name.endswith(".journal.json") or path.name.startswith(".ccv-site-attempt-")}
+
+    def test_recovery_existing_attempts_are_qualified_without_changing_history(self):
+        report, _, _, _, _, _ = self.run_engine("execute")
+        history = self.protected_history()
+        posts = len(self.server.posts)
+        self.server.calls.clear()
+        recovered, status, approval, root, out, _ = self.run_engine("recovery-assess")
+        self.assertEqual(status, 1)
+        self.assertEqual(recovered["counts"]["attempted"], report["counts"]["total"])
+        self.assertEqual(recovered["counts"]["confirmed_existing"], report["counts"]["total"])
+        self.assertEqual(recovered["counts"]["confirmed_absent"], 0)
+        self.assertFalse(recovered["reset_eligible"])
+        self.assertEqual(history, self.protected_history())
+        self.assertEqual(posts, len(self.server.posts))
+        self.assertTrue(all(method == "GET" or path == "/mgmt/system/user/login"
+                            for method, path in self.server.calls))
+        self.assertEqual(recovered["bindings"]["backup"], "FULL_BACKUP_MATCHED")
+        self.assertNotIn("private-", out)
+        self.assertNotIn("ormID", out)
+        self.assertNotIn("objects", out)
+        saved = (self.output / recovered["report_file"]).read_text()
+        self.assertNotIn("private-", saved)
+        self.assertNotIn("destination-site-", saved)
+        self.assertIn("required_evidence", saved)
+        approval.assert_not_called()
+        root.assert_not_called()
+
+    def test_recovery_empty_tree_and_http_misses_are_not_confirmed_absence(self):
+        original, _, _, _, _, _ = self.run_engine("execute")
+        count = original["counts"]["total"]
+        history = self.protected_history()
+        self.server.sites = {self.server.root_name: self.server.sites[self.server.root_name]}
+        self.server.calls.clear()
+        report, status, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertEqual(status, 1)
+        self.assertEqual(report["counts"]["unresolved"], count)
+        self.assertEqual(report["counts"]["confirmed_absent"], 0)
+        self.assertEqual(report["organization_tree"]["observed_sites"], 0)
+        self.assertEqual(report["organization_tree"]["completeness"], "UNQUALIFIED")
+        self.assertEqual(sum("/site/byid/" in path for _, path in self.server.calls), count)
+        for row in report["objects"]:
+            self.assertTrue(row["absence_candidate"])
+            self.assertEqual(row["by_name"]["http_status"], 400)
+            self.assertEqual(row["by_id_checks"][0]["http_status"], 404)
+        self.assertIn("organization_enumeration_completeness_unqualified", report["issue_codes"])
+        self.assertIn("site_by_id_absence_contract_unqualified", report["issue_codes"])
+        self.assertIn("prior_operation_settlement_contract_unqualified", report["issue_codes"])
+        self.assertEqual(history, self.protected_history())
+        fresh, _, _, _, _, _ = self.run_engine()
+        self.assertIn("prior_attempt_requires_manual_reconciliation", fresh["issue_codes"])
+        self.assertEqual(len(self.server.posts), count)
+
+    def test_recovery_unknown_identity_and_unsettled_post_remain_indeterminate(self):
+        self.server.fault_at = 2
+        self.server.fault = TimeoutError("private-error")
+        self.run_engine("execute")
+        self.server.fault_at = None
+        self.server.sites = {self.server.root_name: self.server.sites[self.server.root_name]}
+        history = self.protected_history()
+        report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertEqual(report["counts"]["attempted"], len(self.server.posts))
+        self.assertEqual(report["counts"]["indeterminate"], 1)
+        self.assertIn("historical_destination_identity_unknown", report["issue_codes"])
+        self.assertIn("historical_operation_indeterminate", report["issue_codes"])
+        self.assertFalse(report["reset_eligible"])
+        self.assertEqual(history, self.protected_history())
+
+    def test_recovery_mismatched_root_and_malformed_tree_block_without_rewrites(self):
+        self.run_engine("execute")
+        history = self.protected_history()
+        self.server.sites[self.server.root_name]["ormID"] = "replacement-root"
+        report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertIn("recovery_destination_root_identity_changed", report["issue_codes"])
+        self.server.sites[self.server.root_name]["ormID"] = self.server.root_id
+        with patch.object(self.server, "tree", return_value={
+            "meIdentifier": {"managedElementClass": "com.radware.insite.model.device.Site",
+                             "managedElementID": self.server.root_id}, "name": self.server.root_name,
+        }):
+            report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertIn("tree_identity_missing", report["issue_codes"])
+        self.assertEqual(report["preflight_status"], "BLOCKED")
+        self.assertEqual(history, self.protected_history())
+
+    def test_recovery_unexpected_children_and_devices_are_reported(self):
+        self.run_engine("execute")
+        self.server.seed("unrelated-site", self.server.root_id)
+        tree = self.server.tree()
+        tree["children"].append({
+            "name": "private-device", "meIdentifier": {
+                "managedElementClass": "com.radware.insite.model.device.Device",
+                "managedElementID": "private-device-id",
+            }, "children": [],
+        })
+        with patch.object(self.server, "tree", return_value=tree):
+            report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertEqual(report["organization_tree"]["observed_devices"], 1)
+        self.assertEqual(report["organization_tree"]["unexpected_children"], 2)
+        self.assertIn("recovery_unexpected_children_or_devices", report["issue_codes"])
+
+    def test_recovery_guard_binding_mismatch_and_missing_reports_fail_closed(self):
+        self.run_engine("execute")
+        guard = next(self.output.glob(".ccv-site-attempt-*.json"))
+        value = json.loads(guard.read_bytes())
+        evidence_path = self.output / value["report_file"]
+        evidence = json.loads(evidence_path.read_bytes())
+        evidence["plan_sha256"] = "another-plan"
+        evidence_path.write_text(json.dumps(evidence))
+        report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertIn("recovery_guard_original_plan_binding_mismatch", report["issue_codes"])
+        value["report_file"] = "../private-escape.json"
+        guard.write_text(json.dumps(value))
+        history = self.protected_history()
+        report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertIn("recovery_guard_report_path_invalid", report["issue_codes"])
+        self.assertEqual(history, self.protected_history())
+        value["report_file"] = "missing-report.json"
+        guard.write_text(json.dumps(value))
+        report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertIn("recovery_guard_evidence_io_failure", report["issue_codes"])
+
+    def test_recovery_missing_original_state_does_not_initialize_or_scan_other_backups(self):
+        self.server.fault_at = 1
+        self.server.fault = TimeoutError("private-error")
+        self.run_engine("execute")
+        self.server.fault_at = None
+        history = self.protected_history()
+        self.source["tree"]["name"] = "another-source-root"
+        for branch in self.source["tree"]["children"]:
+            branch["name"] = "another-" + branch["name"]
+            for child in branch["children"]:
+                child["name"] = "another-" + child["name"]
+        self.source_path.write_text(json.dumps(self.source))
+        report, _, _, _, _, factory = self.run_engine("recovery-assess")
+        self.assertIn("recovery_original_plan_missing_supply_bound_inputs", report["issue_codes"])
+        self.assertEqual(history, self.protected_history())
+        factory.assert_not_called()
+        fresh, _, _, _, _, _ = self.run_engine()
+        self.assertEqual(fresh["plan_status"], "READY")
+        for path, value in history.items():
+            self.assertEqual(path.read_bytes(), value)
+
+    def test_recovery_compact_cli_uses_protected_bound_state(self):
+        self.run_engine("execute")
+        history = self.protected_history()
+        report, status, _, _, out, _ = self.run_engine("recovery-assess", cli=True)
+        self.assertEqual(status, 1)
+        self.assertEqual(json.loads(out)["operation"], "migration-recovery-assess")
+        self.assertNotIn("objects", out)
+        self.assertNotIn("private-", out)
+        self.assertEqual(report["preflight_status"], "ASSESSED_RESET_BLOCKED")
+        self.assertEqual(history, self.protected_history())
+
+    def test_recovery_explicit_original_plan_handles_legacy_source_only_binding(self):
+        report, _, _, _, _, _ = self.run_engine("execute")
+        state_path = self.output / report["journal_file"]
+        state = json.loads(state_path.read_bytes())
+        inputs = (self.source_path, self.output / state["comparison_file"], self.output / state["snapshot_file"])
+        archived = state_path.with_name("retained-original-backup-state.json")
+        state_path.rename(archived)
+        history = self.protected_history()
+        report, _, _, _, _, _ = self.run_engine("recovery-assess", cli=True, original_inputs=inputs)
+        self.assertEqual(report["bindings"]["backup"], "ORGANIZATION_SOURCE_ONLY")
+        self.assertIn("historical_full_backup_binding_unrecorded", report["issue_codes"])
+        self.assertEqual(report["counts"]["confirmed_existing"], len(self.server.posts))
+        self.assertEqual(history, self.protected_history())
+        self.assertFalse(state_path.exists())
+        self.assertEqual(json.loads(archived.read_bytes()), state)
+
+    def test_recovery_explicit_inputs_cannot_bind_another_backup_or_origin(self):
+        original, _, _, _, _, _ = self.run_engine("execute")
+        state = json.loads((self.output / original["journal_file"]).read_bytes())
+        original_source = self.directory / "retained-original-source.json"
+        original_source.write_bytes(self.source_path.read_bytes())
+        inputs = (original_source, self.output / state["comparison_file"], self.output / state["snapshot_file"])
+        self.source["tree"]["children"].pop()
+        self.source_path.write_text(json.dumps(self.source))
+        report, _, _, _, _, factory = self.run_engine("recovery-assess", original_inputs=inputs)
+        self.assertIn("recovery_original_backup_binding_mismatch", report["issue_codes"])
+        factory.assert_not_called()
+        self.source_path.write_bytes(original_source.read_bytes())
+        profile = json.loads(self.profile.read_bytes())
+        profile["destination"]["base_url"] = "https://another-controller.invalid"
+        self.profile.write_text(json.dumps(profile))
+        report, _, _, _, _, factory = self.run_engine("recovery-assess", original_inputs=inputs)
+        self.assertIn("recovery_original_site_journal_missing", report["issue_codes"])
+        factory.assert_not_called()
+
+    def test_recovery_wrong_parent_and_disagreeing_by_id_are_unresolved(self):
+        original, _, _, _, _, _ = self.run_engine("execute")
+        history = self.protected_history()
+        self.server.wrong_readback_parent = True
+        report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertEqual(report["counts"]["unresolved"], original["counts"]["total"])
+        self.assertIn("recovery_parent_identity_mismatch", report["issue_codes"])
+        self.server.wrong_readback_parent = False
+        original_response = self.server.respond
+
+        def respond(request):
+            response = original_response(request)
+            if "/site/byid/" in request[1]:
+                from test_http_backend import MemoryResponse
+
+                return MemoryResponse(200, json.dumps({
+                    "name": "unrelated-object", "type": "Site", "ormID": "unrelated-id",
+                }).encode(), [("Content-Type", "application/json")])
+            return response
+
+        with patch.object(self.server, "respond", side_effect=respond):
+            report, _, _, _, _, _ = self.run_engine("recovery-assess")
+        self.assertEqual(report["counts"]["confirmed_existing"], 0)
+        self.assertIn("site_identity_missing_or_ambiguous", report["issue_codes"])
+        self.assertEqual(history, self.protected_history())

@@ -24,7 +24,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "backup", "preflight", "discover-sites", "site-dry-run", "site-create",
         "sites-dry-run", "sites-execute", "sites-resume", "sites-reconcile",
         "devices-dry-run", "devices-execute", "devices-resume", "migration-dry-run", "migration-status",
-        "migration-execute", "migration-resume", "migration-reconcile", "migration-lab-reset",
+        "migration-execute", "migration-resume", "migration-reconcile", "migration-lab-reset", "migration-recovery-assess",
     ))
     parser.add_argument("--qualify-default-root", action="store_true")
     parser.add_argument("--input")
@@ -56,8 +56,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     site_operation = single_site or migration_batch
     site_values = (args.input, args.comparison, args.destination_snapshot, args.site_reference)
     if backup_migration:
-        if any(value is not None for value in site_values) or args.qualify_default_root:
+        recovery = args.command == "migration-recovery-assess"
+        if (any(value is not None for value in site_values) and not recovery) or args.site_reference is not None or args.qualify_default_root:
             parser.error("Backup migration discovers its own source/comparison/snapshot.")
+        if recovery and any(value is not None for value in site_values[:3]):
+            if not all(value is not None for value in site_values[:3]):
+                parser.error("Recovery assessment needs all three original plan inputs.")
+            for value, prefix in ((args.input, "/incoming/"), (args.comparison, "/reports/"),
+                                  (args.destination_snapshot, "/reports/")):
+                if not value.startswith(prefix) or ".." in Path(value).parts:
+                    parser.error("Use existing container-visible incoming/report paths.")
         if not args.backup.startswith("/incoming/") or ".." in Path(args.backup).parts:
             parser.error("Use a selected container-visible /incoming/ backup directory.")
     elif site_operation:
@@ -159,6 +167,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     *(["--qualify-default-root"] if args.qualify_default_root else []),
                     *([
                         "--backup", args.backup,
+                        *[part for option, value in (
+                            ("--input", args.input), ("--comparison", args.comparison),
+                            ("--destination-snapshot", args.destination_snapshot),
+                        ) if value is not None for part in (option, value)],
                         *(["--target-version", args.target_version] if args.target_version else []),
                         *[part for option, value in (
                             ("--operation-delay", args.operation_delay), ("--readback-interval", args.readback_interval),

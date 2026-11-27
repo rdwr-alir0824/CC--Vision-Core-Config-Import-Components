@@ -2,6 +2,50 @@
 
 Last updated: 2026-11-26
 
+## CCV-012 continuation - read-only migration recovery assessment
+
+- Objective/priority: high; assess original protected Site attempts after
+  exceptional lab cleanup without resetting state or replaying writes.
+- Approval: assessment-only implementation and offline/mocked tests. Reset
+  remains BLOCKED pending qualified API and prior-operation settlement evidence.
+- Dependencies: selected native backup, original source/comparison/snapshot,
+  protected journal and guard-linked reports, canonical origin/native root,
+  existing authentication/TLS and finite read allowlists.
+- Implementation status: implemented `migration-recovery-assess` through the
+  existing master/Compose/launcher. Automatically uses the retained original
+  backup state, or accepts all three explicit historical Site-plan inputs.
+  Dynamically assesses journal attempts and matching guards; validates bindings,
+  current root/tree and exact Site-by-name/by-ID identity/parent evidence.
+  Compact counts and a sanitized report distinguish existing, unresolved and
+  indeterminate objects. Confirmed absence stays zero without qualified proof.
+- Safety: never initializes migration state, clears guards, updates journals,
+  retries POSTs or deletes controller objects. Existing unrelated backup/origin
+  planning remains independent; shared same-origin/name guards still prevent
+  duplicate creates. Legacy journals' missing full-backup binding is reported,
+  not retroactively invented.
+- Files affected: new
+  [migration_recovery.py](../src/cc_vision_import/migration_recovery.py);
+  [master_cli.py](../src/cc_vision_import/master_cli.py),
+  [compose_entrypoint.py](../src/cc_vision_import/compose_entrypoint.py),
+  [ccv.sh](../ccv.sh), [test_migration.py](../tests/test_migration.py),
+  [test_compose_deployment.py](../tests/test_compose_deployment.py),
+  [test_unified_launcher.py](../tests/test_unified_launcher.py),
+  [README](../README.md) and this checkpoint.
+- Verification status: offline/mocked verified; no live qualification.
+  With src/tests on PYTHONPATH, `python -S -B -m unittest test_migration
+  test_compose_deployment`: 37 tests, 36 passed/one environment skip.
+  `python -S -B -m unittest test_single_site test_site_migration`:
+  74 tests, 73 passed/one environment skip.
+  Recovery launcher and existing backup foreground/TLS-probe selectors both
+  passed; Git Bash path conversion accounted for in the new mock assertion.
+  Bash syntax passed; checked runtime Pylance diagnostics have no errors.
+- Known blockers/next action: qualify complete, unfiltered Organization
+  enumeration, definitive by-ID absence and settlement of every historical
+  POST. Empty enumeration, HTTP misses, GUI deletion and operator confirmation
+  do not suffice. Use assessment to identify missing original evidence;
+  no local reset is enabled. Docker build/deployment and live lab reads were
+  not performed; no operational state or Git operations were modified.
+
 ## CCV-012 continuation - dynamic backup-driven migration
 
 - Objective/priority: high; correct qualified Site parent namespaces first,

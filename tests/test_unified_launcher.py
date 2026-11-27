@@ -649,6 +649,25 @@ class UnifiedLauncherTests(OfflineTestCase):
         self.assertNotIn(SECRET, result.stdout + result.stderr)
         self.assertNotIn("private-native-id", result.stdout)
 
+    def test_recovery_launcher_retains_backup_mode_with_original_plan_paths(self):
+        result, calls = self.launch(arguments=(
+            "--migration-recovery-assess", "--backup", "/incoming/vision-backup-synthetic",
+            "--input", "/incoming/vision-backup-synthetic/organization-tree/tree.json",
+            "--comparison", "/reports/original-comparison.json",
+            "--destination-snapshot", "/reports/original-snapshot.json",
+        ))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        operations = [call["args"] for call in self.operation_calls(calls)]
+        discovery = next(call for call in operations if "discover-sites" in call)
+        recovery = next(call for call in operations if "migration-recovery-assess" in call)
+        self.assertIn("-T", discovery)
+        self.assertIn("-it", recovery)
+        self.assertIn("--backup", recovery)
+        self.assertIn("--input", recovery)
+        self.assertTrue(recovery[recovery.index("--comparison") + 1].endswith("/reports/original-comparison.json"))
+        self.assertFalse(any("sites-execute" in call or "migration-execute" in call for call in operations))
+        self.assertNotIn(SECRET, result.stdout + result.stderr)
+
     def test_missing_docker_and_incomplete_or_invalid_backup_selection(self):
         (self.bin / "docker").unlink()
         result, calls = self.launch()

@@ -318,3 +318,25 @@ class ComposeDeploymentTests(OfflineTestCase):
                     with self.assertRaises(SystemExit) as caught:
                         self.module.main(arguments)
                     self.assertEqual(caught.exception.code, 2)
+
+    def test_recovery_assessment_forwards_backup_and_optional_original_bound_inputs(self):
+        inputs = ["--input", "/incoming/customer/source.json", "--comparison", "/reports/original-comparison.json",
+                  "--destination-snapshot", "/reports/original-snapshot.json"]
+        for extra in ([], inputs):
+            with patch.dict(os.environ, self.environment, clear=True), patch.object(
+                self.module, "master_main", return_value=1,
+            ) as dispatch:
+                self.assertEqual(self.module.main([
+                    "discovery", "migration-recovery-assess", "--backup", "/incoming/customer", *extra,
+                ]), 1)
+                args = dispatch.call_args.args[0]
+                self.assertEqual(args[:2], ["--operation", "migration-recovery-assess"])
+                self.assertEqual(args[args.index("--backup") + 1], "/incoming/customer")
+                if extra:
+                    self.assertEqual(args[args.index("--comparison") + 1], "/reports/original-comparison.json")
+        with redirect_stderr(io.StringIO()), patch.object(self.module, "master_main") as dispatch:
+            for extra in (["--comparison", "/reports/one.json"],
+                      ["--input", "/incoming/../escape.json", *inputs[2:]]):
+                with self.assertRaises(SystemExit):
+                    self.module.main(["discovery", "migration-recovery-assess", "--backup", "/incoming/customer", *extra])
+            dispatch.assert_not_called()

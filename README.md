@@ -49,9 +49,26 @@ not change journals. Historical path-based single/batch Site commands remain
 available: use their **original** source/comparison/snapshot to reconcile the two
 historical lab attempts, not newly generated evidence or manually edited JSON.
 
-`--migration-lab-reset` is an explicit **blocked** recovery entry point: no
-qualified deletion/definitive-absence contract exists. It never deletes objects,
-resets progress or clears guards; use read-only reconciliation instead.
+Read-only historical recovery assessment (choose menu **2**):
+
+```sh
+./ccv.sh --migration-recovery-assess --backup /incoming/CUSTOMER-BACKUP
+# For a historical Site plan predating the backup-driven state:
+./ccv.sh --migration-recovery-assess --backup /incoming/CUSTOMER-BACKUP \
+  --input /incoming/CUSTOMER-BACKUP/ORIGINAL-ORGANIZATION.json \
+  --comparison /reports/ORIGINAL-COMPARISON.json \
+  --destination-snapshot /reports/ORIGINAL-SNAPSHOT.json
+```
+
+Assessment validates the original protected evidence, reads attempted Sites
+and saves a sanitized report without changing journals/guards. Legacy Site
+journals bind Organization source/comparison/snapshot, not the entire backup;
+assessment explicitly reports that limitation. Missing original inputs are not
+replaced with a new plan. Empty enumeration, GUI deletion and HTTP lookup misses
+do **not** prove absence. Complete Organization enumeration, definitive by-ID
+absence and settlement of historical POST operations remain unqualified.
+`--migration-lab-reset` therefore stays **BLOCKED**: no reset, guard clearing,
+POST retry or controller deletion. Assessment exits nonzero while reset is blocked.
 
 Inspection limits are configurable with `--backup-max-files`,
 `--backup-max-objects`, `--backup-max-depth`, `--backup-max-file-bytes` and

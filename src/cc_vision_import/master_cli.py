@@ -28,7 +28,7 @@ _OPERATIONS = (
     "site-batch-dry-run", "site-batch-execute", "site-batch-resume", "site-batch-reconcile",
     "device-batch-dry-run", "device-batch-execute", "device-batch-resume",
     "migration-dry-run", "migration-status", "migration-execute", "migration-resume", "migration-reconcile",
-    "migration-lab-reset", "backup-inventory",
+    "migration-lab-reset", "migration-recovery-assess", "backup-inventory",
 )
 _VISION_LIMITATION = "Vision controller export schemas and Vision-to-CC mappings are not established."
 _DOMAIN_LIMITATIONS = {
@@ -136,10 +136,13 @@ def _backup_mode(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
     from .tls_policy import TLSPolicyError
 
     offline = args.operation == "backup-inventory"
+    recovery = args.operation == "migration-recovery-assess"
     if args.backup is None or not (offline or args.operation.startswith("migration-")):
         parser.error("--backup requires backup-inventory or a migration operation.")
     if any(value is not None for value in (
-        args.input, args.comparison, args.destination_snapshot, args.site_reference, args.request,
+        None if recovery else args.input, None if recovery else args.comparison,
+        None if recovery else args.destination_snapshot,
+        args.site_reference, args.request,
         args.source_profile, args.destination_profile, args.lookup_value, args.format, args.tree,
         args.controller_id, args.root, args.exported_at, args.backup_profile, args.source_root_name,
         args.destination_root_name, args.destination_gui_version,
@@ -149,6 +152,10 @@ def _backup_mode(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
         parser.error("backup-inventory requires --backup and --output; profiles and credentials are prohibited.")
     if not offline and (args.discovery_profile is None or args.credentials_file is None or args.output is not None):
         parser.error("Backup migration requires discovery profile/credentials; reports use the configured report directory.")
+    if recovery and any(value is not None for value in (args.input, args.comparison, args.destination_snapshot)) and not all(
+        value is not None for value in (args.input, args.comparison, args.destination_snapshot)
+    ):
+        parser.error("Recovery assessment requires all three original inputs, or none to use the bound backup state.")
     limits = InventoryLimits(**{
         key: getattr(args, "backup_" + key) if getattr(args, "backup_" + key) is not None else value
         for key, value in vars(InventoryLimits()).items()
@@ -159,14 +166,23 @@ def _backup_mode(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
             _write_export(args.output, json.dumps(report, indent=2, allow_nan=False))
             print("Backup inventory saved: " + str(args.output))
             return int(ExitStatus.SUCCESS)
-        report, status = run_migration(
-            args.discovery_profile, args.credentials_file, args.backup,
-            mode=args.operation.removeprefix("migration-"), target_version=args.target_version, limits=limits,
-            operation_delay=1 if args.operation_delay is None else args.operation_delay,
-            readback_interval=1 if args.readback_interval is None else args.readback_interval,
-            readback_attempts=3 if args.readback_attempts is None else args.readback_attempts,
-            terminal=args.report_format != "json",
-        )
+        if recovery:
+            from .migration_recovery import run_recovery_assessment
+
+            report, status = run_recovery_assessment(
+                args.discovery_profile, args.credentials_file, args.backup,
+                source_path=args.input, comparison_path=args.comparison, snapshot_path=args.destination_snapshot,
+                target_version=args.target_version, limits=limits, terminal=args.report_format != "json",
+            )
+        else:
+            report, status = run_migration(
+                args.discovery_profile, args.credentials_file, args.backup,
+                mode=args.operation.removeprefix("migration-"), target_version=args.target_version, limits=limits,
+                operation_delay=1 if args.operation_delay is None else args.operation_delay,
+                readback_interval=1 if args.readback_interval is None else args.readback_interval,
+                readback_attempts=3 if args.readback_attempts is None else args.readback_attempts,
+                terminal=args.report_format != "json",
+            )
     except SiteBlocked as error:
         report = {"operation": "backup-driven-migration", "migration_status": "BLOCKED", "issue_codes": [error.code]}
         status = ExitStatus.VALIDATION_FAILED
@@ -238,6 +254,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.backup is not None or args.operation in (
         "backup-inventory", "migration-execute", "migration-resume", "migration-reconcile", "migration-lab-reset",
+        "migration-recovery-assess",
     ):
         return _backup_mode(args, parser)
     if any(getattr(args, "backup_" + name) is not None for name in (

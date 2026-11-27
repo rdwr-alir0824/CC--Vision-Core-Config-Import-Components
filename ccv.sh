@@ -69,6 +69,7 @@ backup_mode=0
 discovery_read_preflight=0
 single_site_arguments=()
 if [[ "${1:-}" == "--help" ]]; then
+    printf 'Read-only recovery: ./ccv.sh --migration-recovery-assess --backup /incoming/CUSTOMER-BACKUP [--input /incoming/... --comparison /reports/... --destination-snapshot /reports/...]\nUses original protected plan/journal/guards; optional paths select an older original Site plan. Local reset remains BLOCKED.\n'
     printf 'Backup-driven workflow: ./ccv.sh --migration-dry-run|--migration-execute|--migration-resume|--migration-reconcile|--migration-status [--backup /incoming/CUSTOMER-BACKUP] [--target-version VERSION]\nThe backup is selected once; roots are discovered and reviewed. Only qualified Sites are writable; other domains and destructive lab reset remain BLOCKED.\n'
     printf 'Usage: ./ccv.sh [--qualify-default-root]\n       ./ccv.sh --single-site-dry-run|--single-site-create --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... --site-reference source:node-N\n       ./ccv.sh --sites-dry-run|--sites-execute|--sites-resume|--sites-reconcile --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... [--target-version VERSION] [--operation-delay SECONDS] [--readback-interval SECONDS] [--readback-attempts COUNT]\n       ./ccv.sh --devices-dry-run|--devices-execute|--devices-resume|--migration-dry-run|--migration-status --input /incoming/... --comparison /reports/... --destination-snapshot /reports/... [--target-version VERSION]\nSelect menu choice 2 for migration modes. Device writes remain BLOCKED: inventory-only create contract unqualified. Sites writes require separate interactive authorization.\nRequires Bash, Docker Compose v2 and the existing shared image/runtime directories.\n'
     exit 0
@@ -89,7 +90,7 @@ while [[ $# -gt 0 ]]; do
             site_batch_mode="${1#--sites-}"
             shift
             ;;
-        --migration-execute|--migration-resume|--migration-reconcile|--migration-lab-reset)
+        --migration-execute|--migration-resume|--migration-reconcile|--migration-lab-reset|--migration-recovery-assess)
             [[ -z "$single_site_mode" && -z "$site_batch_mode" && -z "$inventory_batch_command" ]] || fail "Select only one migration mode."
             inventory_batch_command="${1#--}"
             backup_mode=1
@@ -119,7 +120,7 @@ while [[ $# -gt 0 ]]; do
         *) fail "Use ./ccv.sh --help for supported arguments." ;;
     esac
 done
-if [[ "$backup_mode" == "1" ]]; then
+if [[ "$backup_mode" == "1" && "$inventory_batch_command" != "migration-recovery-assess" ]]; then
     for argument in "${single_site_arguments[@]}"; do
         if [[ "$argument" == "--input" ]]; then backup_mode=0; fi
     done
