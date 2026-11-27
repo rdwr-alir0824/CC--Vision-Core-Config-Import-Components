@@ -17,6 +17,7 @@ from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit
 from urllib.request import Request
 
 from .contracts import ContractValidationError
+from .tls_policy import TLSPolicy
 from .transport import (
     BackendFailure, BackendRequest, ErrorCategory, HttpMethod, HttpResponse,
     OperationDeadline, _headers, _origin, _timeouts,
@@ -406,6 +407,7 @@ class StdlibHttpBackend:
         allow_unverified_destination_discovery: bool = False,
         allow_unverified_single_site: bool = False,
         diagnose_failures: bool = False,
+        session_tls_policy: TLSPolicy | None = None,
     ) -> None:
         if type(allow_live) is not bool or allow_live and connection_factory is not None:
             raise ValueError("Live dispatch must use the built-in HTTPS connection.")
@@ -423,6 +425,14 @@ class StdlibHttpBackend:
             if not isinstance(authorization, DestinationAuthorization):
                 raise ValueError("Invalid destination authorization.")
             authorization.__post_init__()
+        if session_tls_policy is not None:
+            if not isinstance(session_tls_policy, TLSPolicy) or authorization is None:
+                raise ValueError("Session TLS requires a policy and exact operation authorization.")
+            session_tls_policy = TLSPolicy.from_dict({
+                "verify": session_tls_policy.verify,
+                "lab_authorized": session_tls_policy.lab_authorized,
+                "authorized_origin": session_tls_policy.authorized_origin,
+            }, authorization.origin)
         if max_response_bytes is not None and (
             type(max_response_bytes) is not int or max_response_bytes <= 0
         ):
@@ -432,6 +442,7 @@ class StdlibHttpBackend:
         self._allow_unverified_vision_backup = allow_unverified_vision_backup
         self._allow_unverified_destination_discovery = allow_unverified_destination_discovery
         self._allow_unverified_single_site = allow_unverified_single_site
+        self._session_tls_policy = session_tls_policy
         self._diagnose_failures = diagnose_failures
         self._last_diagnostic: dict[str, object] | None = None
         self._authorization = authorization
@@ -557,7 +568,14 @@ class StdlibHttpBackend:
                 and request.tls_context.verify_mode == ssl.CERT_NONE
                 and request.tls_context.check_hostname is False
             )
-            if not verified and not backup_tls and not discovery_tls and not single_site_tls:
+            session_tls = (
+                self._session_tls_policy is not None and not self._session_tls_policy.verify
+                and request.tls_context.verify_mode == ssl.CERT_NONE
+                and request.tls_context.check_hostname is False
+                and not request.unverified_vision_backup
+                and not request.unverified_destination_discovery
+            )
+            if not verified and not backup_tls and not discovery_tls and not single_site_tls and not session_tls:
                 raise ValueError("Unverified TLS is not authorized.")
             _timeouts(request.connect_timeout, request.read_timeout)
             if (
@@ -769,6 +787,7 @@ class StdlibHttpBackend:
 
     def close(self) -> None:
         self._closed = True
+        self._session_tls_policy = None
         self._cookies.clear()
         self._pending = _release(self._pending)
         if self._pending:

@@ -1,5 +1,57 @@
 # CC-Vision Master
 
+## Current direction: approved legacy-first redesign (2026-11-27)
+
+The active objective is a simple, generic Vision-to-Cyber Controller application
+based primarily on the original working [legacy scripts](legacy/). This is an
+independent functional redesign, not continuation or repair of the experimental
+migration engine described in the historical usage below.
+
+**Phase 1A foundation is implemented and offline/mocked tested.** It adds only:
+
+- [client.py](src/cc_vision_import/client.py): session ownership, login,
+  GET/POST/PUT, strict JSON responses, bounded timeouts and sanitized errors.
+- [config.py](src/cc_vision_import/config.py): runtime controller/product,
+  username/hidden password input, TLS selection and timeout settings.
+- [files.py](src/cc_vision_import/files.py): JSON load/save without envelopes,
+  journals or databases; portable access values are preserved, not redacted.
+
+There is no new master entry point, Site/Device export/import, credential editor,
+LDAP or Scheduler implementation in this phase. Existing experimental commands,
+deployment files and historical qualification data remain unchanged; they are
+not dependencies of the redesign. See the current sections of
+[architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md) and
+[progress](docs/PROGRESS.md) for the next approval gate.
+
+The client defaults to verified HTTPS and disabled live dispatch. Every new
+unverified client requires explicit `tls_exception_authorized=True`, warns that
+controller identity is unverified, and binds consent to that client's origin
+and lifetime. No saved authorization file is required by the new foundation.
+The caller supplies a finite list of runtime method/path-segment tuples as
+`operations`; only login is automatically included. This is not a capability
+registry. `allow_live=True` is an explicit dispatch switch, not permission to
+contact a controller: no live access is authorized for Phase 1A.
+
+Remote logout is not implemented: legacy Scheduler logout is configurable and
+its concrete binding is unavailable in the present reference files. Local
+`close()` always discards client authentication and backend cookies. Controller
+login requires HTTP 200 and JSON `status: ok`, rather than trusting HTTP 200 alone.
+An optional returned `jsessionid` is validated and used without printing it.
+
+JSON exports may contain device secrets. New files use owner-only creation mode
+on POSIX; existing file permissions and Windows ACLs remain the operator's
+responsibility. Controller credentials are not automatically written to JSON.
+Timeouts/deadlines are bounded, but hard DNS cancellation is not guaranteed.
+
+Offline validation (set `PYTHONPATH` to `src` and `tests`):
+
+```text
+python -S -B -m unittest test_legacy_foundation test_authentication test_transport test_http_backend test_tls_policy
+```
+
+**The remaining sections document the existing experimental application, not
+the approved legacy-first design or new functionality.**
+
 One on-demand application for supported, read-only APSolute Vision configuration
 collection, offline export/comparison/planning, separately selected experimental
 Site migration, and read-only Organization Device migration qualification.

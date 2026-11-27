@@ -1,5 +1,77 @@
 # Master Application Architecture
 
+## Approved legacy-first architecture - 2026-11-27
+
+This is the active direction. Earlier architecture and qualification overlays
+below describe the preserved experimental implementation, not dependencies or
+requirements for the redesign.
+
+```text
+src/cc_vision_import/
+    client.py          # Phase 1A: API/session ownership
+    config.py          # Phase 1A: runtime inputs/settings
+    files.py           # Phase 1A: strict JSON load/save
+    objects.py         # proposed Phase 1B: Sites/Devices
+    credentials.py     # future optional offline credential edits
+    ldap.py            # future export_ldap/import_ldap
+    scheduler.py       # future export_scheduler/import_scheduler
+ccv.py                 # proposed Phase 1B: simple master menu
+```
+
+Only the three Phase 1A modules exist as part of this redesign. Functions and
+one small `ApiClient` suffice; no exporter/importer/service layers are planned.
+Export and import will operate independently. Domain-specific ID/root mapping
+belongs in the future objects module, not the foundation.
+
+The foundation reuses existing authentication strategies, transport and HTTPS
+backend, TLS policy validation and strict JSON parsing. It does not instantiate
+`SessionManager` or use migration states, profiles, capability registries,
+journals, qualification artifacts or comparison engines. Shared transport's
+basic contracts are reused without product/version gating.
+
+One necessary shared compatibility change is opt-in
+`StdlibHttpBackend(session_tls_policy=...)`: generic unverified GET/POST/PUT
+cannot use historical backup/discovery/Site-only TLS exceptions. The new argument
+requires explicit consent for the exact authorized origin. Existing callers
+omit it and retain all their previous TLS restrictions and method/path scopes.
+Backend close discards the new policy. No existing workflow enables this option.
+
+`ControllerConfig` holds runtime settings with credentials hidden from repr.
+`prompt_config` uses hidden password input; it does not persist credentials.
+`ApiClient` owns one origin and private cookie jar. A context manager logs in and
+closes on success/failure; explicit login/close are also available. No automatic
+login replay or write retry occurs. Finite runtime operations are plain
+method/path-segment tuples, not a plugin or capability system.
+
+TLS is verified by default. An unverified client requires fresh constructor
+authorization and warns before backend creation. Transport bounds connect/read
+timeouts, the checked overall request deadline and response size (16 MiB).
+Hard DNS cancellation is not guaranteed. Live dispatch defaults off.
+
+Login uses JSON-safe credential serialization and requires HTTP 200 plus
+`status: ok`. Cyber Controller preserves source-observed Basic-plus-JSON;
+unsupported Basic username/password encoding is rejected explicitly. If a
+documented `jsessionid` is returned, existing validation/header handling is reused.
+Otherwise the source-observed cookie-session behavior is retained.
+
+Remote logout remains deferred: Scheduler reference paths are configurable,
+not concretely bound by the files currently present. `close()` is local cleanup,
+not proof of remote invalidation. Raw response bodies and credentials never
+appear in client errors. Ambiguous write failures retain an `indeterminate`
+flag without introducing an object state machine.
+
+File helpers preserve JSON/deviceAccess values, reject duplicate keys and
+nonfinite numbers (including overflowing exponents), and serialize before
+opening output so invalid data cannot truncate a prior file. New POSIX files are
+created mode 0600; existing permissions and Windows ACLs require operator care.
+There are no envelopes, backups, journals or databases in these helpers.
+
+Future Phase 1B will retain recursive hierarchy export, add explicit source-root
+metadata beside `sites`/`devices`, create Sites before Devices, resolve destination
+parents without root fallbacks, and use minimal legacy payloads. It requires
+separate implementation approval; credential editing, LDAP and Scheduler remain
+outside that phase unless separately authorized.
+
 ## Simplified MVP consolidation - 2026-11-22
 
 The owner's current application-consolidation request supersedes platform

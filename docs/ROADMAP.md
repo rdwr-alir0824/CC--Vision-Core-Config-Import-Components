@@ -1,5 +1,30 @@
 # Development Roadmap
 
+## Active roadmap - approved legacy-first redesign, 2026-11-27
+
+The simple legacy-first application is independent of the experimental
+milestones below. Those records and implementations remain preserved.
+
+| Task | Scope | Dependencies | Approval / current status |
+| --- | --- | --- | --- |
+| CCV-LF-1A | New client/config/files, compatible shared reuse, focused offline tests, documentation | Approved legacy-first design; original scripts and reusable HTTP/TLS/JSON code | Authorized; implemented; offline/mocked verification recorded in PROGRESS. No live verification. |
+| CCV-LF-1B | Proposed Site/Device export/import and simple master menu | Reviewed 1A foundation; explicit owner implementation approval | Not started; not authorized to proceed automatically. |
+| Future optional credentials | CLI/HTTP/HTTPS/SNMPv3 JSON edits and separately approved Device updates | Portable exports; approved destination lookup/update behavior | Deferred. |
+| Future LDAP | Independent export/import functions, preserving authorization semantics | Original LDAP behavior; explicit scope approval | Deferred; no implementation. |
+| Future Scheduler | Independent export/import functions | Concrete configured endpoints and task behavior; explicit approval | Deferred; no implementation. |
+
+Phase 1B acceptance proposal: generic recursive Physical/Organization exports
+with required deviceAccess, explicit source-root mapping, independently resolved
+destination identities, parent-first Sites then Devices, exact minimal POST
+payloads, no automatic write retries/root fallback, and basic
+SUCCESS/SKIPPED/FAILED results. Use synthetic fixtures with different source and
+destination IDs/root names. No historical qualification artifact is an input.
+
+Each phase has its own owner review gate. No journals, recovery/resume engines,
+capability registries, databases, deployment changes or unrelated features.
+Offline test success does not authorize live calls or certify product versions.
+See [current progress](PROGRESS.md#ccv-lf-1a---legacy-first-foundation).
+
 Date: 2026-11-19
 Status: **CCV-001 architectural baseline approved; CCV-002 completion confirmed
 by the owner; CCV-003-A/B/C implemented mock-only scope owner-accepted on

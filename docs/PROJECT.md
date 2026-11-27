@@ -1,5 +1,37 @@
 # Project Foundation
 
+## Current objective and authorization - legacy-first redesign, 2026-11-27
+
+The owner approved a simple, generic Vision-to-Cyber Controller export/import
+application, based primarily on the original [legacy scripts](../legacy/).
+The redesign is independent of the experimental migration implementation and
+historical qualification runs. Older foundation statements below are retained
+as dated history, not current implementation instructions.
+
+Task **CCV-LF-1A** authorizes foundation only: new
+[client](../src/cc_vision_import/client.py),
+[configuration](../src/cc_vision_import/config.py) and
+[JSON helpers](../src/cc_vision_import/files.py), offline/mocked tests and
+existing-document updates. These are implemented; verification evidence is in
+[PROGRESS.md](PROGRESS.md#ccv-lf-1a---legacy-first-foundation).
+No Site/Device domain or master CLI is implemented in this phase.
+
+Operational controller addresses, credentials, hierarchy names, Device types,
+management addresses and IDs must come from runtime inputs, exported JSON or
+API responses. Source IDs never become destination IDs by assumption. Export
+and import remain independent, and supported deviceAccess values must remain
+portable. Synthetic tests use independent source/destination identities.
+
+Excluded: changes to experimental workflows, historical artifacts as inputs,
+journals, recovery/resume/rollback engines, capability registries, databases,
+deployment changes, customer-specific behavior and unapproved features.
+Legacy sources remain read-only. No live requests, Git staging, commits or
+pushes are authorized. Phase 1B needs separate approval.
+
+Source-observed API intent, mocked validation and exact live-verified behavior
+remain separate evidence levels. Phase 1A establishes no live product/version
+compatibility or credential-portability certification.
+
 Date: 2026-11-17  
 Milestone: CCV-001 - Project Foundation  
 Status: Documentation implemented; architecture review pending.

@@ -1,5 +1,40 @@
 # Architecture Decision Register
 
+## LF-001 - approved independent legacy-first design, 2026-11-27
+
+Status: **owner-approved design; Phase 1A implementation/offline tests authorized**.
+This current decision supersedes the historical experimental design as the
+direction for new application work, without modifying or removing that engine.
+
+- Build a basic, generic export/import application from the original working
+  legacy behavior. Do not repair prior qualification runs or consume their
+  artifacts as dependencies.
+- Use client/config/files and independent domain modules behind a simple menu.
+  Only the three foundation modules are authorized in Phase 1A.
+- Reuse compatible authentication, transport, HTTPS, TLS and JSON functions.
+  Do not carry forward migration states, journals, guards, recovery, registries,
+  comparison gates, databases or deployment changes.
+- All operational values originate at runtime, in exports or API responses.
+  Source and destination IDs remain independent; portable deviceAccess is
+  preserved. Optional credential changes are not required for normal export.
+- A shared HTTPS backend adjustment is necessary solely for generic,
+  session-authorized TLS exceptions. Its optional policy argument defaults to
+  absent; old callers and their workflow-specific restrictions are unchanged.
+- Login requires HTTP 200 and JSON status success, fixing unsafe HTTP-only
+  acceptance without inventing version-specific authentication. Cyber Controller
+  retains legacy Basic-plus-JSON, with explicit encoding errors. Cookie ownership
+  and optional documented session-ID handling are reused.
+- Remote logout is deferred because present legacy files do not establish a
+  concrete configured binding. Local cleanup must not be called remote logout.
+- Mocked tests are evidence of implementation behavior only. No live calls,
+  deployment, commit or automatic Phase 1B implementation is authorized.
+
+Implementation decisions and actual verification are tracked under
+[CCV-LF-1A](PROGRESS.md#ccv-lf-1a---legacy-first-foundation). Later-phase scope and
+live compatibility require separate review/authorization.
+
+**The following decision records describe historical experimental work.**
+
 Date: 2026-11-22
 
 Current Windows containment contract refinement:

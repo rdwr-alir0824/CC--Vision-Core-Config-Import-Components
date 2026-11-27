@@ -1,5 +1,27 @@
 # API Evidence and Compatibility Discovery Matrix
 
+## Current legacy-first foundation evidence - CCV-LF-1A, 2026-11-27
+
+This independent redesign uses original scripts as primary behavioral evidence.
+Historical qualification data below does not gate or supply runtime inputs to
+the new foundation. Implementation is limited to client/config/files.
+
+| Behavior | Evidence | Phase 1A implementation / verification |
+| --- | --- | --- |
+| POST `/mgmt/system/user/login` with JSON username/password | Object scripts use Basic-plus-JSON and HTTP 200; LDAP scripts require JSON `status: ok`. Existing vendor evidence below documents status/session examples for both products. | JSON-safe serialization; HTTP 200 plus `status: ok` required for both products. CC Basic behavior retained; optional returned session-ID validated/used. Offline/mocked only, not live-verified. |
+| Cookie session ownership | Legacy requests sessions; existing backend cookie handling | Reused private same-origin cookie jar; local close clears cookies and authentication. Offline/mocked only. |
+| GET/POST/PUT mechanics | Original object downloader/uploader/updater | Generic runtime-scoped methods, JSON response handling, sanitized failures and bounded timeouts; zero automatic retries. No domain implementation or new endpoint inferred. |
+| TLS verification / explicit exception | Legacy configurable TLS intent; existing origin-bound TLSPolicy | Verified by default; fresh per-client authorization required for unverified TLS. Opt-in backend argument preserves old workflow restrictions. Offline/mocked only. |
+| Remote logout | Scheduler references use configured `API.logout_endpoint`; currently no corresponding INI in the reference inventory. Historical documented counterpart below is not a concrete legacy binding. | Not implemented; no guessed endpoint or remote invalidation claim. |
+| Portable JSON | Original flat Sites/Devices export and nested deviceAccess | File helpers preserve values and reject duplicate keys/nonfinite numbers. Export/root/ID mapping is future Phase 1B, not implemented. |
+
+No live API request was authorized or executed for this task. No Vision/CC
+version is certified by these tests. Domain endpoints/payloads remain
+source-observed until independently documented or separately live-qualified;
+foundation success is not evidence that Site/Device imports complete.
+
+**Older records below retain their historical experimental verification scope.**
+
 Date: 2026-11-18
 Evidence levels: source-observed endpoints; separately scoped offline mock
 coverage for authentication and three reads; owner-provided vendor PDF evidence

@@ -2,6 +2,98 @@
 
 Last updated: 2026-11-27
 
+## CCV-LF-1A - legacy-first foundation
+
+- Objective/priority: P0; implement only the reusable foundation for the
+  owner-approved, independent legacy-first Vision-to-Cyber Controller redesign.
+  The original scripts are primary behavioral references; this is not a repair
+  or continuation of the experimental migration engine.
+- Dependencies: approved simple architecture, original object/LDAP/Scheduler
+  sources, existing reusable authentication, HTTPS transport/backend, TLS policy
+  and JSON parser. No historical qualification artifact, migration profile,
+  capability registry, journal, guard or recovery engine is a dependency.
+- Approval status: owner authorized Phase 1A code, offline/mocked tests and
+  existing-document updates. No live calls, deployment, staging, commit, push
+  or automatic Phase 1B implementation authorized.
+- Implementation status: implemented. New ControllerConfig centralizes runtime
+  controller/product, credentials with secret-safe repr, hidden interactive
+  password input, TLS choice and finite timeouts. New ApiClient owns one origin,
+  authentication and private backend cookies; supports GET/POST/PUT with strict
+  JSON and sanitized errors. Context-managed or explicit local cleanup is
+  available. No authentication replay or automatic POST/PUT/GET retries.
+  New JSON file helpers preserve portable data, reject duplicate keys and
+  unsupported/nonfinite values, including overflowing exponents, and serialize
+  before opening output so invalid input cannot truncate an existing file.
+- Shared-change justification: existing generic verified HTTPS is reused.
+  Existing unverified TLS is restricted to backup/discovery/single-Site
+  workflows, so it cannot directly serve the new generic client. The only shared
+  code change is optional `StdlibHttpBackend(session_tls_policy=...)`, revalidated
+  against exact operation authorization/origin and discarded on close.
+  Old callers omit the argument and retain all existing restrictions.
+  Regression coverage verifies default denial and invalid/wrong-origin policy
+  rejection. Existing experimental modules and launchers are unchanged.
+- Authentication/API evidence: POST `/mgmt/system/user/login` is source-observed
+  in original object/LDAP scripts. CC Basic-plus-JSON is retained; safe login
+  now requires HTTP 200 and JSON `status: ok` for both products. Special-character
+  JSON credentials are preserved; unrepresentable Basic credentials fail
+  explicitly. Optional returned `jsessionid` uses existing documented validation
+  and Cookie header handling without logging it. No new domain endpoint or
+  product/version assumption is introduced.
+- TLS/lifecycle: HTTPS verification defaults on. Every unverified client needs
+  explicit constructor consent for its selected origin and emits a warning.
+  Consent is not stored in ControllerConfig or files and expires on close.
+  Live dispatch defaults off. Requests have finite connect/read timeouts,
+  checked operation deadlines and a 16 MiB response ceiling. Cleanup errors
+  are explicit and preserve the primary failure. Local close does not attempt
+  or claim remote logout.
+- Files added: [client.py](../src/cc_vision_import/client.py),
+  [config.py](../src/cc_vision_import/config.py),
+  [files.py](../src/cc_vision_import/files.py),
+  [test_legacy_foundation.py](../tests/test_legacy_foundation.py).
+- Files modified: [http_backend.py](../src/cc_vision_import/http_backend.py) for
+  the opt-in TLS compatibility above; [README.md](../README.md),
+  [PROJECT.md](PROJECT.md), [ARCHITECTURE.md](ARCHITECTURE.md),
+  [API_MATRIX.md](API_MATRIX.md), [ROADMAP.md](ROADMAP.md),
+  [DECISIONS.md](DECISIONS.md) and this checkpoint for approved scope/evidence.
+  The pre-existing worktree modification in this tracker is preserved.
+- Verification status: Phase 1A acceptance passed offline/mocked only;
+  owner review pending. Actual Python 3.13.14 command results, with src/tests on
+  PYTHONPATH:
+  - `python -S -B -m unittest test_legacy_foundation`: 23 tests passed in 8.787s.
+  - `python -S -B -m unittest test_legacy_foundation test_authentication test_transport test_http_backend test_tls_policy`:
+    initial combined run, 166 tests passed in 46.543s.
+  - Final same combined command after deadline/Basic-encoding boundary tests:
+    **168 tests passed in 61.313s** (25 foundation + 143 existing regressions).
+    Backend instrumentation: zero network attempts across 1,080 observations
+    and zero real-dispatch attempts across 144 observations; foundation tests
+    also use OfflineTestCase network guards and injected memory connections.
+  - Covers successful/rejected login, JSON/Basic special characters, default
+    TLS and fresh session exceptions, cookie/local cleanup including failures,
+    GET/POST/PUT and encoded runtime paths, HTTP/application/JSON errors,
+    finite timeouts/deadline expiry, no write retries, sanitized tracebacks,
+    round-trip access secrets, missing/unreadable/malformed files, duplicate
+    keys, nonfinite numbers and invalid outbound data before writes.
+  - Pylance syntax checks passed for all five affected Python files after
+    retrying the syntax tool with its required workspaceRoot. Final diagnostics
+    on new modules/tests reported no errors (client has informational unused
+    context-manager parameter hints). Shared backend diagnostics likewise
+    reported no errors. `git diff --check` passed before this checkpoint update.
+- Known limitations/blockers: no live authentication/API/version certification,
+  hard DNS cancellation, remote session-invalidation proof or full-suite/
+  deployment validation. Scheduler's concrete configured logout binding is
+  unavailable in present reference files, so no remote endpoint is invented.
+  Existing file permissions/Windows ACLs remain operator-managed; new POSIX
+  outputs are created mode 0600. JSON device secrets are intentionally preserved,
+  not proven portable across products. No objects module, credential editor,
+  LDAP, Scheduler or master entry point is implemented in this phase.
+- Git summary: four new files and eight modified files, including documentation;
+  no experimental engine/deployment/legacy source change. No staging or commit.
+- Next action: owner reviews Phase 1A and separately authorizes CCV-LF-1B:
+  recursive Physical/Organization Sites/Devices export, root metadata, explicit
+  source-to-destination root/parent mapping, Sites-first/Devices-second minimal
+  POST import, simple results and master menu, with generic synthetic tests.
+  Stop at Phase 1A; optional credentials/LDAP/Scheduler remain deferred.
+
 ## CCV-010C follow-up - interactive Vision backup TLS exception provisioning
 
 - Objective/priority: high; repair the generic host-launcher integration with
