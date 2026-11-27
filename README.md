@@ -867,6 +867,18 @@ through Step 3, or document approved `CCV_*_DIR` overrides for that deployment.
 The launcher remains supported for existing installations, not a second
 recommended deployment procedure.
 
+For this host launcher, HTTPS verification remains enabled by default.
+Disabling it requires a default-NO, exact-origin authorization prompt on every
+interactive execution, including when loading a saved `tls.verify=false` profile.
+Approval creates a credential-free, mode-0600 UID/GID-10001 temporary
+`tls-exception.json`, mounted read-only beside the temporary credentials at
+`/run/secrets/tls-exception.json`. It is removed with the temporary runtime files
+after success, failure or cancellation, and is never saved in settings or backups.
+Unattended `--non-interactive` runs reject `verify=false`; reusable settings alone
+are not authorization. `CCV_ALLOW_INSECURE_TLS_EXCEPTION=false` still prohibits
+insecure TLS. The host launcher checks this lock before provisioning and never
+overrides the container image's own deployment control.
+
 ## Additional offline reference
 
 These are optional execution tools using the same standard Compose deployment,

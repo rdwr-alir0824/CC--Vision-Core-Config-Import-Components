@@ -15,6 +15,7 @@ class BackupSetupTests(OfflineTestCase):
     def setUp(self):
         super().setUp()
         self.setup = importlib.import_module("cc_vision_import.backup_setup")
+        self.tls_policy = importlib.import_module("cc_vision_import.tls_policy")
         self.stack.enter_context(patch.object(sys, "platform", "linux"))
         self.stack.enter_context(patch.object(os, "geteuid", return_value=0, create=True))
         self.stack.enter_context(patch.object(os, "getegid", return_value=0, create=True))
@@ -50,12 +51,14 @@ class BackupSetupTests(OfflineTestCase):
         self.stack.enter_context(patch.object(self.setup, "_read_credentials", return_value=self.credentials))
         self.stack.enter_context(patch.dict(os.environ, {}, clear=False))
         os.environ.pop("CC_VISION_IMAGE", None)
+        os.environ.pop("CCV_ALLOW_INSECURE_TLS_EXCEPTION", None)
 
     def test_host_import_annotations_are_deferred_for_python38(self):
         json_module = importlib.import_module("cc_vision_import._json")
         policy = importlib.import_module("cc_vision_import.backup_policy")
         self.assertIsInstance(json_module._json_object.__annotations__["pairs"], str)
         self.assertIsInstance(policy.backup_domains.__annotations__["data"], str)
+        self.assertIsInstance(self.tls_policy.TLSPolicy.__annotations__["authorized_origin"], str)
         self.assertEqual(json_module.load_json('{"valid": [true, null]}'), {"valid": [True, None]})
         with self.assertRaises(ValueError):
             json_module.load_json('{"duplicate": 1, "duplicate": 2}')
@@ -78,6 +81,9 @@ class BackupSetupTests(OfflineTestCase):
         stdout, stderr = io.StringIO(), io.StringIO()
         snapshots = []
         credential_paths = []
+        self.exception_snapshots = []
+        self.exception_paths = []
+        self.exception_mounts = []
 
         def docker(command, **kwargs):
             if "run" in command:
@@ -88,6 +94,35 @@ class BackupSetupTests(OfflineTestCase):
                 secret_file = secret_mount.split("source=", 1)[1].split(",target=", 1)[0]
                 self.assertEqual(json.loads(Path(secret_file).read_text()), self.credentials)
                 credential_paths.append(secret_file)
+                exceptions = [value for value in command if "target=/run/secrets/tls-exception.json" in value]
+                self.exception_mounts.extend(exceptions)
+                if not exceptions:
+                    self.assertFalse(Path(secret_file).with_name("tls-exception.json").exists())
+                for exception_mount in exceptions:
+                    exception_path = Path(exception_mount.split("source=", 1)[1].split(",target=", 1)[0])
+                    self.assertEqual(exception_path.parent, Path(secret_file).parent)
+                    self.assertTrue(exception_path.is_file())
+                    self.exception_paths.append(exception_path)
+                    self.exception_snapshots.append(json.loads(exception_path.read_text()))
+                    self.setup.os.chown.assert_any_call(exception_path, 10001, 10001)
+                    self.assertTrue(any(
+                        call.args[:2] == (exception_path, 0o600) for call in chmod.call_args_list
+                    ))
+                    if os.name == "posix":
+                        self.assertEqual(stat.S_IMODE(exception_path.stat().st_mode), 0o600)
+                    with patch.object(self.tls_policy, "_private_file"):
+                        self.tls_policy.require_execution_exception(
+                            snapshots[-1]["source"]["base_url"], False, secret_file,
+                        )
+                        with self.assertRaises(self.tls_policy.TLSPolicyError):
+                            self.tls_policy.require_execution_exception(
+                                "https://not-the-selected-origin.invalid", False, secret_file,
+                            )
+                        with patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false"}):
+                            with self.assertRaises(self.tls_policy.TLSPolicyError):
+                                self.tls_policy.require_execution_exception(
+                                    snapshots[-1]["source"]["base_url"], False, secret_file,
+                                )
                 if run_failure == "cancel":
                     raise KeyboardInterrupt
                 if run_failure:
@@ -102,10 +137,12 @@ class BackupSetupTests(OfflineTestCase):
             patch.object(sys.stdin, "isatty", return_value=True),
             patch("builtins.input", side_effect=inputs) as prompts,
             patch.object(self.setup.getpass, "getpass", return_value=self.credentials["password"]),
+            patch.object(os, "chmod", wraps=os.chmod) as chmod,
             redirect_stdout(stdout), redirect_stderr(stderr),
         ):
             result = self.setup.main(arguments)
         self.assertTrue(all(not Path(filename).exists() for filename in credential_paths))
+        self.assertTrue(all(not filename.exists() for filename in self.exception_paths))
         for text in (stdout.getvalue(), stderr.getvalue(), json.dumps(snapshots)):
             for variant in ("AMS-alerts", "AMS_alerts", "AMS Alerts", "AMSAlert", "AMSAlerts"):
                 self.assertNotIn(variant.casefold(), text.casefold())
@@ -194,6 +231,8 @@ class BackupSetupTests(OfflineTestCase):
         self.assertEqual(len(snapshots), 1)
         self.assertEqual(snapshots[0]["tls"], {"verify": True})
         self.assertEqual(snapshots[0]["output_directory"], "/data")
+        self.assertEqual(self.exception_snapshots, [])
+        self.assertEqual(self.exception_mounts, [])
         run = runner.call_args_list[-1]
         self.assertIn("10001:10001", run.args[0])
         self.assertIn("--credentials-file", run.args[0])
@@ -202,14 +241,94 @@ class BackupSetupTests(OfflineTestCase):
         filename = mount.split("source=", 1)[1].split(",target=", 1)[0]
         self.assertFalse(Path(filename).exists())
 
-    def test_json_tls_false_needs_no_extra_flag_and_warns_once(self):
+    def test_unattended_tls_false_is_not_operator_authorization(self):
         self.payload["tls"] = {"verify": False}
         arguments = ["--config", str(self.config), "--non-interactive", "--credentials-file", "private.json"]
-        result, runner, _, snapshots, _, stderr = self.invoke(arguments)
+        result, runner, prompts, snapshots, _, stderr = self.invoke(arguments)
+        self.assertEqual(result, 2)
+        self.assertIn("interactive", stderr)
+        runner.assert_not_called()
+        prompts.assert_not_called()
+        self.assertEqual(snapshots, [])
+        self.assertFalse(self.output.exists())
+
+    def test_interactive_verified_tls_never_creates_or_mounts_exception(self):
+        result, _, prompts, _, _, _ = self.invoke(
+            [], ["1", "vision.example.invalid:8443", self.credentials["username"], "",
+                 str(self.output), "n", "y"],
+        )
         self.assertEqual(result, 0)
-        self.assertEqual(stderr, self.setup.TLS_WARNING + "\n")
-        self.assertEqual(snapshots[0]["tls"], {"verify": False})
-        self.assertEqual(runner.call_args_list[-1].args[0][-1], "/run/secrets/credentials.json")
+        self.assertEqual(self.exception_snapshots, [])
+        self.assertEqual(self.exception_mounts, [])
+        self.assertFalse(any("Authorize unverified" in call.args[0] for call in prompts.call_args_list))
+
+    def test_interactive_unverified_tls_is_temporary_exact_origin_and_secret_free(self):
+        saved = self.directory / "saved.json"
+        for address, failure, expected in (
+            ("vision-a.example.invalid:8443", False, 0),
+            ("https://192.0.2.67:7443", False, 0),
+            ("https://vision-b.example.invalid", True, 3),
+            ("https://[2001:db8::7]:9443", "cancel", 130),
+        ):
+            with self.subTest(address=address, failure=failure):
+                if saved.exists():
+                    saved.unlink()
+                origin = address if "://" in address else "https://" + address
+                result, runner, prompts, snapshots, stdout, stderr = self.invoke(
+                    [], ["1", address, self.credentials["username"], "n", str(self.output),
+                         "y", str(saved), "y", "y"], run_failure=failure,
+                )
+                self.assertEqual(result, expected)
+                self.assertEqual(self.exception_snapshots, [{
+                    "verify": False, "lab_authorized": True, "authorized_origin": origin,
+                }])
+                self.assertEqual(len(self.exception_mounts), 1)
+                self.assertTrue(self.exception_mounts[0].endswith(",readonly"))
+                self.assertFalse(any("CCV_ALLOW_INSECURE_TLS_EXCEPTION=" in value
+                                     for value in runner.call_args_list[-1].args[0]))
+                self.assertIn(origin, prompts.call_args_list[-1].args[0])
+                self.assertEqual(json.loads(saved.read_text())["tls"], {"verify": False})
+                for text in (saved.read_text(), json.dumps(snapshots), stdout, stderr):
+                    self.assertNotIn("lab_authorized", text)
+                    self.assertNotIn("authorized_origin", text)
+                for secret in self.credentials.values():
+                    self.assertNotIn(secret, json.dumps(self.exception_snapshots))
+                self.assertFalse(list(self.output.rglob("tls-exception.json")))
+
+    def test_reusable_unverified_config_requires_fresh_default_no_consent(self):
+        self.payload["tls"] = {"verify": False}
+        for consent, expected in (("", 0), ("n", 0), ("y", 1)):
+            with self.subTest(consent=consent):
+                result, runner, prompts, _, _, _ = self.invoke(
+                    ["--config", str(self.config)], [self.credentials["username"], "y", consent],
+                )
+                self.assertEqual(result, 0)
+                self.assertIn(self.payload["source"]["base_url"], prompts.call_args_list[-1].args[0])
+                self.assertEqual(len(self.exception_snapshots), expected)
+                if not expected:
+                    runner.assert_not_called()
+
+    def test_production_lock_blocks_interactive_unverified_tls_before_docker(self):
+        for value, message in (("false", "prohibits insecure TLS"), ("invalid", "must be true or false")):
+            with self.subTest(value=value), patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": value}):
+                result, runner, _, snapshots, _, stderr = self.invoke(
+                    [], ["1", "vision.example.invalid", self.credentials["username"], "n", str(self.output)],
+                )
+            self.assertEqual(result, 2)
+            self.assertIn(message, stderr)
+            runner.assert_not_called()
+            self.assertEqual(snapshots, [])
+            self.assertFalse(self.output.exists())
+
+    def test_host_allow_does_not_override_container_deployment_lock(self):
+        with patch.dict(os.environ, {"CCV_ALLOW_INSECURE_TLS_EXCEPTION": "true"}):
+            result, runner, _, _, _, _ = self.invoke(
+                [], ["1", "vision.example.invalid", self.credentials["username"], "n",
+                     str(self.output), "n", "y", "y"],
+            )
+        self.assertEqual(result, 0)
+        command = runner.call_args_list[-1].args[0]
+        self.assertFalse(any("CCV_ALLOW_INSECURE_TLS_EXCEPTION=" in value for value in command))
 
     def test_unattended_missing_credentials_and_invalid_config_fail_without_docker(self):
         result, runner, _, _, _, stderr = self.invoke(["--config", str(self.config), "--non-interactive"])
@@ -332,7 +451,7 @@ class BackupSetupTests(OfflineTestCase):
         self.assertEqual(snapshots[0]["domains"], ["scheduler"])
 
     def test_interactive_tls_warning_precedes_confirmation_and_is_not_repeated(self):
-        inputs = ["1", "192.0.2.1", self.credentials["username"], "n", str(self.output), "n", "y"]
+        inputs = ["1", "192.0.2.1", self.credentials["username"], "n", str(self.output), "n", "y", "y"]
         stdout, stderr = io.StringIO(), io.StringIO()
 
         def prompt(label):

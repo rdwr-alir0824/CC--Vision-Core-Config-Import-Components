@@ -1,6 +1,58 @@
 # Persistent Development Tracker
 
-Last updated: 2026-11-26
+Last updated: 2026-11-27
+
+## CCV-010C follow-up - interactive Vision backup TLS exception provisioning
+
+- Objective/priority: high; repair the generic host-launcher integration with
+  the existing execution-scoped TLS policy, without controller-specific logic.
+- Approval: requested implementation and offline/mocked tests only.
+- Dependencies: `backup_setup` temporary runtime lifecycle, existing `TLSPolicy`
+  JSON contract, `require_execution_exception`, Docker read-only bind mounts
+  and UID/GID 10001. No API endpoints or migration behavior changed.
+- Implementation status: implemented. Verified HTTPS remains the default and
+  creates no exception. Interactive unverified execution requires default-NO
+  consent naming the exact selected HTTPS origin, even for saved profiles.
+  Only after consent, a credential-free exception is written into the existing
+  temporary runtime directory, chmod 0600/chown 10001:10001, and mounted
+  read-only at `/run/secrets/tls-exception.json` beside the credentials.
+  Cleanup remains scoped to the existing context on success, failure and
+  interruption. No authorization fields are added to saved settings, runtime
+  profiles, credentials or backup output.
+- Safety: unattended `verify=false` fails setup rather than treating reusable
+  settings as consent. The host production lock is checked before provisioning;
+  no environment override can replace an image's production lock. The policy
+  validators and runtime enforcement are unchanged. The only `tls_policy.py`
+  change defers annotations so the Python-3.8+ host can import the shared contract.
+- Files affected: [backup_setup.py](../src/cc_vision_import/backup_setup.py),
+  [tls_policy.py](../src/cc_vision_import/tls_policy.py),
+  [test_backup_setup.py](../tests/test_backup_setup.py),
+  [README.md](../README.md) and this checkpoint.
+- Verification status: offline/mocked acceptance passed. With `src` and `tests`
+  on `PYTHONPATH`, commands and actual results:
+  - Initial three-method regression run: four failing subtests and one error.
+    Missing exceptions and unattended acceptance reproduced; missing lock
+    rejection exhausted the mocked prompt inputs.
+  - `python -S -B -m unittest test_backup_setup test_tls_policy test_vision_backup`:
+    initial 58-test run had four failures in the new chmod spy assertion
+    (Path.chmod supplies an additional keyword); corrected the test assertion.
+  - `python -S -B -m unittest test_backup_setup test_tls_policy test_vision_backup test_unified_launcher test_compose_deployment`:
+    108 tests in 544.873s, 107 passed / one Docker/Compose availability skip.
+    This broader run began before the final no-environment-override hardening.
+  - Final `python -S -B -m unittest test_backup_setup test_tls_policy test_vision_backup`:
+    59 tests in 30.290s, all passed after hardening. Covers DNS/IPv4/IPv6 origins
+    and nondefault ports, exact JSON/no secrets, read-only placement, default
+    verified behavior, saved-config reauthorization/decline, unattended denial,
+    wrong origins, production lock with a valid generated exception, ownership/
+    permissions policy rejection, and cleanup after success/error/interruption.
+  - Pylance syntax checks passed for all three changed Python files; final editor
+    diagnostics reported no errors. `git diff --check` passed.
+- Known blockers: Windows host validation mocks chown and POSIX metadata checks;
+  native Linux ownership/Docker bind-mount enforcement and live qualification
+  were not performed. No controller access, historical backup edits, staging,
+  commits or pushes. Pre-existing untracked containment design left untouched.
+- Next action: review the patch, then separately authorize Linux/container lab
+  qualification; do not treat these offline results as live certification.
 
 ## CCV-012 continuation - read-only migration recovery assessment
 

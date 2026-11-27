@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 from ._json import load_json
 from .backup_policy import TLS_WARNING, BackupPolicyError, SUPPORTED_DOMAINS, backup_domains
+from .tls_policy import TLSPolicy, TLSPolicyError, exceptions_allowed
 
 
 DEFAULT_IMAGE = "cc-vision-master:0.3"
@@ -287,6 +288,13 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 raise SetupError("Select menu option 1, 2, 3 or 4.")
         profile, output, ca = _settings(payload, base)
+        exception = None
+        exception_control = os.environ.get("CCV_ALLOW_INSECURE_TLS_EXCEPTION")
+        if not profile["tls"]["verify"]:
+            if args.non_interactive:
+                raise SetupError("Unverified TLS requires explicit interactive authorization for each execution.")
+            if not exceptions_allowed(exception_control if exception_control is not None else "true"):
+                raise SetupError("This deployment prohibits insecure TLS exceptions.")
         if not profile["tls"]["verify"] and args.config:
             print(TLS_WARNING, file=sys.stderr)
         if args.credentials_file:
@@ -302,6 +310,14 @@ def main(argv: list[str] | None = None) -> int:
         if not args.non_interactive and not _answer("Start read-only Vision backup? [y/N]: ", False):
             print("Cancelled; no controller connection attempted.")
             return 0
+        if not profile["tls"]["verify"]:
+            origin = profile["source"]["base_url"]
+            if not _answer(f"Authorize unverified TLS for {origin} for this execution only? [y/N]: ", False):
+                print("Cancelled; no controller connection attempted.")
+                return 0
+            exception = TLSPolicy.from_dict({
+                "verify": False, "lab_authorized": True, "authorized_origin": origin,
+            }, origin)
         image_reference = os.environ.get("CC_VISION_IMAGE", DEFAULT_IMAGE)
         if not image_reference or "://" in image_reference or image_reference.startswith("-") or any(
             not c.isprintable() or c.isspace() for c in image_reference
@@ -338,6 +354,14 @@ def main(argv: list[str] | None = None) -> int:
                 "--mount", _docker_mount(runtime_credentials, "/run/secrets/credentials.json", readonly=True),
                 "--mount", _docker_mount(output, "/data", readonly=False),
             ]
+            if exception is not None:
+                runtime_exception = Path(temporary) / "tls-exception.json"
+                runtime_exception.write_text(json.dumps(exception.to_dict()), encoding="utf-8")
+                runtime_exception.chmod(0o600)
+                os.chown(runtime_exception, uid, gid)
+                command.extend([
+                    "--mount", _docker_mount(runtime_exception, "/run/secrets/tls-exception.json", readonly=True),
+                ])
             if ca:
                 runtime_ca = Path(temporary) / "vision-ca.pem"
                 shutil.copyfile(ca, runtime_ca)
@@ -374,7 +398,7 @@ def main(argv: list[str] | None = None) -> int:
     except BackupPolicyError as error:
         print(f"Setup failed: {error}", file=sys.stderr)
         return 2
-    except SetupError as error:
+    except (SetupError, TLSPolicyError) as error:
         print(f"Setup failed: {error}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

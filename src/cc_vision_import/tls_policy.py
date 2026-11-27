@@ -1,5 +1,7 @@
 """Temporary, origin-bound TLS exceptions with an optional production lock."""
 
+from __future__ import annotations
+
 import os
 import stat
 from dataclasses import dataclass
