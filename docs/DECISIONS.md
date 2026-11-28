@@ -1,5 +1,52 @@
 # Architecture Decision Register
 
+## LF-003 - Phase 1B closure and conditional import authorization, 2026-11-27
+
+The owner conditionally approved 1B and required atomic JSON saving, exact
+portable importer contract, a complete final regression run with skipped reasons,
+full diff review and a local checkpoint excluding the historical tracker edit.
+Atomic same-directory temporary-file replacement replaces truncating saves;
+this is not backup rotation, a journal or recovery mechanism.
+
+Only after closure passes may Phase 1C extend objects.py with independent import
+and a dedicated mocked test module. Portable JSON is the input; no source
+connection or previous execution artifact. Validate before object writes,
+explicitly map roots, resolve destination identities/parents dynamically,
+create parent Sites before Devices with exact minimal legacy payloads, and
+verify creation by bounded source-observed GET reads. No POST retries, updates,
+recovery, new production modules, master menu, live calls or Phase 1C commit.
+
+## LF-002 - accepted foundation and export-only Phase 1B, 2026-11-27
+
+Status: **owner accepted Phase 1A and authorized export-only Phase 1B**.
+Accepted foundation limitations remain unchanged; it is not being redesigned.
+Phase 1A was committed locally as
+`c0d6b98854cc9ede3a398a476005ce2a494c6e3a`, excluding the pre-existing tracker
+blank line from staging while preserving it in the working tree. No push.
+
+The owner clarified that export, import and menu are independent phases.
+Phase 1B implements only objects.py export and its tests/docs. The original
+downloader remains the primary behavioral reference. No object writes,
+destination connection, Device update, credential transformation, LDAP,
+Scheduler, master CLI/menu, deployment or recovery feature is added.
+
+Operational values come from runtime inputs/API responses. Source containment
+determines parent IDs and names; missing Site/root names may use the original
+Site-by-ID lookup. Unknown or duplicate identities fail, not root-fallback.
+Both tree files keep legacy fields and add source_root metadata only. Access
+values are copied without mutation or redaction; only deviceAccess.ormID is
+removed, with an explicit sensitive-file warning.
+
+A necessary small foundation extension exposes existing finite GET authorization
+through ApiClient.authorize_gets, since IDs/IPs are discovered after tree reads.
+It does not authorize writes or change origins. No shared backend or
+experimental module changes in this phase.
+
+Independent SUCCESS/FAILED results require complete reads, save and cleanup;
+cleanup failure preserves primary errors, not false success. No automatic retry,
+re-login, hidden Device omission, journal or envelope. Phase 1B is not committed
+or live-verified. Phase 1C import and future menu need separate owner approval.
+
 ## LF-001 - approved independent legacy-first design, 2026-11-27
 
 Status: **owner-approved design; Phase 1A implementation/offline tests authorized**.

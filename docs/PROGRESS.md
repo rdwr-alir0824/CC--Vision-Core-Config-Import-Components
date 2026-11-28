@@ -2,6 +2,170 @@
 
 Last updated: 2026-11-27
 
+## CCV-LF-1B closure - atomic files and portable importer contract
+
+- Objective/priority: P0 closure gate; finalize conditionally approved export
+  before any Phase 1C implementation.
+- Approval: owner authorized atomic single-file saves, focused tests, a final
+  full regression run, complete diff review and a local Phase 1B checkpoint
+  excluding the pre-existing tracker edit. No push or live calls.
+- Dependencies: implemented 1B export, accepted strict JSON helpers, original
+  legacy contract and existing offline regression suite.
+- Implementation: [files.py](../src/cc_vision_import/files.py) serializes first,
+  writes a private same-directory temporary file, checks the complete write,
+  closes it and only then replaces the destination with os.replace. Failed
+  writes/replacements preserve previous output and clean temporary files.
+  Cleanup failures are explicit. No rotation, backup, journal or recovery.
+- Contract: rendered actual exporter output using synthetic root/root-attached
+  Device/nested Site/Device fixtures. The exact source_root/sites/devices
+  structure and required legacy fields, source parent relationships, opaque
+  deviceAccess preservation, ormID exclusion and explicit older-file source-root
+  identification are documented in [README](../README.md#phase-1b-export-interface-and-portable-json).
+  This is the independent importer's input contract, not a backup envelope.
+- Files affected: [files.py](../src/cc_vision_import/files.py),
+  [test_legacy_foundation.py](../tests/test_legacy_foundation.py) plus current
+  design/format/progress documentation. Prior uncommitted 1B changes are also
+  in the closure review/checkpoint scope; historical tracker blank line remains
+  outside the index.
+- Focused verification: `python -S -B -m unittest test_legacy_foundation test_legacy_object_exports`
+  with src/tests on PYTHONPATH: **57 tests passed in 11.170s**. Four new atomic
+  tests cover successful replacement, a partial write followed by failure,
+  failed replacement preserving prior output, and no invalid new destination/
+  orphan temporary file. Existing strict JSON/export tests passed unchanged.
+  Pylance diagnostics for files/test changes reported no errors.
+- Full verification: final code passed complete offline unittest discovery:
+  **848 tests in 737.260s; 846 passed, two skipped**. Docker/Compose configuration
+  validation skipped because Docker/Compose is unavailable; real POSIX
+  TTY/readline editing skipped because it requires Linux/macOS. Network guards
+  reported zero attempts (1,080 backend, 435 schema and 1,650 supervised
+  observations); real backend dispatch attempts were also zero.
+- Review: complete tracked diff and both added files reviewed; only approved
+  code, synthetic tests and documentation. No operational credentials, sensitive
+  exports, generated artifacts, experimental/legacy/deployment changes.
+  Git whitespace check passed. Closure acceptance passed offline/mocked only.
+- Limitations: atomic visibility is single-file, not a multi-file transaction or
+  crash-durability certification. Unremovable temporary files are reported, not
+  hidden. Live product/API/credential portability remains unverified.
+- Next action: finish closure validation/review; commit only on pass with the
+  owner's exact message, then begin separately authorized import-only Phase 1C.
+
+## CCV-LF-1B - generic Site/Device export only
+
+- Objective/priority: P1; implement independent generic Physical/Organization
+  Site/Device export using the original downloader and accepted Phase 1A
+  foundation. This phase contains no import or master menu.
+- Dependencies: owner-approved legacy-first architecture, accepted 1A modules,
+  original [downloader](../legacy/app/download_cybercontroller_objects.py),
+  existing finite GET-target authorization and synthetic offline test helpers.
+  No qualification artifact, migration engine, registry, journal or database.
+- Approval status: owner accepted 1A's implementation/test evidence and current
+  limitations, authorized its local checkpoint, and separately authorized
+  export-only Phase 1B implementation/tests/documentation. No live access,
+  destination communication, object POST/PUT, update, transformation, LDAP,
+  Scheduler, menu, deployment change or Phase 1B commit/push is authorized.
+- Phase 1A checkpoint: reviewed the complete tracked diff and all four added
+  files; only approved implementation, synthetic tests and relevant documents
+  were included. No operational credentials, exports or generated artifacts.
+  Selectively staged the new 1A tracker entry, leaving the pre-existing
+  historical blank line unstaged and unchanged. A PowerShell text-pipeline
+  patch attempt failed without changing the tracker index; byte-exact Git patch
+  input succeeded. Local commit:
+  `c0d6b98854cc9ede3a398a476005ce2a494c6e3a`,
+  `feat: implement legacy-first Phase 1A foundation`, with Co-authored-by trailer.
+  Immediately afterward, only the pre-existing tracker change remained. No push.
+- Implementation status: implemented [objects.py](../src/cc_vision_import/objects.py).
+  `export_objects(config, outputs, ...)` accepts Physical, Organization or both
+  as keys with distinct runtime filenames. One context-managed ApiClient
+  authenticates once. Native root ID/name, recursive source Site/Device
+  containment and exactly the legacy fields are projected. Missing Site/root
+  names use source Site-by-ID; missing IDs, duplicate identities and malformed/
+  unsupported nodes fail explicitly. Each Device's API-provided management IP
+  drives access lookup. Deep copying preserves all supported access values and
+  credentials without altering source responses; only deviceAccess.ormID is
+  removed. A sensitive-file warning precedes export.
+- Minimal foundation adjustment: [client.py](../src/cc_vision_import/client.py)
+  adds only `authorize_gets`, exposing the existing backend finite GET-target
+  helper. Device IPs and fallback Site IDs are unknown before hierarchy reads,
+  so initial fixed operation lists cannot contain them. The helper validates
+  path segments and uses the client's existing origin; it grants no POST/PUT
+  scope and does not alter any experimental/shared backend implementation.
+  Config, files, session/TLS settings, accepted limitations and write policy
+  are unchanged.
+- JSON/output: exactly source_root `{id, name}`, sites
+  `{name, id, parent_site_name, parentOrmID}`, devices
+  `{name, type, managementIp, id, parentOrmID, deviceAccess}`.
+  Root-attached Devices retain the source root ID as their parent. Each tree
+  writes independently through the accepted file helper only after complete
+  collection/access enrichment. Exact synthetic JSON is documented in
+  [README](../README.md#phase-1b-export-interface-and-portable-json).
+  No metadata/envelope/state dependency or forced credential transformation.
+- Result/error handling: separate ExportResult SUCCESS/FAILED records with
+  output path, complete exported counts, static error_code/failed_step and
+  cleanup_failed. Failed access retrieval fails the entire tree, not a filtered
+  "successful" subset. A collection failure does not overwrite a previous file.
+  Save failures are explicit. Final cleanup failure preserves the primary error
+  and cannot leave any successful result; if a file was already written, its
+  path/counts remain accurate. Authentication cleanup notes are retained.
+  Independent trees continue when the session remains usable; no retry/re-login.
+  Names, credentials and raw server bodies are not included in errors.
+- Files added: [objects.py](../src/cc_vision_import/objects.py),
+  [test_legacy_object_exports.py](../tests/test_legacy_object_exports.py).
+- Files modified: the minimal [client.py](../src/cc_vision_import/client.py)
+  GET helper; [README](../README.md), [PROJECT](PROJECT.md),
+  [ARCHITECTURE](ARCHITECTURE.md), [API_MATRIX](API_MATRIX.md),
+  [ROADMAP](ROADMAP.md), [DECISIONS](DECISIONS.md) and this tracker. Current
+  phase sequencing supersedes the previous proposal combining import/menu
+  with Phase 1B. No legacy/experimental launcher or deployment file changed.
+- Verification status: Phase 1B acceptance passed offline/mocked only; owner
+  review pending. Actual Python 3.13.14 commands with
+  src/tests on PYTHONPATH:
+  - `python -S -B -m unittest test_legacy_object_exports test_legacy_foundation`:
+    initial 48 tests passed in 9.106s; next 51 passed in 9.842s; cleanup-reporting
+    run 52 passed in 15.625s; final **53 tests passed in 14.329s**
+    (28 export + 25 accepted foundation tests).
+  - `python -S -B -m unittest discover -s .\tests`: **842 tests in 760.276s,
+    OK (skipped=2)**: 840 passed, two skipped. This complete existing regression
+    run started before the final two cleanup-reporting regressions were added;
+    the final focused run above covers both corrections and the final exporter.
+    Expected parser-rejection/authorization messages in test output are not
+    failures. Backend guards reported zero network attempts across 1,080
+    observations and zero real-dispatch attempts across 144 observations.
+    Schema guards: 29 cases/435 observations, zero attempts. Supervised offline
+    guards: 66 cases/1,650 observations, zero network/process/live-dispatch
+    attempts. No live calls or legacy script execution.
+  - Pylance syntax checks passed for all three affected Python files; current
+    exporter/test diagnostics contain no errors. Client has only informational
+    unused context-manager parameter hints. Git whitespace check passed before
+    this checkpoint update.
+  - Tests use synthetic changing root/Site/Device IDs, names, model types and
+    reserved documentation IPs, with memory API connections and network guards.
+    Cover both trees/one login, nested/root Devices, parent-name fallback,
+    exact fields, source immutability/access secrets, empty trees, ambiguous/
+    missing/malformed data, failed access, independent errors/save failures,
+    secret-free results, finite dynamic GET authorization, TLS reuse and cleanup.
+- API/evidence: only source-observed login, Physical/Organization GET,
+  Site-by-ID GET and Device-by-IP GET paths are used. Existing foundation
+  authentication/document evidence is reused. New behavior is offline/mocked
+  validated, not live-verified; no target/version or completeness certification.
+- Known limitations: accepted foundation limitations remain; no hard DNS
+  cancellation/remote logout or live product qualification. API-returned
+  masked/encrypted credentials may not be reusable elsewhere. Unknown tree node
+  classes fail rather than silently omit records. Closure atomic saves now
+  preserve valid previous output on failed writes; failed collection also
+  leaves older output untouched. Windows directory ACLs remain operator-managed.
+  No atomic multi-file backup
+  transaction, import, destination mapping or menu is claimed.
+- Git summary: two added files and eight modified files (client plus seven
+  documentation files); all Phase 1B changes remain unstaged/uncommitted. The
+  historical pre-existing tracker blank line remains preserved. No experimental,
+  legacy or deployment changes and no push.
+- Next action: owner reviews Phase 1B; implementation stops here.
+  Proposed CCV-LF-1C is independent Site/Device import only: explicit
+  source-root/destination-root mapping, destination parent/ID resolution,
+  Sites-before-Devices minimal legacy POST payloads and basic results, without
+  root fallback/source-ID reuse/retries. Import and future menu each require
+  separate approval; no automatic Phase 1C work or Phase 1B commit.
+
 ## CCV-LF-1A - legacy-first foundation
 
 - Objective/priority: P0; implement only the reusable foundation for the
@@ -56,8 +220,8 @@ Last updated: 2026-11-27
   [API_MATRIX.md](API_MATRIX.md), [ROADMAP.md](ROADMAP.md),
   [DECISIONS.md](DECISIONS.md) and this checkpoint for approved scope/evidence.
   The pre-existing worktree modification in this tracker is preserved.
-- Verification status: Phase 1A acceptance passed offline/mocked only;
-  owner review pending. Actual Python 3.13.14 command results, with src/tests on
+- Verification status: Phase 1A acceptance passed offline/mocked only and was
+  owner-approved on 2026-11-27. Actual Python 3.13.14 command results, with src/tests on
   PYTHONPATH:
   - `python -S -B -m unittest test_legacy_foundation`: 23 tests passed in 8.787s.
   - `python -S -B -m unittest test_legacy_foundation test_authentication test_transport test_http_backend test_tls_policy`:
@@ -88,11 +252,9 @@ Last updated: 2026-11-27
   LDAP, Scheduler or master entry point is implemented in this phase.
 - Git summary: four new files and eight modified files, including documentation;
   no experimental engine/deployment/legacy source change. No staging or commit.
-- Next action: owner reviews Phase 1A and separately authorizes CCV-LF-1B:
-  recursive Physical/Organization Sites/Devices export, root metadata, explicit
-  source-to-destination root/parent mapping, Sites-first/Devices-second minimal
-  POST import, simple results and master menu, with generic synthetic tests.
-  Stop at Phase 1A; optional credentials/LDAP/Scheduler remain deferred.
+- Next action: completed local 1A checkpoint as recorded above. The owner's
+  subsequent approval authorizes export-only CCV-LF-1B, not the previous combined
+  import/menu proposal. Optional credentials/LDAP/Scheduler remain deferred.
 
 ## CCV-010C follow-up - interactive Vision backup TLS exception provisioning
 

@@ -3,8 +3,9 @@ import io
 import json
 import ssl
 import traceback
+import tempfile
 import warnings
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import replace
 from unittest.mock import Mock, patch
 
@@ -408,3 +409,46 @@ class LegacyFoundationTests(OfflineTestCase):
             with self.assertRaises(ClientError):
                 client.post(PATH, {"value": float("inf")})
         self.assertEqual(factory.call_count, 1)
+
+    def test_atomic_save_replaces_existing_output_and_leaves_no_temporary_file(self):
+        save_json(self.input_path, {"previous": True})
+        save_json(self.input_path, {"replacement": [1, 2]})
+        self.assertEqual(load_json(self.input_path), {"replacement": [1, 2]})
+        self.assertEqual(list(self.directory.iterdir()), [self.input_path])
+
+    def test_atomic_save_partial_write_failure_preserves_previous_output(self):
+        save_json(self.input_path, {"previous": True})
+        original = tempfile.NamedTemporaryFile
+
+        @contextmanager
+        def fail_write(*args, **kwargs):
+            with original(*args, **kwargs) as stream:
+                write = stream.write
+
+                def partial_write(text):
+                    write(text[:4])
+                    raise OSError(SECRET)
+
+                with patch.object(stream, "write", side_effect=partial_write):
+                    yield stream
+
+        with patch("cc_vision_import.files.tempfile.NamedTemporaryFile", side_effect=fail_write):
+            with self.assertRaises(JsonFileError) as caught:
+                save_json(self.input_path, {"replacement": True})
+        self.assertNotIn(SECRET, "".join(traceback.format_exception(caught.exception)))
+        self.assertEqual(load_json(self.input_path), {"previous": True})
+        self.assertEqual(list(self.directory.iterdir()), [self.input_path])
+
+    def test_atomic_replace_failure_preserves_output_and_cleans_temporary_file(self):
+        save_json(self.input_path, {"previous": True})
+        with patch("cc_vision_import.files.os.replace", side_effect=OSError(SECRET)):
+            with self.assertRaises(JsonFileError):
+                save_json(self.input_path, {"replacement": True})
+        self.assertEqual(load_json(self.input_path), {"previous": True})
+        self.assertEqual(list(self.directory.iterdir()), [self.input_path])
+
+    def test_atomic_save_failure_does_not_create_invalid_new_output(self):
+        with patch("cc_vision_import.files.os.replace", side_effect=OSError(SECRET)):
+            with self.assertRaises(JsonFileError):
+                save_json(self.input_path, {"replacement": True})
+        self.assertEqual(list(self.directory.iterdir()), [])

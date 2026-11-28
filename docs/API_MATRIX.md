@@ -1,10 +1,47 @@
 # API Evidence and Compatibility Discovery Matrix
 
+## Legacy-first source export - CCV-LF-1B, 2026-11-27
+
+Phase 1B is export-only. The original
+[download_cybercontroller_objects.py](../legacy/app/download_cybercontroller_objects.py)
+is the primary behavioral reference; no historical qualification artifact is
+used as an implementation dependency.
+
+| Operation | Source evidence | New implementation / evidence level |
+| --- | --- | --- |
+| GET `/mgmt/system/config/tree/Physical` | Original downloader main selects this exact path. | Physical root and recursive Site/Device export. Source-observed and offline/mocked tested, not live-verified. |
+| GET `/mgmt/system/config/tree/Organization` | Original downloader main selects this exact path. | Independent Organization export, optionally sharing one source login with Physical. Source-observed and offline/mocked tested, not live-verified. |
+| GET `/mgmt/system/config/tree/site/byid/{id}` | Original get_parent_site_name reads the returned name. | Used only when the hierarchy lacks a Site/root name; explicit failure on missing name or contradictory returned native identity. Existing documented method/path evidence is retained below; no version gate is added. Offline/mocked only. |
+| GET `/mgmt/system/config/tree/device/byip/{managementIp}` | Original extract_device_access_data reads deviceSetup.deviceAccess and removes its ormID. | Each Device enriched by its API-provided IP; deep copy retains supported credentials/unknown access fields except ormID. Failed enrichment fails that tree, not silent omission. Offline/mocked only. |
+| POST `/mgmt/system/user/login` | Existing foundation source/document evidence. | Exactly one source login per selected export operation; no retry or destination login. Existing Foundation behavior reused. |
+
+The exact portable structure is `source_root: {id, name}`, `sites` with
+name/id/parent_site_name/parentOrmID, and `devices` with
+name/type/managementIp/id/parentOrmID/deviceAccess. No provenance, migration,
+schema/version envelope or execution state is added. Synthetic JSON is in the
+[README](../README.md#phase-1b-export-interface-and-portable-json).
+
+Source hierarchy values are preserved, not treated as destination identities.
+Mocked export and credential preservation do not prove live API enumeration,
+field completeness, cross-product secret portability or recreation capability.
+No live calls, object POST/PUT, import, LDAP or Scheduler operation occurs.
+The new client GET-target helper extends only finite same-origin reads and
+leaves prior write scopes/experimental implementations unchanged.
+
+Actual offline evidence: 53 final focused tests passed (28 export/25 foundation).
+The full regression run completed 842 tests (840 passed/two skipped), starting
+before two final cleanup tests; both passed in the final focused run. Detailed
+commands, timing and network-guard evidence are in
+[PROGRESS](PROGRESS.md#ccv-lf-1b---generic-sitedevice-export-only).
+Final closure code passed 848 complete regression tests (846 passed/two
+environment-dependent skips), including four atomic-file tests; no live calls.
+
 ## Current legacy-first foundation evidence - CCV-LF-1A, 2026-11-27
 
 This independent redesign uses original scripts as primary behavioral evidence.
 Historical qualification data below does not gate or supply runtime inputs to
-the new foundation. Implementation is limited to client/config/files.
+the new foundation. This dated 1A evidence covers client/config/files; the 1B
+source-export extension is recorded above.
 
 | Behavior | Evidence | Phase 1A implementation / verification |
 | --- | --- | --- |
@@ -13,7 +50,7 @@ the new foundation. Implementation is limited to client/config/files.
 | GET/POST/PUT mechanics | Original object downloader/uploader/updater | Generic runtime-scoped methods, JSON response handling, sanitized failures and bounded timeouts; zero automatic retries. No domain implementation or new endpoint inferred. |
 | TLS verification / explicit exception | Legacy configurable TLS intent; existing origin-bound TLSPolicy | Verified by default; fresh per-client authorization required for unverified TLS. Opt-in backend argument preserves old workflow restrictions. Offline/mocked only. |
 | Remote logout | Scheduler references use configured `API.logout_endpoint`; currently no corresponding INI in the reference inventory. Historical documented counterpart below is not a concrete legacy binding. | Not implemented; no guessed endpoint or remote invalidation claim. |
-| Portable JSON | Original flat Sites/Devices export and nested deviceAccess | File helpers preserve values and reject duplicate keys/nonfinite numbers. Export/root/ID mapping is future Phase 1B, not implemented. |
+| Portable JSON | Original flat Sites/Devices export and nested deviceAccess | File helpers preserve values and reject duplicate keys/nonfinite numbers. Source-root/parent export is implemented in Phase 1B above; destination ID mapping/import remains deferred. |
 
 No live API request was authorized or executed for this task. No Vision/CC
 version is certified by these tests. Domain endpoints/payloads remain

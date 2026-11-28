@@ -211,6 +211,15 @@ class ApiClient:
     def get(self, segments: tuple[str, ...]) -> JsonValue:
         return self.request(HttpMethod.GET, segments)
 
+    def authorize_gets(self, paths: tuple[tuple[str, ...], ...]) -> None:
+        if self._closed or not self._authenticated:
+            raise ClientError("not_authenticated")
+        try:
+            targets = tuple(urlsplit(build_url(self._origin, path)).path for path in paths)
+            self._backend.authorize_get_targets(targets)
+        except (ValueError, ContractValidationError, BackendFailure):
+            raise ClientError("invalid_read_authorization") from None
+
     def post(
         self, segments: tuple[str, ...], data: JsonValue = None, *, expect_json: bool = True,
     ) -> JsonValue:

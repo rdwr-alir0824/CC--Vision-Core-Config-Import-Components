@@ -7,7 +7,7 @@ based primarily on the original working [legacy scripts](legacy/). This is an
 independent functional redesign, not continuation or repair of the experimental
 migration engine described in the historical usage below.
 
-**Phase 1A foundation is implemented and offline/mocked tested.** It adds only:
+**Phase 1A foundation is owner-approved and offline/mocked tested.** It adds:
 
 - [client.py](src/cc_vision_import/client.py): session ownership, login,
   GET/POST/PUT, strict JSON responses, bounded timeouts and sanitized errors.
@@ -16,8 +16,11 @@ migration engine described in the historical usage below.
 - [files.py](src/cc_vision_import/files.py): JSON load/save without envelopes,
   journals or databases; portable access values are preserved, not redacted.
 
-There is no new master entry point, Site/Device export/import, credential editor,
-LDAP or Scheduler implementation in this phase. Existing experimental commands,
+**Phase 1B implements generic Site/Device export only** in
+[objects.py](src/cc_vision_import/objects.py), using the original
+[object downloader](legacy/app/download_cybercontroller_objects.py) as the primary
+reference. There is no import, new master entry point, credential editor, LDAP
+or Scheduler implementation. Existing experimental commands,
 deployment files and historical qualification data remain unchanged; they are
 not dependencies of the redesign. See the current sections of
 [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md) and
@@ -27,10 +30,12 @@ The client defaults to verified HTTPS and disabled live dispatch. Every new
 unverified client requires explicit `tls_exception_authorized=True`, warns that
 controller identity is unverified, and binds consent to that client's origin
 and lifetime. No saved authorization file is required by the new foundation.
-The caller supplies a finite list of runtime method/path-segment tuples as
-`operations`; only login is automatically included. This is not a capability
-registry. `allow_live=True` is an explicit dispatch switch, not permission to
-contact a controller: no live access is authorized for Phase 1A.
+The caller supplies finite runtime method/path-segment tuples as `operations`;
+only login is automatically included. The export module adds discovered GET
+targets through `authorize_gets`, which cannot authorize POST/PUT or another
+origin. This is not a capability registry. `allow_live=True` is an explicit
+dispatch switch, not permission to contact a controller: no live access is
+authorized for Phase 1A or Phase 1B.
 
 Remote logout is not implemented: legacy Scheduler logout is configurable and
 its concrete binding is unavailable in the present reference files. Local
@@ -38,16 +43,106 @@ its concrete binding is unavailable in the present reference files. Local
 login requires HTTP 200 and JSON `status: ok`, rather than trusting HTTP 200 alone.
 An optional returned `jsessionid` is validated and used without printing it.
 
-JSON exports may contain device secrets. New files use owner-only creation mode
-on POSIX; existing file permissions and Windows ACLs remain the operator's
-responsibility. Controller credentials are not automatically written to JSON.
+JSON exports may contain device secrets. Atomic saves create a private temporary
+file beside the destination, close it after writing, and replace the destination
+only on success. Failed writes/replacements preserve previous output and remove
+the temporary file; cleanup errors are explicit. New/replaced POSIX files use
+mode 0600. Windows directory ACLs remain the operator's responsibility.
+Controller credentials are not automatically written to JSON.
 Timeouts/deadlines are bounded, but hard DNS cancellation is not guaranteed.
 
 Offline validation (set `PYTHONPATH` to `src` and `tests`):
 
 ```text
-python -S -B -m unittest test_legacy_foundation test_authentication test_transport test_http_backend test_tls_policy
+python -S -B -m unittest test_legacy_object_exports test_legacy_foundation
+python -S -B -m unittest discover -s tests
 ```
+
+Actual Phase 1B results: final focused run **53 passed** (28 export + 25 foundation).
+Full regression run **842 tests, 840 passed / 2 skipped**; it started before the
+final two cleanup-reporting tests, which passed in the final focused run.
+Final closure validation, including atomic saves: **57 focused tests passed;
+848 complete regression tests, 846 passed / two skipped**. Skips require
+unavailable Docker/Compose and POSIX TTY/readline respectively.
+All validation was offline/mocked. See [test evidence](docs/PROGRESS.md#ccv-lf-1b---generic-sitedevice-export-only).
+
+### Phase 1B export interface and portable JSON
+
+`export_objects(config, outputs, ...)` accepts a `ControllerConfig` and an output
+mapping: `{"Physical": path}`, `{"Organization": path}`, or both with distinct
+paths. Filenames are runtime inputs; no output folder is created automatically.
+One client/session authenticates once, traverses each selected source hierarchy,
+resolves parent names locally or by Site ID, then retrieves Device access by IP.
+Only login POST and source GETs occur; there are no destination calls or writes.
+
+Each file has exactly these top-level keys. All values below are synthetic;
+actual names, IDs, model types, addresses and credential values come from input
+or API responses. Extra supported deviceAccess members are preserved.
+
+**This is the portable input contract consumed by the independent importer.**
+The root has nonempty string id/name. Both arrays are required. Each Site has
+nonempty string name/id/parent_site_name/parentOrmID; each Device has nonempty
+string name/type/managementIp/id/parentOrmID plus a deviceAccess object.
+Parent IDs refer to source_root.id or another Site.id; parent_site_name must
+agree with that source relationship. IDs are unique across root/Sites/Devices.
+Site names can repeat under different parents, but not ambiguously under the
+same parent. No protocol-specific credential keys are mandatory: supported
+deviceAccess fields are opaque JSON and retained. The top-level access ormID
+is excluded from destination payloads. No schema, journal or migration envelope.
+Supported older files without source_root require an explicit runtime source
+root `{id, name}`; it is never inferred from an unresolved reference.
+
+```json
+{
+  "source_root": {"id": "source-root-a7", "name": "Example Source Root"},
+  "sites": [
+    {
+      "name": "Example Branch",
+      "id": "source-site-b8",
+      "parent_site_name": "Example Source Root",
+      "parentOrmID": "source-root-a7"
+    }
+  ],
+  "devices": [
+    {
+      "name": "Example Device",
+      "type": "example-model-from-api",
+      "managementIp": "192.0.2.10",
+      "id": "source-device-c9",
+      "parentOrmID": "source-site-b8",
+      "deviceAccess": {
+        "cliUsername": "synthetic-cli",
+        "cliPassword": "synthetic-cli-secret",
+        "httpUsername": "synthetic-http",
+        "httpPassword": "synthetic-http-secret",
+        "httpsUsername": "synthetic-https",
+        "httpsPassword": "synthetic-https-secret",
+        "snmpV3Username": "synthetic-snmp",
+        "snmpV3AuthenticationPassword": "synthetic-auth-secret",
+        "snmpV3PrivacyPassword": "synthetic-privacy-secret"
+      }
+    }
+  ]
+}
+```
+
+Root-attached Devices use the source root's ID as `parentOrmID`. Site traversal
+is parent-first and depth-first, preserving the legacy fields. Missing names
+can use the source-observed Site-by-ID lookup; missing IDs or duplicate hierarchy
+identities fail explicitly. The server-owned deviceAccess `ormID` alone is
+removed from a deep copy; original responses and other access values are retained.
+Exports warn that credentials may be present. This preservation does not certify
+that encrypted or masked values are reusable on a different controller.
+
+The returned mapping contains a separate `ExportResult` per selected tree:
+`status`, `path`, `site_count`, `device_count`, `error_code`, `failed_step` and
+`cleanup_failed`. SUCCESS requires complete collection, file writing and local
+session cleanup. A failed collection writes no new file; an older file at that
+path remains untouched. Atomic file-write failures preserve the previous output
+and are always FAILED. A cleanup failure retains the primary tree error or marks a
+written export FAILED with its known counts/path. Successful independent trees
+are retained when another tree fails; authentication/session loss is not retried.
+No combined success is inferred from one successful tree.
 
 **The remaining sections document the existing experimental application, not
 the approved legacy-first design or new functionality.**

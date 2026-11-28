@@ -11,17 +11,17 @@ src/cc_vision_import/
     client.py          # Phase 1A: API/session ownership
     config.py          # Phase 1A: runtime inputs/settings
     files.py           # Phase 1A: strict JSON load/save
-    objects.py         # proposed Phase 1B: Sites/Devices
+    objects.py         # Phase 1B: Site/Device export only
     credentials.py     # future optional offline credential edits
     ldap.py            # future export_ldap/import_ldap
     scheduler.py       # future export_scheduler/import_scheduler
-ccv.py                 # proposed Phase 1B: simple master menu
+ccv.py                 # future separately approved simple master menu
 ```
 
-Only the three Phase 1A modules exist as part of this redesign. Functions and
+The owner accepted Phase 1A and authorized export-only Phase 1B. Functions and
 one small `ApiClient` suffice; no exporter/importer/service layers are planned.
-Export and import will operate independently. Domain-specific ID/root mapping
-belongs in the future objects module, not the foundation.
+Export and import operate independently. The objects module now collects source
+relationships; future destination/root mapping remains outside the foundation.
 
 The foundation reuses existing authentication strategies, transport and HTTPS
 backend, TLS policy validation and strict JSON parsing. It does not instantiate
@@ -43,6 +43,12 @@ closes on success/failure; explicit login/close are also available. No automatic
 login replay or write retry occurs. Finite runtime operations are plain
 method/path-segment tuples, not a plugin or capability system.
 
+Phase 1B needs Device-IP and Site-ID reads discovered after hierarchy retrieval.
+The sole foundation addition is `ApiClient.authorize_gets`, which exposes the
+existing finite backend GET-target helper, using validated path segments and
+the client's fixed origin. It cannot add POST/PUT authorization. No existing
+experimental module or shared backend is changed in Phase 1B.
+
 TLS is verified by default. An unverified client requires fresh constructor
 authorization and warns before backend creation. Transport bounds connect/read
 timeouts, the checked overall request deadline and response size (16 MiB).
@@ -63,14 +69,38 @@ flag without introducing an object state machine.
 File helpers preserve JSON/deviceAccess values, reject duplicate keys and
 nonfinite numbers (including overflowing exponents), and serialize before
 opening output so invalid data cannot truncate a prior file. New POSIX files are
-created mode 0600; existing permissions and Windows ACLs require operator care.
+created mode 0600. Phase 1B closure replaces truncating saves with a same-directory
+private temporary file and atomic os.replace after successful writing/closing.
+Failed writes preserve existing output; temporary files are removed on failure.
+This is single-file replacement, not backup rotation, journaling or recovery.
+Windows directory ACLs still require operator care.
 There are no envelopes, backups, journals or databases in these helpers.
 
-Future Phase 1B will retain recursive hierarchy export, add explicit source-root
-metadata beside `sites`/`devices`, create Sites before Devices, resolve destination
-parents without root fallbacks, and use minimal legacy payloads. It requires
-separate implementation approval; credential editing, LDAP and Scheduler remain
-outside that phase unless separately authorized.
+Phase 1B's `export_objects(config, outputs, ...)` owns one authenticated source
+session for Physical, Organization or both. Caller-supplied distinct filenames
+select the trees. It retrieves native roots, traverses Sites recursively,
+projects exactly the legacy Site/Device fields, and reads each Device's access
+using its management IP. Names/parents are obtained from containment; missing
+Site/root names use the source Site-by-ID endpoint. Missing identities, duplicate
+identities or unsupported/malformed nodes fail explicitly rather than losing
+objects or substituting root parents.
+
+The only format addition is `source_root: {id, name}` beside `sites` and
+`devices`. Supported access/credential values are preserved in a deep copy;
+only the access object's server-owned ormID is removed. Exact synthetic JSON is
+in the [README](../README.md#phase-1b-export-interface-and-portable-json).
+
+Each tree has an independent SUCCESS/FAILED result. No file is written until all
+its collection/access reads succeed. File-write failure is explicit; cleanup
+failure is separately marked and cannot leave a SUCCESS result. Independent
+trees continue after recoverable tree failures without retries or re-login.
+An authentication/session failure cannot be bypassed by creating a new session.
+Empty valid roots produce successful empty arrays, not guessed inventories.
+
+No import, destination communication, object POST/PUT, update, transformation,
+LDAP, Scheduler, menu, deployment or recovery/journal feature is implemented.
+Phase 1C independent Site/Device import is authorized after passing/committed
+Phase 1B closure. Menu work remains a later separately approved phase.
 
 ## Simplified MVP consolidation - 2026-11-22
 

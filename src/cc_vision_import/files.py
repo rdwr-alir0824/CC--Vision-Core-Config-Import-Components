@@ -3,6 +3,7 @@
 import json
 import math
 import os
+import tempfile
 from pathlib import Path
 from typing import TypeGuard
 
@@ -61,9 +62,29 @@ def save_json(path: str | Path, data: JsonValue) -> None:
         text = serialize_json(data)
     except ValueError:
         raise JsonFileError("Invalid or unsupported JSON data.") from None
+    temporary: Path | None = None
+    error: JsonFileError | None = None
     try:
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(text + "\n")
+        destination = Path(path)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=destination.parent,
+            prefix=".ccv-json-", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            payload = text + "\n"
+            if stream.write(payload) != len(payload):
+                raise OSError("Incomplete temporary JSON write.")
+        os.replace(temporary, destination)
+        temporary = None
     except (OSError, UnicodeError):
-        raise JsonFileError("Cannot write JSON file.") from None
+        error = JsonFileError("Cannot write JSON file.")
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                if error is None:
+                    raise JsonFileError("Cannot clean up temporary JSON file.") from None
+                error.add_note("Temporary JSON file cleanup failed.")
+    if error is not None:
+        raise error from None

@@ -8,13 +8,24 @@ The redesign is independent of the experimental migration implementation and
 historical qualification runs. Older foundation statements below are retained
 as dated history, not current implementation instructions.
 
-Task **CCV-LF-1A** authorizes foundation only: new
+Task **CCV-LF-1A** implemented the now owner-approved foundation: new
 [client](../src/cc_vision_import/client.py),
 [configuration](../src/cc_vision_import/config.py) and
 [JSON helpers](../src/cc_vision_import/files.py), offline/mocked tests and
 existing-document updates. These are implemented; verification evidence is in
 [PROGRESS.md](PROGRESS.md#ccv-lf-1a---legacy-first-foundation).
-No Site/Device domain or master CLI is implemented in this phase.
+Its local checkpoint is `c0d6b98854cc9ede3a398a476005ce2a494c6e3a`;
+only approved Phase 1A changes were staged. The pre-existing tracker edit was
+left unstaged and preserved; no push occurred.
+
+**CCV-LF-1B** authorizes generic Site/Device export only:
+[objects.py](../src/cc_vision_import/objects.py) and a dedicated offline/mocked
+test module. Source Physical/Organization roots, recursive Sites/Devices,
+source parent relationships and copied deviceAccess are exported independently.
+The exact JSON is `source_root`, `sites`, `devices`; there is no backup envelope,
+destination metadata or migration-state dependency. The only foundation change
+exposes existing finite, same-origin GET authorization for dynamically discovered
+source IDs/IPs. No experimental implementation or launcher is changed.
 
 Operational controller addresses, credentials, hierarchy names, Device types,
 management addresses and IDs must come from runtime inputs, exported JSON or
@@ -25,11 +36,21 @@ portable. Synthetic tests use independent source/destination identities.
 Excluded: changes to experimental workflows, historical artifacts as inputs,
 journals, recovery/resume/rollback engines, capability registries, databases,
 deployment changes, customer-specific behavior and unapproved features.
-Legacy sources remain read-only. No live requests, Git staging, commits or
-pushes are authorized. Phase 1B needs separate approval.
+Legacy sources remain read-only. Phase 1A staging/local commit was explicitly
+authorized; Phase 1B staging/local commit is authorized after passing closure.
+Pushes and live requests are not authorized.
+Import, destination object writes, Device updates, credential transformations,
+LDAP, Scheduler and master CLI/menu remain out of Phase 1B scope.
+Phase 1C requires separate implementation approval.
+
+The owner conditionally approved Phase 1B and authorized closure: atomic
+single-file JSON saves, explicit portable importer contract, final complete
+regressions including skipped reasons, complete diff review and local checkpoint
+excluding the historical tracker edit. Phase 1C import-only implementation is
+authorized only after that closure passes; no master menu or live calls.
 
 Source-observed API intent, mocked validation and exact live-verified behavior
-remain separate evidence levels. Phase 1A establishes no live product/version
+remain separate evidence levels. These phases establish no live product/version
 compatibility or credential-portability certification.
 
 Date: 2026-11-17  
