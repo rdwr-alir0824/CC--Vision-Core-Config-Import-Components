@@ -1,5 +1,32 @@
 # Architecture Decision Register
 
+## LF-005 - thin confirmed master CLI, 2026-11-27
+
+Status: owner-authorized Phase 1D after passing/committed 1C closure
+(`b7ba305279c39d030cd2f3f77a137dd0795e9942`). Closure passed complete review;
+owner authorized local checkpoint/tag. Offline only; no push or live permission.
+
+Add only ccv.py and its tests. Reuse prompt_config and export/import functions.
+Runtime inputs, hidden passwords, verified TLS, fresh session exceptions,
+existing-file replacement confirmation and two-stage import consent are UI
+concerns; API/traversal/JSON/business logic stays in the existing modules.
+
+A concrete requirement needs inspect_import's validated metadata-only preview
+and optional confirm_destination hook after root discovery/before writes.
+Existing programmatic imports omitting the hook remain unchanged. The hook uses
+the actual consumed input and destination metadata; no stale root assumptions.
+Login Ctrl+C cleanup was reproduced as zero close calls before context entry;
+extend the existing ClientError cleanup path to Ctrl+C/EOF only. No shared
+experimental/backend/TLS change. Refuse getpass's echo fallback rather than
+silently exposing a password in noninteractive environments.
+
+Expose the foundation's live-dispatch switch as --allow-live, default disabled,
+requiring separate target approval; the flag is not permission. Three readbacks,
+no automatic retry/rollback, no persistent state or payload logging remain.
+Options 3-7 are unimplemented and perform no operations. No new dependencies,
+launchers/deployment changes or additional production modules.
+Phase 1E is a separate proposed lab qualification gate, not automatic next work.
+
 ## LF-004 - simple independent import, 2026-11-27
 
 Status: owner-authorized Phase 1C implemented after closure passed and checkpoint

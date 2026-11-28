@@ -9,8 +9,9 @@ milestones below. Those records and implementations remain preserved.
 | --- | --- | --- | --- |
 | CCV-LF-1A | New client/config/files, compatible shared reuse, focused offline tests, documentation | Approved legacy-first design; original scripts and reusable HTTP/TLS/JSON code | Owner-approved; checkpoint c0d6b98854cc9ede3a398a476005ce2a494c6e3a. Offline/mocked only. |
 | CCV-LF-1B | Generic Physical/Organization Site/Device export only | Approved 1A foundation; original downloader | Closure passed offline; checkpoint 0ee1b142fbcf07fc593f249b02f8713c50f5db2c. No live verification. |
-| CCV-LF-1C | Independent Site/Device import only | Passing/committed 1B closure; original uploader | Offline acceptance passed: 97 focused; 888 full tests, 886 passed/two environment skips. Owner review pending; uncommitted. |
-| Proposed CCV-LF-1D | Basic master menu dispatch to approved export/import | Reviewed export/import interfaces; separate approval | Deferred; no CLI/menu implemented. LDAP/Scheduler entries may say not implemented. |
+| CCV-LF-1C | Independent Site/Device import only | Passing/committed 1B closure; original uploader | Closure passed; checkpoint b7ba305279c39d030cd2f3f77a137dd0795e9942. Offline only. |
+| CCV-LF-1D | Thin master CLI over approved export/import | Passing/committed 1C closure; existing foundation | Closure passed; local checkpoint/tag authorized. 134 focused; 925 full tests, 923 passed/two accepted environment skips. |
+| CCV-LF-1E preparation | Linux deployment and fresh lab qualification instructions only | Offline-qualified 1D checkpoint; separate execution approval | Preparation authorized. No deployment, live qualification or new domains authorized. |
 | Future optional credentials | CLI/HTTP/HTTPS/SNMPv3 JSON edits and separately approved Device updates | Portable exports; approved destination lookup/update behavior | Deferred. |
 | Future LDAP | Independent export/import functions, preserving authorization semantics | Original LDAP behavior; explicit scope approval | Deferred; no implementation. |
 | Future Scheduler | Independent export/import functions | Concrete configured endpoints and task behavior; explicit approval | Deferred; no implementation. |
@@ -34,7 +35,37 @@ Import approval is separate from any future master menu or live-call permission.
 Each phase has its own owner review gate. No journals, recovery/resume engines,
 capability registries, databases, deployment changes or unrelated features.
 Offline test success does not authorize live calls or certify product versions.
-See [current progress](PROGRESS.md#ccv-lf-1b---generic-sitedevice-export-only).
+See [current progress](PROGRESS.md#ccv-lf-1d---thin-master-cli).
+
+## Proposed Phase 1E - bounded live qualification
+
+Proposal only; obtain explicit owner approval before any live request.
+
+1. Approve exact source/destination products, versions, lab addresses/accounts,
+   permitted source reads and destination creates, selected trees/roots, TLS
+   policy and protected output paths. Prefer verified TLS/trusted certificates.
+   Do not put operational credentials or exports in Git.
+2. Prepare small, generic isolated lab hierarchies with nested Sites, direct-root
+   and nested Devices. Review destination inventory/IP conflicts and establish
+   an operator-controlled backup/manual cleanup plan; no automatic rollback.
+3. Launch the documented CLI with --allow-live only after authorization. Export
+   selected trees into protected files; inspect completeness/parent relationships
+   without printing credentials. Confirm any replacement explicitly.
+4. Import one approved file/tree at a time. Review source root/counts and actual
+   discovered destination root; explicitly confirm both stages. Verify created
+   names/types/IPs/placement and independent destination IDs using GUI or approved
+   existing GET endpoints. Check supported credential usability separately using
+   approved methods; do not assume masked/encrypted secrets are portable.
+5. On an approved repeat, correctly existing objects should skip. Review conflicts
+   and failed branches without automatic updates/moves/deletes. Stop on uncertain
+   creation, timeout or delayed completion; inspect destination manually before
+   considering any separately approved repeat. Do not expand readback speculatively.
+6. Record product/version-specific live evidence in API_MATRIX and PROGRESS,
+   distinguishing source-observed, documented, mocked and live-tested behavior.
+   Keep secrets and sensitive operational outputs outside repository reports.
+
+No utility-server deployment, customer-specific behavior, credential
+transformation, Device update, LDAP/Scheduler or experimental-engine changes.
 
 Date: 2026-11-19
 Status: **CCV-001 architectural baseline approved; CCV-002 completion confirmed

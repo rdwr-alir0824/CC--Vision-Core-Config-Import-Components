@@ -2,6 +2,108 @@
 
 Last updated: 2026-11-27
 
+## CCV-LF-1D closure - local offline-qualified checkpoint
+
+- Objective/priority: P0; review and checkpoint the completed thin CLI before
+  instructions-only Phase 1E preparation.
+- Dependencies/approval: approved HEAD b7ba305279c39d030cd2f3f77a137dd0795e9942;
+  owner conditionally accepted 1D and authorized a local commit plus annotated
+  tag. No deployment, live requests, pushes or new functionality.
+- Implementation/evidence: complete tracked diff and both new source/test files
+  reviewed. Existing synthetic mocks generated fresh actual portable JSON and
+  captured exact Site/Device POST payloads; two Sites/two Devices confirmed.
+  Complete actual menu and --help reconfirmed. Option 8 is the previously
+  authorized clean exit, not another domain. --allow-live exposes existing
+  dispatch consent without replacing owner permission/TLS/write confirmations.
+- Verification: production/tests unchanged since the final full run below:
+  925 tests, 923 passed/two accepted environment skips; no unnecessary rerun.
+  Current CLI-only reconfirmation: 37 passed in 2.890s. CPython 3.13.14,
+  OpenSSL 3.0.21; imports/menu/help passed with python -S -B, without site-packages.
+  Pylance workspace requests/urllib3 imports are not new runtime dependencies.
+  Windows launch verified; equivalent Linux commands documented but untested.
+- Scope/files: approved 1D source/test and seven existing project documents only.
+  No real credentials/session information, sensitive exports, generated files
+  or static operational targets included. API paths, UI choices, timeouts and
+  safe filename defaults are functional constants, not customer configuration.
+  Legacy, experimental engine, existing launchers and deployment remain unchanged.
+  The historical RecoveryLedger tracker blank line stays excluded from staging.
+- Assessment: closure passed; no material architectural deviation. No changes
+  to import/readback/authentication/TLS behavior during closure.
+- Checkpoint next: feat: implement legacy-first Phase 1D master CLI; annotated
+  local tag checkpoint/legacy-first-offline-qualified. Verify tag/commit after
+  creation; no push. Phase 1E preparation is documentation only after checkpoint.
+- Known blockers/next action: no offline closure blocker. Linux deployment and
+  live compatibility/credential portability remain untested and require owner
+  approval before execution.
+
+## CCV-LF-1D - thin master CLI
+
+- Objective/priority: P1; one simple interactive menu over independent approved
+  export/import functions, with runtime settings and explicit confirmations.
+- Dependencies/approval: passing Phase 1C closure and local checkpoint
+  `b7ba305279c39d030cd2f3f77a137dd0795e9942`; owner authorized CLI/offline tests/
+  existing documentation only. No live calls, deployment, experimental engine
+  changes, Phase 1D commit/push or automatic Phase 1E.
+- Implementation: added [ccv.py](../src/cc_vision_import/ccv.py), using approved
+  prompt_config, export_objects and import_objects. No API/JSON/traversal/parent/
+  object-creation logic is duplicated. Options 3-7 explicitly remain unimplemented.
+- Necessary interface adjustment in [objects.py](../src/cc_vision_import/objects.py):
+  inspect_import reuses strict loading/validation and exposes only root/counts.
+  Optional confirm_destination receives metadata after destination discovery and
+  before object writes; default None preserves existing programmatic behavior.
+  Missing older-file root has an explicit source_root_required code. CLI
+  confirmation uses actual consumed input and discovered root, not a stale
+  preflight assumption. No readback expansion or import-engine redesign.
+- Necessary cancellation fix in [client.py](../src/cc_vision_import/client.py):
+  observed login Ctrl+C called local close zero times because __enter__ had not
+  completed. Existing login failure cleanup now also handles KeyboardInterrupt/
+  EOFError; ordinary ClientError behavior unchanged. This legacy-first client is
+  separate from the experimental engine; no shared backend/TLS module changed.
+- Inputs/safety: hidden getpass password input, refusing echo fallback; verified
+  TLS default and fresh explicit session exception; output filenames with
+  existing-file confirmation; two import confirmations, one before login and one
+  after root discovery. No Device access/credentials/cookies printed. Cancellation
+  defaults deny writes; session cleanup and uncertainty are reported explicitly.
+  Live dispatch defaults disabled; --allow-live exposes the existing switch only
+  for separately approved future systems.
+- Files added: ccv.py, [test_legacy_cli.py](../tests/test_legacy_cli.py).
+  Files modified: client.py, objects.py, README and six existing project docs.
+  No dependencies, additional production modules, launchers, legacy/experimental
+  or deployment files changed. Historical tracker edit remains preserved.
+- Launch verification: with repository src on PYTHONPATH,
+  `python -m cc_vision_import.ccv` ran and exited with option 8; --help also passed.
+  Used PYTHONDONTWRITEBYTECODE=1 for the check; no generated artifacts/live calls.
+- Focused verification: final
+  `python -S -B -m unittest test_legacy_cli test_legacy_object_imports test_legacy_object_exports test_legacy_foundation`
+  passed **134 tests in 16.203s** (37 CLI + 97 existing legacy-first tests).
+  Includes actual-client memory tests of root cancellation with zero object
+  POSTs, post-confirmation creation, login interruption cleanup, safe authentication
+  errors, menu/input/TLS/overwrite/legacy-root flows, counts and secret-free output.
+  Production diagnostics and new CLI/test syntax checks passed.
+- Full verification: final frozen code and documentation passed complete offline
+  unittest discovery: **925 tests in 716.288s; 923 passed/two skipped**.
+  Executed with python -S -B -, unittest.main discovery -s .\tests and explicit
+  skipped-ID/reason reporting. Skips:
+  - test_compose_deployment.ComposeDeploymentTests.test_docker_compose_configuration_when_available:
+    Docker/Compose unavailable; runtime schema validation not performed.
+  - test_site_migration.SiteMigrationTests.test_tty_authorization_supports_arrow_and_backspace_editing:
+    Real POSIX TTY/readline editing requires Linux/macOS.
+  All 37 CLI tests ran; none skipped. Backend guards: zero network attempts/
+  1,080 observations and zero real dispatch attempts/144 observations. Schema:
+  zero/435 observations. Supervised offline: zero network/process/live attempts/
+  1,650 observations. Expected parser-rejection messages were not test failures.
+- Review/status: complete new CLI/test files and code/documentation diffs
+  reviewed. Only approved changes and synthetic fixtures; no operational
+  secrets, sensitive exports, generated artifacts, experimental/legacy/launcher/
+  deployment changes. Historical tracker-only blank line remains preserved.
+  Offline acceptance passed; implementation complete within approved scope,
+  owner review pending. No live compatibility/credential portability claim.
+- Limitations/blockers: accepted foundation/import limitations unchanged; three
+  immediate readbacks, no rollback/concurrent-writer guarantee, remote logout/
+  hard DNS cancellation or live verification. Hidden input requires a terminal.
+- Next action: stopped after 1D, uncommitted, for owner review. Phase 1E requires
+  explicit approval of exact lab systems, permissions, TLS and read/write scope.
+
 ## CCV-LF-1C closure - approved import checkpoint
 
 - Priority/dependencies: P0 checkpoint before Phase 1D; final approved import
@@ -18,10 +120,13 @@ Last updated: 2026-11-27
   legacy scripts, launchers and deployment files remain unchanged.
 - Preserve the historical tracker-only blank line outside the checkpoint index.
   Git whitespace check passed. No live calls or push.
-- Status: closure passed; authorized local checkpoint next. Accepted readback,
-  rollback/concurrency/live-verification/foundation limitations remain unchanged.
-- Next action: create the exact owner-requested Phase 1C commit, then implement
-  separately authorized thin Phase 1D CLI and offline tests.
+- Status: closure passed; local checkpoint
+  `b7ba305279c39d030cd2f3f77a137dd0795e9942`,
+  `feat: implement legacy-first Phase 1C object import`, required co-author trailer.
+  Nine approved files, 1,095 insertions/23 deletions. Only the historical tracker
+  blank line remained unstaged immediately after commit; no push.
+- Next action: separately authorized Phase 1D is tracked above. Accepted
+  readback/rollback/concurrency/live-verification/foundation limits unchanged.
 
 ## CCV-LF-1C - independent Site/Device import
 

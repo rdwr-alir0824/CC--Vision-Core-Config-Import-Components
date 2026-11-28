@@ -2,7 +2,7 @@
 
 import warnings
 from collections import deque
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -244,6 +244,16 @@ class ImportResult:
         }
 
 
+@dataclass(frozen=True)
+class ImportSummary:
+    source_root_id: str
+    source_root_name: str
+    site_count: int
+    device_count: int
+    destination_root_id: str | None = None
+    destination_root_name: str | None = None
+
+
 def _cleanup_failed(error: BaseException) -> bool:
     return "Local API session cleanup failed." in getattr(error, "__notes__", ())
 
@@ -253,6 +263,8 @@ def _validate_import(
 ) -> tuple[dict[str, JsonValue], list[dict[str, JsonValue]], list[dict[str, JsonValue]]]:
     try:
         document = _object(data, "input")
+        if "source_root" not in document and explicit_root is None:
+            raise ImportError("source_root_required", "source_root")
         if explicit_root is not None:
             _object(explicit_root, "explicit_source_root")
         root = _object(document.get("source_root", explicit_root), "source_root")
@@ -320,6 +332,35 @@ def _validate_import(
         raise ImportError(error.code, error.step) from None
 
 
+def _load_import(
+    input_path: str | Path, source_root: dict[str, JsonValue] | None,
+) -> tuple[dict[str, JsonValue], list[dict[str, JsonValue]], list[dict[str, JsonValue]]]:
+    try:
+        return _validate_import(load_json(input_path), source_root)
+    except JsonFileError:
+        raise ImportError("invalid_json_file", "input") from None
+
+
+def _import_summary(
+    root: dict[str, JsonValue], site_count: int, device_count: int,
+    destination_root: dict[str, JsonValue] | None = None,
+) -> ImportSummary:
+    return ImportSummary(
+        _text(root.get("id"), "source_root"), _text(root.get("name"), "source_root"),
+        site_count, device_count,
+        None if destination_root is None else _text(destination_root.get("id"), "destination_root"),
+        None if destination_root is None else _text(destination_root.get("name"), "destination_root"),
+    )
+
+
+def inspect_import(
+    input_path: str | Path, *, source_root: dict[str, JsonValue] | None = None,
+) -> ImportSummary:
+    """Validate a portable file and return only noncredential confirmation fields."""
+    root, sites, devices = _load_import(input_path, source_root)
+    return _import_summary(root, len(sites), len(devices))
+
+
 def _site_paths(
     root: dict[str, JsonValue], sites: list[dict[str, JsonValue]],
 ) -> dict[str, tuple[str, ...]]:
@@ -385,14 +426,14 @@ def import_objects(
     tls_exception_authorized: bool = False,
     connection_factory: ConnectionFactory | None = None,
     allow_live: bool = False,
+    confirm_destination: Callable[[ImportSummary], bool] | None = None,
 ) -> ImportResult:
     """Validate a portable file, then map its root to the explicitly selected tree."""
     if tree not in ("Physical", "Organization"):
         raise ImportError("invalid_tree_selection", "configuration")
-    try:
-        root, sites, devices = _validate_import(load_json(input_path), source_root)
-    except JsonFileError:
-        raise ImportError("invalid_json_file", "input") from None
+    if confirm_destination is not None and not callable(confirm_destination):
+        raise ImportError("invalid_confirmation_callback", "configuration")
+    root, sites, devices = _load_import(input_path, source_root)
     source_paths = _site_paths(root, sites)
     expected_paths = set(source_paths.values())
     results: list[ObjectImportResult] = []
@@ -416,6 +457,12 @@ def import_objects(
         with client:
             step = "destination_hierarchy"
             destination = _destination_rows(client, tree)
+            if confirm_destination is not None:
+                step = "destination_confirmation"
+                if confirm_destination(
+                    _import_summary(root, len(sites), len(devices), destination[0]),
+                ) is not True:
+                    raise ImportError("import_cancelled", "destination_confirmation")
             mapping = {
                 _text(root.get("id"), "root"):
                 _text(destination[0].get("id"), "destination_root"),
@@ -476,7 +523,7 @@ def import_objects(
         cleanup_failed = cleanup_failed or _cleanup_failed(error) or failed_step == "session_cleanup"
     except RecursionError:
         error_code, failed_step = "hierarchy_too_deep", step
-    if error_code:
+    if error_code and error_code != "import_cancelled":
         for kind, row in objects[len(results):]:
             results.append(ObjectImportResult(
                 kind, _text(row.get("id"), "objects"), "FAILED", "not_processed:" + error_code,

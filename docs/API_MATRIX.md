@@ -1,5 +1,28 @@
 # API Evidence and Compatibility Discovery Matrix
 
+## Legacy-first CLI orchestration - CCV-LF-1D, 2026-11-27
+
+The CLI adds **no endpoints**. It invokes approved source export and destination
+import, preserving one authentication per operation and the existing three
+readbacks. Validation is offline/mocked only; no live calls or product/version
+certification. Existing endpoint evidence below remains unchanged.
+
+inspect_import is local strict JSON validation, not an API operation. The
+optional destination-confirmation hook runs after selected-tree GET discovery
+and before Site/Device POSTs. Cancellation performs no object writes and closes
+the session. CLI TLS exceptions are explicitly origin/session scoped, default
+verified; --allow-live exposes existing dispatch only after separate approval.
+Login Ctrl+C/EOF now uses the existing failure cleanup path; no remote logout
+endpoint was invented.
+
+Actual focused evidence: 134 tests passed, including 37 new CLI cases and
+actual-client memory connections for confirmation, cancellation, cleanup and
+safe failures. Final complete regressions: 925 tests, 923 passed/two
+environment-dependent skips, zero observed network attempts. Evidence is in
+[PROGRESS](PROGRESS.md#ccv-lf-1d---thin-master-cli).
+Proposed live qualification requires exact approved lab products/versions,
+read/write/TLS scope and protected files; see [ROADMAP](ROADMAP.md#proposed-phase-1e---bounded-live-qualification).
+
 ## Legacy-first destination import - CCV-LF-1C, 2026-11-27
 
 Primary behavioral reference:

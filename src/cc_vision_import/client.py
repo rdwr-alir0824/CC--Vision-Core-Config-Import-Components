@@ -156,7 +156,7 @@ class ApiClient:
             self._authenticated = True
             if not self._strategy.retain_credentials:
                 self._credentials = None
-        except ClientError as error:
+        except (ClientError, KeyboardInterrupt, EOFError) as error:
             try:
                 self.close()
             except ClientError:

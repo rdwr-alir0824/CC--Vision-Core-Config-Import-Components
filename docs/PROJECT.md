@@ -58,8 +58,24 @@ communication, automatic retries, advanced contract gates or new dependencies.
 Dedicated synthetic tests cover successful/skipped/failed objects and safe
 errors/cleanup. Final offline acceptance: 97 focused tests passed; 888 complete
 regressions, 886 passed/two environment-dependent skips. Phase 1C remains
-uncommitted and not live-qualified. Device updates, transformations,
-LDAP/Scheduler, master menu, deployment and live qualification remain excluded.
+not live-qualified. Its closure checkpoint is
+`b7ba305279c39d030cd2f3f77a137dd0795e9942`; only approved code/tests/docs staged,
+preserving the historical tracker edit. No push.
+
+**CCV-LF-1D** adds the authorized thin master CLI and dedicated offline tests.
+It reuses runtime configuration and independent export/import; safe validated
+previews and an optional post-discovery confirmation hook are the only import
+interface changes. Login interruption cleanup addresses a demonstrated Ctrl+C
+gap without modifying the experimental engine. TLS remains verified by default,
+passwords hidden, writes/replacements explicitly confirmed, live dispatch opt-in
+and separately authorized. No new dependencies, deployment or launcher changes.
+Phase 1D passed offline acceptance: 134 focused tests; 925 full tests,
+923 passed/two environment-dependent skips. Closure passed complete review with
+unchanged production/tests; the owner authorized a local checkpoint and annotated
+checkpoint/legacy-first-offline-qualified tag. Linux/live verification remains
+unperformed; only subsequent deployment/qualification instructions are authorized.
+Device updates, transformations, LDAP/Scheduler,
+deployment and Phase 1E live qualification remain excluded.
 
 Source-observed API intent, mocked validation and exact live-verified behavior
 remain separate evidence levels. These phases establish no live product/version

@@ -15,7 +15,7 @@ src/cc_vision_import/
     credentials.py     # future optional offline credential edits
     ldap.py            # future export_ldap/import_ldap
     scheduler.py       # future export_scheduler/import_scheduler
-ccv.py                 # future separately approved simple master menu
+    ccv.py             # Phase 1D: thin python -m entry point
 ```
 
 The owner accepted Phase 1A and authorized export-only Phase 1B. Functions and
@@ -113,8 +113,20 @@ is no journal or object state machine. Destination traversal reuses the export
 walker with access enrichment disabled, preserving its export default.
 
 Config/client/files need no Phase 1C changes. No Device update, transformation,
-LDAP, Scheduler, menu, deployment or recovery/journal feature is implemented.
-Menu work remains a later separately approved phase.
+LDAP, Scheduler, deployment or recovery/journal feature is implemented.
+Phase 1D's ccv.py is a thin menu over these functions, using prompt_config and
+runtime filenames/TLS/tree inputs. No direct API calls or JSON decoding in the
+CLI. inspect_import exposes only validated source-root metadata/counts; optional
+confirm_destination is called after destination discovery but before object
+writes, so the actual root can be confirmed. Existing callers omitting it retain
+their previous behavior. Readback remains exactly the accepted three attempts.
+
+Pre-login and post-discovery confirmations default to cancel; output replacement
+also requires approval. CLI password input refuses getpass's echo fallback.
+The client extends existing login cleanup only to Ctrl+C/EOF, since interruption
+before __enter__ completes otherwise bypasses context-manager cleanup.
+--allow-live exposes the existing dispatch opt-in, defaults disabled and is not
+an authorization grant. No launchers/deployment or experimental engine change.
 
 ## Simplified MVP consolidation - 2026-11-22
 

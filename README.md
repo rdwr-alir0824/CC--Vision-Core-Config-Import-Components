@@ -22,6 +22,7 @@ migration engine described in the historical usage below.
 reference. There is no import, new master entry point, credential editor, LDAP
 or Scheduler implementation in Phase 1B. **Phase 1C adds independent Site/Device
 import** in the same module; no master entry point, editor, LDAP or Scheduler.
+**Phase 1D adds a thin master menu** in [ccv.py](src/cc_vision_import/ccv.py).
 Existing experimental commands,
 deployment files and historical qualification data remain unchanged; they are
 not dependencies of the redesign. See the current sections of
@@ -37,7 +38,7 @@ only login is automatically included. The export module adds discovered GET
 targets through `authorize_gets`, which cannot authorize POST/PUT or another
 origin. This is not a capability registry. `allow_live=True` is an explicit
 dispatch switch, not permission to contact a controller: no live access is
-authorized for Phase 1A, Phase 1B or Phase 1C.
+authorized for Phase 1A, Phase 1B, Phase 1C or Phase 1D.
 
 Remote logout is not implemented: legacy Scheduler logout is configurable and
 its concrete binding is unavailable in the present reference files. Local
@@ -56,7 +57,7 @@ Timeouts/deadlines are bounded, but hard DNS cancellation is not guaranteed.
 Offline validation (set `PYTHONPATH` to `src` and `tests`):
 
 ```text
-python -S -B -m unittest test_legacy_object_imports test_legacy_object_exports test_legacy_foundation
+python -S -B -m unittest test_legacy_cli test_legacy_object_imports test_legacy_object_exports test_legacy_foundation
 python -S -B -m unittest discover -s tests
 ```
 
@@ -228,8 +229,128 @@ Live API/version compatibility and cross-controller secret portability remain
 unverified. Three immediate readbacks may not cover slow asynchronous operations;
 FAILED/uncertain requires operator review, not automatic rerunning. There is no
 rollback or reconciliation of uncertain writes, nor a concurrency guarantee
-against other controller writers. Phase 1D proposes a separately approved basic
-master menu; it is not implemented.
+against other controller writers. The Phase 1D master menu below is implemented;
+live qualification requires separate Phase 1E approval.
+
+### Phase 1D master CLI
+
+From the repository root in the VS Code PowerShell terminal:
+
+```powershell
+Set-Location 'C:\DATA\Scripts\CC -Vision Core Config Import Components'
+$env:PYTHONPATH = "$PWD\src"
+python -m cc_vision_import.ccv
+```
+
+This exact src-layout invocation and `python -m cc_vision_import.ccv --help`
+were executed successfully with safe menu exit. No package installation,
+launcher or deployment change is required. Normal operation needs an interactive
+terminal for hidden password input; the CLI refuses getpass's echoing fallback.
+
+The menu displays:
+
+```text
+CC-Vision Core Config Import Components
+
+1. Export Sites and Devices
+2. Import Sites and Devices
+3. Modify exported credentials (Not implemented)
+4. Export LDAP configuration (Not implemented)
+5. Import LDAP configuration (Not implemented)
+6. Export Scheduler configuration (Not implemented)
+7. Import Scheduler configuration (Not implemented)
+8. Exit
+```
+
+Option 8 exits the menu with status 0 without starting an operation. It was
+explicitly included as "8. Exit" in the Phase 1D authorization; it is not an
+additional migration capability.
+
+Equivalent Linux invocation from an operator-selected checkout directory:
+
+```bash
+cd -- "$APP_DIR"
+export PYTHONPATH="$PWD/src"
+python3 -m cc_vision_import.ccv
+python3 -m cc_vision_import.ccv --help
+```
+
+Linux instructions are untested, not Linux qualification evidence. The existing
+Windows runtime is CPython 3.13.14; imports/menu/help were reconfirmed with
+`python -S -B`, without site-packages. The new application requires no third-party
+Python packages. Workspace requests/urllib3 imports belong to legacy references,
+not this runtime. Use an existing CPython 3.13 runtime for initial lab preparation;
+other versions are not newly certified by this closure.
+
+**Live API dispatch is disabled by default.** The menu can be launched safely;
+an operation without live dispatch authorization fails explicitly, not with
+fake success. Only after separate owner approval for the actual systems:
+`python -m cc_vision_import.ccv --allow-live`. This switch enables the existing
+backend dispatch mechanism; it does not grant permission to contact a controller.
+No live API calls were made during Phase 1D.
+
+Export collects source product (Vision/Cyber Controller), controller address,
+username, hidden password, TLS selection, tree(s), and separate output filenames.
+Defaults are physical.json/organization.json in the current directory; parent
+directories must already exist. Files may contain sensitive Device credentials.
+Protect Windows directory ACLs and keep exports out of Git. Each existing output
+requires explicit replacement confirmation; blank/invalid/no cancels before
+dispatch. Both trees share the original single export session.
+
+Import collects the input filename, destination Cyber Controller settings/TLS
+and one explicitly selected destination tree. It delegates strict validation to
+objects.py before login; older files missing source_root request its explicit
+ID/name. The first summary shows destination, tree, filename, source root and
+counts, warns that objects are created, conflicts are not moved/updated/deleted,
+and automatic rollback is unavailable. Explicit confirmation allows login/
+discovery only. A second summary from the actual consumed input and discovered
+destination root requires another explicit confirmation **before object writes**.
+Blank, invalid or declined replies cancel. No Device access values are displayed.
+
+TLS verification defaults to enabled. Selecting unverified TLS requires a
+second explicit, origin/session-scoped authorization and warns that controller
+identity is NOT VERIFIED. Consent is never reused for the next operation.
+Ctrl+C/EOF exits gracefully; sessions close on cancellation/failure, including
+login interruption. Interrupted writes may have an uncertain destination
+outcome and require manual review before any repeat attempt.
+
+Export reports independent tree status, paths and available exported counts.
+Import reports SUCCESS/SKIPPED/FAILED counts and concise per-object failures,
+including uncertain creation. Options 3-7 return to the menu without network
+requests or file modifications. No retries, rollback, persistent state or
+sensitive-payload logging is added.
+
+Condensed synthetic examples of the tested interaction (passwords hidden):
+
+```text
+Export: option 1 -> Vision -> source.example.invalid -> synthetic-operator
+        -> [hidden password] -> verified TLS -> Both
+        -> physical.json and organization.json -> confirm replacement if present
+Physical: SUCCESS; output=...; Sites=1, Devices=1
+Organization: SUCCESS; output=...; Sites=1, Devices=1
+
+Import: option 2 -> portable-menu.json -> destination.example.invalid
+        -> synthetic-operator -> [hidden password] -> verified TLS -> Physical
+Source root: 'Mist Canopy'; ID='portable-root-81'; Sites=1, Devices=1
+Proceed to destination login/discovery? [y/N]: yes
+Destination root: 'Discovered Canopy'; ID='discovered-root-901'
+Create objects under this destination root? [y/N]: yes
+Sites: SUCCESS=0, SKIPPED=1, FAILED=0
+Devices: SUCCESS=1, SKIPPED=0, FAILED=0
+```
+
+These examples are offline/mocked evidence, not live compatibility claims.
+Final focused evidence: **134 tests passed** (37 CLI + 97 existing legacy-first).
+Final complete regressions: **925 tests in 716.288s; 923 passed/two skipped**.
+Skips: Docker/Compose unavailable; POSIX TTY/readline requires Linux/macOS.
+Actual commands and zero-network guard evidence are recorded in
+[PROGRESS](docs/PROGRESS.md#ccv-lf-1d---thin-master-cli).
+Readback remains three immediate attempts; no automatic rollback/concurrent-
+writer guarantee, live compatibility or credential-portability certification.
+The proposed, separately approved [Phase 1E procedure](docs/ROADMAP.md#proposed-phase-1e---bounded-live-qualification)
+starts with authorized lab targets and protected exports, verifies roots and
+basic identities manually, and stops on uncertain outcomes. No deployment,
+credential transformation, Device update, LDAP or Scheduler implementation.
 
 **The remaining sections document the existing experimental application, not
 the approved legacy-first design or new functionality.**
