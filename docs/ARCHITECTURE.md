@@ -11,7 +11,7 @@ src/cc_vision_import/
     client.py          # Phase 1A: API/session ownership
     config.py          # Phase 1A: runtime inputs/settings
     files.py           # Phase 1A: strict JSON load/save
-    objects.py         # Phase 1B: Site/Device export only
+    objects.py         # Phase 1B export / Phase 1C independent import
     credentials.py     # future optional offline credential edits
     ldap.py            # future export_ldap/import_ldap
     scheduler.py       # future export_scheduler/import_scheduler
@@ -97,10 +97,24 @@ trees continue after recoverable tree failures without retries or re-login.
 An authentication/session failure cannot be bypassed by creating a new session.
 Empty valid roots produce successful empty arrays, not guessed inventories.
 
-No import, destination communication, object POST/PUT, update, transformation,
+Phase 1C adds independent import in objects.py after passing/committed 1B
+closure. Strict portable input validation precedes login. A parent-first queue
+orders Sites; one destination session retrieves the explicitly selected tree
+and maps source root/Site IDs to API-returned destination native IDs. Existing
+Sites match within their parent/path; Device basic name/type/IP/placement
+agreement is enough, without access-value representation comparison.
+
+Only minimal legacy Site/Device POSTs occur. Three bounded immediate hierarchy
+GET readbacks confirm identity/placement; no job endpoint is invented. Uncertain
+outcomes fail without resubmission. Failed parent mappings prevent children,
+not unrelated valid branches. Root changes stop further writes. Results are
+small immutable records with per-object statuses and aggregate counts; there
+is no journal or object state machine. Destination traversal reuses the export
+walker with access enrichment disabled, preserving its export default.
+
+Config/client/files need no Phase 1C changes. No Device update, transformation,
 LDAP, Scheduler, menu, deployment or recovery/journal feature is implemented.
-Phase 1C independent Site/Device import is authorized after passing/committed
-Phase 1B closure. Menu work remains a later separately approved phase.
+Menu work remains a later separately approved phase.
 
 ## Simplified MVP consolidation - 2026-11-22
 

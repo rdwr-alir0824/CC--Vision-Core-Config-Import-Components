@@ -1,5 +1,30 @@
 # API Evidence and Compatibility Discovery Matrix
 
+## Legacy-first destination import - CCV-LF-1C, 2026-11-27
+
+Primary behavioral reference:
+[upload_cybercontroller_objects.py](../legacy/app/upload_cybercontroller_objects.py).
+All new validation is offline/mocked; no product/version is live-certified.
+
+| Operation | Source evidence | Implemented use / evidence |
+| --- | --- | --- |
+| POST `/mgmt/system/user/login` | Original uploader and approved foundation | Once per independent destination import, after complete input validation. Actual-client memory-tested; no live calls. |
+| GET `/mgmt/system/config/tree/Physical` or `/Organization` | Original uploader retrieves selected destination root | Dynamic root/parent inventory and up to three readbacks per creation. Source-observed endpoints; readback strategy mocked, not live-qualified. |
+| GET `/mgmt/system/config/tree/site/byid/{id}` | Original downloader; existing documented evidence below | Reused only for missing root/Site names in hierarchy projection. Native identity contradictions fail. No new endpoint. |
+| POST `/mgmt/system/config/tree/site` | Original upload_configuration Site loop | Exactly name and destination-resolved parentOrmID. One attempt; creation requires hierarchy identity/placement readback. Offline/mocked including actual-client write failures. |
+| POST `/mgmt/system/config/tree/device` | Original upload_configuration Device loop | Exactly name, destination parentOrmID, runtime type, deviceSetup.deviceAccess. Source IDs/top-level access ormID excluded; supported access fields retained. No updates, retries or live qualification. |
+
+No Site-by-name global matching or undocumented async-job endpoint is needed.
+Basic Device identity is name/type/management IP/parent from hierarchy responses;
+access-value equality is not a gate. HTTP/async acceptance alone is insufficient.
+Unconfirmed completion is FAILED/uncertain with no POST resubmission. Portable
+JSON and exact synthetic payloads are documented in
+[README](../README.md#phase-1c-independent-import).
+Final focused evidence: 97 passed (40 import/28 export/29 foundation).
+Final complete regressions: 888 tests, 886 passed/two environment-dependent
+skips, zero observed network attempts. Commands/timing/skipped reasons are in
+[PROGRESS](PROGRESS.md#ccv-lf-1c---independent-sitedevice-import).
+
 ## Legacy-first source export - CCV-LF-1B, 2026-11-27
 
 Phase 1B is export-only. The original

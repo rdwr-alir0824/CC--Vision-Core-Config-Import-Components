@@ -2,6 +2,105 @@
 
 Last updated: 2026-11-27
 
+## CCV-LF-1C closure - approved import checkpoint
+
+- Priority/dependencies: P0 checkpoint before Phase 1D; final approved import
+  implementation, strict portable contract and recorded offline regression run.
+- Approval: owner conditionally accepted 1C, accepted the two environment skips
+  and existing limitations, authorized closure/local commit followed by CLI only.
+- Closure verification: displayed actual synthetic exporter output and captured
+  exact Site/Device POST payloads from the importer. These are implemented
+  structures, not proposals. The complete 888-test run below covered unchanged
+  final 1C code/tests; current focused reconfirmation passed 97 tests in 13.279s.
+- Complete diff/new-test review: only approved objects implementation, synthetic
+  tests and seven existing documents. No real credentials, sensitive exports,
+  generated artifacts or unrelated changes included. Experimental engine,
+  legacy scripts, launchers and deployment files remain unchanged.
+- Preserve the historical tracker-only blank line outside the checkpoint index.
+  Git whitespace check passed. No live calls or push.
+- Status: closure passed; authorized local checkpoint next. Accepted readback,
+  rollback/concurrency/live-verification/foundation limitations remain unchanged.
+- Next action: create the exact owner-requested Phase 1C commit, then implement
+  separately authorized thin Phase 1D CLI and offline tests.
+
+## CCV-LF-1C - independent Site/Device import
+
+- Objective/priority: P1; generic import from the portable export into an
+  explicitly selected destination tree, without source communication.
+- Dependencies: passing Phase 1B closure and local checkpoint
+  `0ee1b142fbcf07fc593f249b02f8713c50f5db2c`; approved foundation and original
+  [uploader](../legacy/app/upload_cybercontroller_objects.py).
+- Approval: owner authorized import only after closure passed. No master menu,
+  Device updates, credential transformation, LDAP/Scheduler, live API calls,
+  experimental changes, new dependencies or Phase 1C commit/push.
+- Implementation: [objects.py](../src/cc_vision_import/objects.py) adds independent
+  import, structural validation before login, parent-first queue ordering,
+  root-relative Site placement checks and a simple in-memory destination ID map.
+  Existing recursive hierarchy projection is reused without access enrichment
+  on destination reads. The export default remains unchanged; shared read
+  errors now preserve the sanitized cleanup-failure note.
+- Contract: source_root `{id, name}`, sites
+  `{id, name, parentOrmID, parent_site_name}`, devices
+  `{id, name, type, managementIp, parentOrmID, deviceAccess}`. Strict JSON,
+  required scalar fields/access objects, unique identities, source-parent/name
+  agreement and acyclic Site relationships are validated before any POST.
+  Older files require explicit source-root identification. Supported access
+  fields remain opaque; no new protocol-specific mandatory fields.
+- Destination: one session reads Physical or Organization and maps source root
+  to its API-returned native ID. Sites match name within the mapped parent;
+  repeated names at different intended paths are independent. Existing Devices
+  skip only on name/type/IP/placement agreement. Conflicts/ambiguity fail without
+  moves/updates. Failed parents block children while unrelated branches continue.
+- Creation: only minimal legacy Site/Device POST payloads. No source IDs or
+  top-level access ormID; other access values are deep-copied unchanged. Up to
+  three immediate selected-tree GET readbacks establish identity/placement.
+  HTTP/async acceptance alone is insufficient. No POST retries, rollback or
+  recovery; unconfirmed outcomes are explicitly FAILED/uncertain.
+- Results: per-object type/source identity/status/static reason, accurate
+  Site/Device status counts and overall failure for object/global errors.
+  Confirmed results remain accurate when cleanup fails; overall status fails.
+  Raw responses, access values, credentials and cookies are never reported.
+- Files added: [test_legacy_object_imports.py](../tests/test_legacy_object_imports.py).
+  Files modified: objects.py, README and six current project documents. No
+  Phase 1A module or experimental/legacy/deployment file modified in Phase 1C.
+- Focused verification: final
+  `python -S -B -m unittest test_legacy_object_imports test_legacy_object_exports test_legacy_foundation`
+  with src/tests on PYTHONPATH: **97 passed in 18.890s**
+  (40 import, 28 export, 29 foundation).
+  Initial run exposed two incompatible test-double factory signatures; fixed
+  to the existing keyword timeout/context protocol, then all tests passed.
+  Actual-client memory tests prove one login, bounded reads, cleanup and exactly
+  one Site POST after a timeout or HTTP 500. Pylance production diagnostics and
+  source/test syntax checks passed.
+- Full verification: final frozen code passed complete offline unittest
+  discovery: **888 tests in 848.882s; 886 passed/two skipped**. Executed with
+  `python -S -B -`, unittest.main discovery `-s .\tests`, and explicit skipped
+  test-ID/reason reporting. Actual skips:
+  - test_compose_deployment.ComposeDeploymentTests.test_docker_compose_configuration_when_available:
+    Docker/Compose unavailable; runtime schema validation not performed.
+  - test_site_migration.SiteMigrationTests.test_tty_authorization_supports_arrow_and_backspace_editing:
+    Real POSIX TTY/readline editing requires Linux/macOS.
+  Backend guards: zero network attempts/1,080 observations and zero real
+  dispatch attempts/144 observations. Schema: zero/435 observations.
+  Supervised offline: zero network/process/live attempts/1,650 observations.
+  All 40 new import tests ran; none skipped. Acceptance passed offline/mocked
+  only; owner review pending, not live-qualified.
+- Review: complete production/documentation diff and new test module reviewed.
+  Only approved implementation, synthetic fixtures and documentation; no
+  operational secrets, sensitive exports, generated artifacts or unrelated
+  implementation changes. The historical tracker edit is explicitly preserved.
+  Documented JSON was parsed and validated by the actual importer validator,
+  including root/nested Device parents and exact minimal POST shapes.
+- Limitations: live product/version compatibility and encrypted/masked
+  credential portability unverified. Fixed three immediate readbacks may miss
+  slow completion; uncertain writes require operator review, not blind reruns.
+  No rollback, concurrent-writer guarantee, remote logout or hard DNS cancellation.
+- Git: Phase 1B closure commit contains 12 approved files, 1,157 insertions/
+  50 deletions; the historical tracker blank line remained outside its index.
+  Phase 1C is uncommitted; that pre-existing edit is still preserved.
+- Next action: stopped after Phase 1C for owner review. Proposed Phase 1D is a
+  basic master menu only, separately approved; no Phase 1C staging/commit or push.
+
 ## CCV-LF-1B closure - atomic files and portable importer contract
 
 - Objective/priority: P0 closure gate; finalize conditionally approved export
@@ -46,8 +145,12 @@ Last updated: 2026-11-27
 - Limitations: atomic visibility is single-file, not a multi-file transaction or
   crash-durability certification. Unremovable temporary files are reported, not
   hidden. Live product/API/credential portability remains unverified.
-- Next action: finish closure validation/review; commit only on pass with the
-  owner's exact message, then begin separately authorized import-only Phase 1C.
+- Checkpoint: `0ee1b142fbcf07fc593f249b02f8713c50f5db2c`,
+  `feat: implement legacy-first Phase 1B object export`, required co-author
+  trailer included. Only the pre-existing historical tracker edit remained
+  unstaged immediately after commit. No push.
+- Next action: closure passed and checkpoint created; import-only Phase 1C
+  implementation/evidence is tracked above.
 
 ## CCV-LF-1B - generic Site/Device export only
 

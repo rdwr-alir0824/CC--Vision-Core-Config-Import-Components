@@ -8,9 +8,9 @@ milestones below. Those records and implementations remain preserved.
 | Task | Scope | Dependencies | Approval / current status |
 | --- | --- | --- | --- |
 | CCV-LF-1A | New client/config/files, compatible shared reuse, focused offline tests, documentation | Approved legacy-first design; original scripts and reusable HTTP/TLS/JSON code | Owner-approved; checkpoint c0d6b98854cc9ede3a398a476005ce2a494c6e3a. Offline/mocked only. |
-| CCV-LF-1B | Generic Physical/Organization Site/Device export only | Approved 1A foundation; original downloader | Conditionally approved; atomic-save/format/full-regression/diff-review closure in progress. Local checkpoint authorized only on pass. |
-| CCV-LF-1C | Independent Site/Device import only | Passing/committed 1B closure; original uploader | Owner-authorized after the closure gate; not yet implemented. |
-| Future master menu | Basic dispatch to independently approved domains | Reviewed export/import interfaces; separate approval | Deferred; no CLI/menu implementation in 1B. |
+| CCV-LF-1B | Generic Physical/Organization Site/Device export only | Approved 1A foundation; original downloader | Closure passed offline; checkpoint 0ee1b142fbcf07fc593f249b02f8713c50f5db2c. No live verification. |
+| CCV-LF-1C | Independent Site/Device import only | Passing/committed 1B closure; original uploader | Offline acceptance passed: 97 focused; 888 full tests, 886 passed/two environment skips. Owner review pending; uncommitted. |
+| Proposed CCV-LF-1D | Basic master menu dispatch to approved export/import | Reviewed export/import interfaces; separate approval | Deferred; no CLI/menu implemented. LDAP/Scheduler entries may say not implemented. |
 | Future optional credentials | CLI/HTTP/HTTPS/SNMPv3 JSON edits and separately approved Device updates | Portable exports; approved destination lookup/update behavior | Deferred. |
 | Future LDAP | Independent export/import functions, preserving authorization semantics | Original LDAP behavior; explicit scope approval | Deferred; no implementation. |
 | Future Scheduler | Independent export/import functions | Concrete configured endpoints and task behavior; explicit approval | Deferred; no implementation. |
@@ -23,10 +23,12 @@ credential warning, explicit independent tree errors and session cleanup.
 No retries or historical qualification artifacts. Synthetic fixtures vary
 IDs, hierarchy names, model types and management addresses.
 
-Proposed Phase 1C: independently load these portable files, explicitly map the
+Implemented Phase 1C: independently load these portable files, explicitly map the
 source root to the selected destination root, resolve destination parents and
 identities, create Sites before Devices using minimal legacy POST payloads,
 and return SUCCESS/SKIPPED/FAILED without source-ID reuse or root fallback.
+Structural validation precedes login. Creation requires bounded hierarchy
+readback, not HTTP acceptance; uncertain writes are not automatically repeated.
 Import approval is separate from any future master menu or live-call permission.
 
 Each phase has its own owner review gate. No journals, recovery/resume engines,

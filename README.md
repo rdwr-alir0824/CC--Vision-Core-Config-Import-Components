@@ -20,7 +20,9 @@ migration engine described in the historical usage below.
 [objects.py](src/cc_vision_import/objects.py), using the original
 [object downloader](legacy/app/download_cybercontroller_objects.py) as the primary
 reference. There is no import, new master entry point, credential editor, LDAP
-or Scheduler implementation. Existing experimental commands,
+or Scheduler implementation in Phase 1B. **Phase 1C adds independent Site/Device
+import** in the same module; no master entry point, editor, LDAP or Scheduler.
+Existing experimental commands,
 deployment files and historical qualification data remain unchanged; they are
 not dependencies of the redesign. See the current sections of
 [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md) and
@@ -35,7 +37,7 @@ only login is automatically included. The export module adds discovered GET
 targets through `authorize_gets`, which cannot authorize POST/PUT or another
 origin. This is not a capability registry. `allow_live=True` is an explicit
 dispatch switch, not permission to contact a controller: no live access is
-authorized for Phase 1A or Phase 1B.
+authorized for Phase 1A, Phase 1B or Phase 1C.
 
 Remote logout is not implemented: legacy Scheduler logout is configurable and
 its concrete binding is unavailable in the present reference files. Local
@@ -54,7 +56,7 @@ Timeouts/deadlines are bounded, but hard DNS cancellation is not guaranteed.
 Offline validation (set `PYTHONPATH` to `src` and `tests`):
 
 ```text
-python -S -B -m unittest test_legacy_object_exports test_legacy_foundation
+python -S -B -m unittest test_legacy_object_imports test_legacy_object_exports test_legacy_foundation
 python -S -B -m unittest discover -s tests
 ```
 
@@ -86,7 +88,9 @@ string name/type/managementIp/id/parentOrmID plus a deviceAccess object.
 Parent IDs refer to source_root.id or another Site.id; parent_site_name must
 agree with that source relationship. IDs are unique across root/Sites/Devices.
 Site names can repeat under different parents, but not ambiguously under the
-same parent. No protocol-specific credential keys are mandatory: supported
+same parent. Device names must be unambiguous within their source parent, and
+management IPs must be unique within the file (the source lookup is by IP).
+No protocol-specific credential keys are mandatory: supported
 deviceAccess fields are opaque JSON and retained. The top-level access ormID
 is excluded from destination payloads. No schema, journal or migration envelope.
 Supported older files without source_root require an explicit runtime source
@@ -105,9 +109,21 @@ root `{id, name}`; it is never inferred from an unresolved reference.
   ],
   "devices": [
     {
-      "name": "Example Device",
+      "name": "Example Root Device",
       "type": "example-model-from-api",
       "managementIp": "192.0.2.10",
+      "id": "source-device-r0",
+      "parentOrmID": "source-root-a7",
+      "deviceAccess": {
+        "cliUsername": "synthetic-cli",
+        "cliPassword": "synthetic-cli-secret",
+        "supportedOpaqueSetting": {"values": [false, null, "synthetic-value"]}
+      }
+    },
+    {
+      "name": "Example Device",
+      "type": "example-model-from-api",
+      "managementIp": "192.0.2.11",
       "id": "source-device-c9",
       "parentOrmID": "source-site-b8",
       "deviceAccess": {
@@ -143,6 +159,77 @@ and are always FAILED. A cleanup failure retains the primary tree error or marks
 written export FAILED with its known counts/path. Successful independent trees
 are retained when another tree fails; authentication/session loss is not retried.
 No combined success is inferred from one successful tree.
+
+### Phase 1C independent import
+
+`import_objects(destination_config, input_path, tree, ...)` imports one portable
+file into the explicitly selected Physical or Organization destination tree.
+It does not call export or connect to a source. Optional `source_root={id, name}`
+identifies a supported older file's source root; conflicting metadata fails.
+TLS consent/injected offline connections use the unchanged foundation interface.
+Live dispatch remains disabled by default and is not authorized.
+
+Strict JSON loading and complete structural validation occur **before login**:
+required fields, unique IDs, unambiguous identities, source parents/name
+agreement, access objects and acyclic Site dependencies. Invalid input raises a
+sanitized `ImportError` without any POST, including login. Access objects are
+opaque JSON; no mandatory protocol credentials or nested IP fields are invented.
+
+One destination session reads the selected hierarchy and explicitly maps the
+source root ID to its API-returned native root ID. Parent-first Sites use an
+in-memory source-to-destination ID map; Devices follow. Existing Sites match by
+name within the mapped parent, never by a global name lookup. Same-name Sites
+at other intended root-relative source paths are independent; an unmatched
+same-name Site outside those paths is a wrong-placement conflict. Devices match
+by IP or name within their parent and skip only when name/type/IP/placement agree.
+Ambiguity/conflicts fail; nothing is moved, renamed, updated or deleted.
+
+Only the legacy minimal payloads are sent (all example values synthetic):
+
+```json
+{"name": "Example Branch", "parentOrmID": "destination-root-z3"}
+```
+
+```json
+{
+  "name": "Example Device",
+  "parentOrmID": "destination-site-y4",
+  "type": "example-model-from-api",
+  "deviceSetup": {
+    "deviceAccess": {"cliUsername": "synthetic-cli", "cliPassword": "synthetic-cli-secret"}
+  }
+}
+```
+
+Source object IDs and the top-level server-owned deviceAccess.ormID are never
+included as destination identifiers. Other supported access fields are copied
+unchanged. Accepted POST bodies/async acknowledgements are not proof: at most
+**three immediate hierarchy GET readbacks per creation** establish identity and
+placement before a child can use its new parent. GET failures stop that
+confirmation; requests are not retried. Unconfirmed outcomes and POST failures
+are FAILED with `destination_outcome_uncertain` reasons and never resubmitted.
+A failed parent prevents dependent writes; unrelated branches continue.
+A changed destination root stops remaining writes.
+
+`ImportResult.objects` holds object_type, source_id, SUCCESS/SKIPPED/FAILED and a
+concise static reason. `counts` aggregates each status separately for Site and
+Device. Overall status is FAILED on any object/global failure. Local cleanup
+failure makes the overall operation FAILED while retaining confirmed per-object
+results/counts; cleanup notes are preserved. Results omit Device access, raw
+responses and controller/session credentials.
+
+Final focused validation: **97 passed** (40 import, 28 export, 29 foundation).
+Complete final regressions: **888 tests in 848.882s; 886 passed/two skipped**.
+Docker/Compose configuration skipped because Docker/Compose is unavailable;
+POSIX TTY/readline editing skipped because it requires Linux/macOS. Evidence is in
+[PROGRESS](docs/PROGRESS.md#ccv-lf-1c---independent-sitedevice-import).
+All tests are offline/mocked, including actual-client memory connections.
+Live API/version compatibility and cross-controller secret portability remain
+unverified. Three immediate readbacks may not cover slow asynchronous operations;
+FAILED/uncertain requires operator review, not automatic rerunning. There is no
+rollback or reconciliation of uncertain writes, nor a concurrency guarantee
+against other controller writers. Phase 1D proposes a separately approved basic
+master menu; it is not implemented.
 
 **The remaining sections document the existing experimental application, not
 the approved legacy-first design or new functionality.**

@@ -39,15 +39,27 @@ deployment changes, customer-specific behavior and unapproved features.
 Legacy sources remain read-only. Phase 1A staging/local commit was explicitly
 authorized; Phase 1B staging/local commit is authorized after passing closure.
 Pushes and live requests are not authorized.
-Import, destination object writes, Device updates, credential transformations,
-LDAP, Scheduler and master CLI/menu remain out of Phase 1B scope.
-Phase 1C requires separate implementation approval.
+Import and destination object writes remain out of Phase 1B scope; Phase 1C
+was separately authorized only after passing/committed Phase 1B closure.
 
 The owner conditionally approved Phase 1B and authorized closure: atomic
 single-file JSON saves, explicit portable importer contract, final complete
 regressions including skipped reasons, complete diff review and local checkpoint
 excluding the historical tracker edit. Phase 1C import-only implementation is
 authorized only after that closure passes; no master menu or live calls.
+Closure passed (848 tests: 846 passed/two environment-dependent skips), with
+local checkpoint `0ee1b142fbcf07fc593f249b02f8713c50f5db2c`.
+
+**CCV-LF-1C** now implements independent import in the existing objects module:
+portable-file validation before login, one destination session, explicit tree/
+root mapping, parent-first Sites then Devices, destination-scoped identity
+matching, exact minimal legacy POSTs and bounded hierarchy readback. No source
+communication, automatic retries, advanced contract gates or new dependencies.
+Dedicated synthetic tests cover successful/skipped/failed objects and safe
+errors/cleanup. Final offline acceptance: 97 focused tests passed; 888 complete
+regressions, 886 passed/two environment-dependent skips. Phase 1C remains
+uncommitted and not live-qualified. Device updates, transformations,
+LDAP/Scheduler, master menu, deployment and live qualification remain excluded.
 
 Source-observed API intent, mocked validation and exact live-verified behavior
 remain separate evidence levels. These phases establish no live product/version

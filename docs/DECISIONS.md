@@ -1,5 +1,30 @@
 # Architecture Decision Register
 
+## LF-004 - simple independent import, 2026-11-27
+
+Status: owner-authorized Phase 1C implemented after closure passed and checkpoint
+`0ee1b142fbcf07fc593f249b02f8713c50f5db2c`. Offline validation only.
+
+Extend objects.py; no extra production module. Reuse recursive hierarchy
+projection without Device access reads on the destination, preserving export
+defaults. Validate strict portable input before login; source root must be
+present or explicitly supplied for older files. Root-relative Site paths only
+disambiguate placement; they are not representation/qualification contracts.
+Source/destination IDs are separate; destination native IDs come from selected
+hierarchy responses, following the original uploader's preferred identity.
+
+Existing correct objects skip without updates or access-value comparison.
+Minimal legacy POSTs preserve supported opaque access fields except top-level
+ormID. At most three immediate hierarchy readbacks confirm creation, with no
+invented async endpoint or automatic POST replay. Failed parents block only
+dependents; uncertain completion is FAILED and requires operator review.
+Small result records/counts suffice. No recovery, journals, registries,
+dependencies, source connection, menu or live qualification.
+
+The only shared export-helper change preserves sanitized cleanup notes when
+read failures are wrapped; no experimental/shared foundation module changes.
+Phase 1C is not committed. Phase 1D menu requires separate approval.
+
 ## LF-003 - Phase 1B closure and conditional import authorization, 2026-11-27
 
 The owner conditionally approved 1B and required atomic JSON saving, exact
