@@ -1,5 +1,54 @@
 # Architecture Decision Register
 
+## LF-006 - portable CCV Core deployment, 2026-11-28
+
+Status: owner-approved deployment direction.
+Implementation and qualification remain in progress.
+
+Context:
+
+Vision Docker 20.10.7 does not provide Docker Compose V2.
+Cyber Controller Docker 27.1.1 provides Compose 2.29.1.
+A mandatory Compose dependency would unnecessarily restrict
+deployment across customer environments.
+
+Decision:
+
+Native Docker is the primary CCV Core deployment method.
+Docker Compose remains optional and existing experimental
+deployment definitions are preserved.
+
+Distribute centrally built, versioned and qualified images
+rather than requiring engineers to build source on appliances.
+
+Maintain one generic application with runtime configuration,
+independent appliance execution and protected JSON transfer.
+
+Deployment changes must not introduce customer-specific
+application logic or weaken existing security controls.
+
+Consequences:
+
+- The dedicated launcher uses native Docker commands.
+- Future installation preflight must detect unsupported environments.
+- Offline image distribution and integrity checks are required.
+- Native Docker and optional Compose security settings must agree.
+- Supported platforms require recorded compatibility evidence.
+- Installation, upgrade and image rollback must be documented.
+
+The offline-qualified application checkpoint is:
+
+05b8f30c5196e7a1c05dc501ba552186b0e2ca5e
+
+Annotated tag: checkpoint/ccv-core-offline-qualified.
+
+The original launcher checkpoint is 65b84a7.
+The native Docker adaptation is a separate deployment change.
+
+No authorization for arbitrary appliance modifications, live
+API requests, production distribution or new functional modules
+is implied by this decision.
+
 ## LF-005 - thin confirmed master CLI, 2026-11-27
 
 Status: owner-authorized Phase 1D after passing/committed 1C closure

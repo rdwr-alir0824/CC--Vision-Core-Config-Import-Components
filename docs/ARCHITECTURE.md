@@ -1,5 +1,99 @@
 # Master Application Architecture
 
+## CCV Core portable deployment architecture - 2026-11-28
+
+The approved application architecture below remains unchanged.
+
+### Development and release
+
+The development repository contains application source,
+automated tests, deployment definitions and engineering records.
+
+A dedicated Dockerfile core stage packages the required
+application modules independently of the experimental engine.
+
+Release images should be built centrally on an approved build
+environment, qualified and distributed with integrity checks.
+
+Building on an appliance is permitted only within separately
+approved qualification activities; it is not a requirement
+for future engineers.
+
+### Appliance runtime
+
+The same qualified image runs independently on supported
+Vision and Cyber Controller appliances.
+
+Native Docker is the common deployment baseline.
+Docker Compose remains an optional alternative.
+
+The launcher is responsible for runtime preflight and container
+execution, not application business logic.
+
+Application code remains responsible for authentication,
+configuration export/import, JSON validation and TLS policy.
+
+Source and destination instances exchange protected portable
+JSON files using approved secure transfer methods.
+No direct source-to-destination connection is required.
+
+### Security and configuration
+
+Maintain equivalent security settings across deployment methods:
+
+- Non-root container execution.
+- Read-only container root filesystem.
+- Dropped Linux capabilities.
+- No privilege escalation.
+- Existing AppArmor and Seccomp protections.
+- Protected external runtime data directory.
+- Verified TLS by default.
+- Explicit administrator and operator authorization for exceptions.
+- No automatic image downloads during application execution.
+
+Customer addresses, credentials, object identities and paths
+must not be embedded in the application image.
+
+Live networking and read-only custom CA mounting require
+separate implementation and qualification.
+Unsupported Docker ownership or security configurations must
+be detected rather than silently weakening restrictions.
+
+### Distribution target
+
+A future engineer-facing release should contain:
+
+- Prebuilt, versioned Docker image archive.
+- Native Docker launcher.
+- Optional CCV Core Compose deployment definition.
+- Installation and compatibility preflight.
+- Deployment and troubleshooting documentation.
+- Qualified product/version compatibility matrix.
+- Release notes and integrity verification records.
+
+Installation and upgrade procedures must preserve operational
+data and avoid modifying existing appliance services.
+
+Application release rollback means selecting a previously
+qualified image. It does not undo controller configuration writes.
+
+### Current evidence
+
+Vision: Ubuntu 20.04.4, amd64, Docker 20.10.7.
+Docker Compose V2 is unavailable.
+Python 3.13.18 container runtime passed the initial isolated
+security and SSL initialization smoke test.
+
+Cyber Controller: Ubuntu 22.04.5, amd64, Docker 27.1.1,
+Docker Compose 2.29.1. Compatibility assessment completed;
+CCV Core image execution remains pending.
+
+These are observed qualification environments, not a universal
+product/version support declaration.
+
+The complete CCV Core image, launcher runtime, live networking,
+CA mounting and API interoperability remain to be qualified.
+
 ## Approved legacy-first architecture - 2026-11-27
 
 This is the active direction. Earlier architecture and qualification overlays

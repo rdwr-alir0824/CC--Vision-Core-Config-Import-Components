@@ -33,9 +33,33 @@ readback, not HTTP acceptance; uncertain writes are not automatically repeated.
 Import approval is separate from any future master menu or live-call permission.
 
 Each phase has its own owner review gate. No journals, recovery/resume engines,
-capability registries, databases, deployment changes or unrelated features.
+capability registries, databases or unrelated features. Deployment changes
+are limited to separately approved CCV Core deployment milestones.
 Offline test success does not authorize live calls or certify product versions.
 See [current progress](PROGRESS.md#ccv-lf-1d---thin-master-cli).
+
+## CCV Core portable deployment milestones - 2026-11-28
+
+| Task | Scope | Status |
+| --- | --- | --- |
+| CCV-DEP-01 | Native Docker launcher and portable deployment design | In progress; syntax and live-dispatch rejection validated |
+| CCV-DEP-02 | Minimal release package, first image build and offline smoke tests | Pending |
+| CCV-DEP-03 | Configurable local networking, protected data and CA mounts | Pending |
+| CCV-DEP-04 | Fresh live export/import and independent verification | Pending separate approval |
+| CCV-DEP-05 | Installation preflight, compatibility matrix and distribution documentation | Pending |
+| CCV-DEP-06 | Versioned image distribution, upgrade and rollback procedure | Pending |
+| CCV-DEP-07 | Qualified engineer-facing release 1.0.0 | Future release gate |
+
+The current release candidate remains 0.1.0.
+
+Application qualification completed with 936 tests:
+934 passed, two environment-dependent skips and zero failures.
+
+The deployment milestones extend Phase 1E without reopening
+the qualified export/import implementation.
+
+Functional expansion remains deferred until the current
+deployment and live qualification gates are satisfied.
 
 ## Proposed Phase 1E - bounded live qualification
 
@@ -47,9 +71,10 @@ appliances. No external production utility server is required.
 
 Before live qualification:
 
-- Complete the local Git release checkpoint.
+- Application checkpoint 05b8f30 completed; establish deployment checkpoint.
 - Build and verify the `ccv-core:0.1.0` image.
-- Verify Compose profile isolation and offline container startup.
+- Verify native Docker launcher execution and offline container startup.
+- Verify optional Compose profile isolation where supported.
 - Validate appliance Docker compatibility and protected data mounts.
 - Validate TLS trust configuration and optional read-only CA mounting.
 - Establish approved container-to-controller connectivity.

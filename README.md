@@ -379,6 +379,32 @@ The dedicated Dockerfile core stage contains only the required
 application modules. Existing application images, services and
 launchers remain preserved.
 
+#### Native Docker deployment
+
+The primary appliance launcher is `ccv-core.sh`.
+
+Docker Compose is optional and is not required by this launcher.
+The existing Compose configuration remains preserved.
+
+The launcher requires an available Docker daemon, a locally
+loaded CCV Core image and a protected runtime data directory.
+
+It does not install software, download images, create runtime
+directories or modify existing appliance services.
+
+The initial launcher permits only offline menu execution
+and application help. Live execution remains blocked.
+
+The future distribution model uses centrally built and
+qualified image archives, installation preflight, release
+integrity checks and engineer-facing documentation.
+
+See [portable deployment architecture](docs/ARCHITECTURE.md)
+and [architecture decision LF-006](docs/DECISIONS.md).
+
+The initial appliance image build is a qualification activity,
+not the required distribution procedure for future engineers.
+
 #### TLS configuration
 
 Certificate verification is enabled by default.

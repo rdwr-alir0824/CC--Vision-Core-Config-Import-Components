@@ -33,14 +33,8 @@ APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 cd -- "$APP_DIR"
 
-[[ -f "$APP_DIR/compose.yaml" ]] \
-    || fail "compose.yaml not found."
-
 command -v docker >/dev/null 2>&1 \
     || fail "Docker is not available."
-
-docker compose version >/dev/null 2>&1 \
-    || fail "Docker Compose is not available."
 
 docker info >/dev/null 2>&1 \
     || fail "Cannot access the Docker daemon."
@@ -68,25 +62,38 @@ DATA_ATTRIBUTES="$(stat -c '%u:%g:%a' -- "$DATA_DIR")"
 export CCV_CORE_DATA_DIR="$DATA_DIR"
 export CCV_ALLOW_INSECURE_TLS_EXCEPTION="${CCV_ALLOW_INSECURE_TLS_EXCEPTION:-false}"
 export CCV_TRUSTED_CA="${CCV_TRUSTED_CA:-}"
-export COMPOSE_PROFILES=core
 
 docker image inspect "$CCV_CORE_IMAGE" >/dev/null 2>&1 \
     || fail "Required image is not loaded: $CCV_CORE_IMAGE"
 
-COMPOSE=(
-    docker compose
-    --project-directory "$APP_DIR"
-    --env-file /dev/null
-    --project-name ccv-core
-    --file "$APP_DIR/compose.yaml"
-    --profile core
+# Prevent ambiguous Docker bind-mount specifications.
+case "$DATA_DIR" in
+    *','*|*'"'*)
+        fail "Unsupported characters in runtime directory path."
+        ;;
+esac
+
+DOCKER_RUN=(
+    docker run
+    --rm
+    --pull=never
+    --network none
+    --read-only
+    --user 10001:10001
+    --cap-drop ALL
+    --security-opt no-new-privileges:true
+    --tmpfs /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    --workdir /data
+    --mount "type=bind,source=$DATA_DIR,target=/data"
+    --env CCV_ALLOW_INSECURE_TLS_EXCEPTION
+    --env CCV_TRUSTED_CA
 )
 
 if [[ "$#" -eq 1 ]]; then
-    exec "${COMPOSE[@]}" run --rm --no-deps -T ccv-core "$@"
+    exec "${DOCKER_RUN[@]}" "$CCV_CORE_IMAGE" "$@"
 fi
 
 [[ -t 0 && -t 1 ]] \
     || fail "An interactive terminal is required."
 
-exec "${COMPOSE[@]}" run --rm --no-deps ccv-core
+exec "${DOCKER_RUN[@]}" -it "$CCV_CORE_IMAGE"

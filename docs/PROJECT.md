@@ -1,5 +1,39 @@
 # Project Foundation
 
+## CCV Core product and deployment direction - 2026-11-28
+
+The owner approved CCV Core as a portable engineering product
+for independent deployments by different engineers across
+different customer environments.
+
+Product requirements:
+
+- Generic Vision and Cyber Controller configuration workflows.
+- No customer-specific source code or operational values.
+- Independent appliance-local container execution.
+- No external production utility server.
+- Native Docker as the primary deployment method.
+- Docker Compose retained as an optional deployment method.
+- Centrally built, versioned and qualified release images.
+- Offline-capable installation and operation.
+- Runtime controller settings, credentials and protected file paths.
+- Consistent security controls across deployment methods.
+- Documented compatibility, installation, upgrades and rollback.
+
+Engineers consuming a qualified release should not require
+Git, Python, VS Code, Copilot or the development repository.
+
+The initial release candidate is ccv-core:0.1.0.
+Version 1.0.0 remains a future qualified distribution milestone.
+
+This deployment authorization supersedes earlier phase-specific
+exclusions of deployment preparation only. Existing application
+scope, security requirements and separate live approval gates
+remain unchanged.
+
+No experimental migration framework, recovery engine, database
+or customer-specific implementation is introduced.
+
 ## Current objective and authorization - legacy-first redesign, 2026-11-27
 
 The owner approved a simple, generic Vision-to-Cyber Controller export/import
