@@ -163,6 +163,100 @@ class LegacyFoundationTests(OfflineTestCase):
             self.assertTrue(connection.sock._resource.timeouts)
             self.assertTrue(all(0 < timeout <= 4 for timeout in connection.sock._resource.timeouts))
 
+    def test_client_enforces_administrator_tls_lock(self):
+        config = replace(self.config, verify_tls=False)
+        factory = Mock()
+
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false",
+        }):
+            with self.assertRaises(ClientError) as caught:
+                ApiClient(
+                    config,
+                    operations=self.operations,
+                    tls_exception_authorized=True,
+                    connection_factory=factory,
+                )
+
+        self.assertEqual(
+            caught.exception.code,
+            "invalid_configuration_or_tls_authorization",
+        )
+        factory.assert_not_called()
+
+    def test_client_rejects_invalid_administrator_tls_policy(self):
+        factory = Mock()
+
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "invalid",
+        }):
+            with self.assertRaises(ClientError) as caught:
+                ApiClient(
+                    self.config,
+                    connection_factory=factory,
+                )
+
+        self.assertEqual(
+            caught.exception.code,
+            "invalid_configuration_or_tls_authorization",
+        )
+        factory.assert_not_called()
+
+    def test_custom_ca_reaches_verified_https_connection(self):
+        certificates = ssl.create_default_context().get_ca_certs(
+            binary_form=True
+        )
+        self.assertTrue(
+            certificates,
+            "A system CA certificate is required for this offline test.",
+        )
+
+        certificate = certificates[0]
+        ca_file = self.directory / "trusted-ca.pem"
+        ca_file.write_text(
+            ssl.DER_cert_to_PEM_cert(certificate),
+            encoding="ascii",
+        )
+
+        config = replace(self.config, trusted_ca=str(ca_file))
+
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false",
+        }):
+            client, _, factory = self.client(
+                self.login_response(),
+                MemoryResponse(body=b"{}"),
+                config=config,
+            )
+
+            with client:
+                client.get(PATH)
+
+        self.assertEqual(factory.call_count, 2)
+
+        for call in factory.call_args_list:
+            context = call.kwargs["context"]
+            self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+            self.assertTrue(context.check_hostname)
+            self.assertEqual(
+                set(context.get_ca_certs(binary_form=True)),
+                {certificate},
+            )
+
+    def test_invalid_custom_ca_configuration_fails_closed(self):
+        missing_ca = self.directory / "missing-ca.pem"
+        invalid_ca = self.directory / "invalid-ca.pem"
+
+        invalid_ca.write_text(
+            "not a valid certificate",
+            encoding="ascii",
+        )
+
+        for ca_file in (missing_ca, invalid_ca):
+            with self.subTest(ca_file=ca_file.name):
+                with self.assertRaises(ConfigError):
+                    replace(self.config, trusted_ca=str(ca_file))
+
     def test_unverified_tls_requires_new_client_consent_and_expires_on_close(self):
         config = replace(self.config, verify_tls=False)
         with self.assertRaises(ClientError):

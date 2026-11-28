@@ -1,5 +1,38 @@
 {
   "services": {
+    "ccv-core": {
+      "profiles": ["core"],
+      "image": "${CCV_CORE_IMAGE:-ccv-core:0.1.0}",
+      "build": {
+        "context": ".",
+        "target": "core"
+      },
+      "pull_policy": "never",
+      "entrypoint": ["python", "-m", "cc_vision_import.ccv"],
+      "command": [],
+      "working_dir": "/data",
+      "stdin_open": true,
+      "tty": true,
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"],
+      "restart": "no",
+      "network_mode": "none",
+      "environment": {
+        "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "${CCV_ALLOW_INSECURE_TLS_EXCEPTION:-false}",
+        "CCV_TRUSTED_CA": "${CCV_TRUSTED_CA:-}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${CCV_CORE_DATA_DIR:-../ccv-runtime/core}",
+          "target": "/data",
+          "bind": {"create_host_path": false}
+        }
+      ]
+    },
     "ccv-source": {
       "profiles": ["source"],
       "image": "${CC_VISION_IMAGE:-cc-vision-master:0.3}",

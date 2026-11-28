@@ -262,6 +262,17 @@ class UnifiedLauncherTests(OfflineTestCase):
             folder.mkdir()
         (self.admin / "credentials.json").write_text("ADMINISTRATOR-SECRET-UNCHANGED")
         compose = json.loads((ROOT / "compose.yaml").read_text())
+
+        # Reproduce the profiles activated by the existing launcher.
+        active_profiles = {"source", "destination", "destination-discovery"}
+
+        compose["services"] = {
+            name: service
+            for name, service in compose["services"].items()
+            if not service.get("profiles")
+            or active_profiles.intersection(service["profiles"])
+        }
+
         for service in compose["services"].values():
             service["image"] = "cc-vision-master:test"
             service["environment"] = {

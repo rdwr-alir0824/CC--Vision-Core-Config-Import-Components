@@ -1,4 +1,4 @@
-"""Runtime connection settings for the independent legacy-first application."""
+"""Runtime connection settings for CCV Core."""
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -24,31 +24,47 @@ class ControllerConfig:
     connect_timeout: float = 10
     read_timeout: float = 30
     operation_timeout: float = 60
+    trusted_ca: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         try:
             if (
-                not isinstance(self.address, str) or not self.address
+                not isinstance(self.address, str)
+                or not self.address
                 or self.product not in ("vision", "cyber-controller")
                 or type(self.verify_tls) is not bool
             ):
                 raise ValueError
+
             ResolvedCredentials(self.username, self.password)
+
             TransportConfig(
-                base_url=self.origin, connect_timeout=self.connect_timeout,
-                read_timeout=self.read_timeout, operation_timeout=self.operation_timeout,
+                base_url=self.origin,
+                connect_timeout=self.connect_timeout,
+                read_timeout=self.read_timeout,
+                operation_timeout=self.operation_timeout,
+                trusted_ca=self.trusted_ca,
             )
+
         except (ValueError, AuthenticationError, ContractValidationError):
-            raise ConfigError("Invalid controller settings or credentials.") from None
+            raise ConfigError(
+                "Invalid controller settings or credentials."
+            ) from None
 
     @property
     def origin(self) -> str:
-        address = self.address if "://" in self.address else "https://" + self.address
+        address = (
+            self.address
+            if "://" in self.address
+            else "https://" + self.address
+        )
         return build_url(address, ("mgmt",)).removesuffix("/mgmt")
 
 
 def prompt_config(
-    product: Literal["vision", "cyber-controller"], *, verify_tls: bool = True,
+    product: Literal["vision", "cyber-controller"],
+    *,
+    verify_tls: bool = True,
     input_fn: Callable[[str], str] = input,
     password_fn: Callable[[str], str] = getpass,
 ) -> ControllerConfig:
@@ -56,5 +72,6 @@ def prompt_config(
         address=input_fn("Controller address: ").strip(),
         username=input_fn("Username: "),
         password=password_fn("Password: "),
-        product=product, verify_tls=verify_tls,
+        product=product,
+        verify_tls=verify_tls,
     )

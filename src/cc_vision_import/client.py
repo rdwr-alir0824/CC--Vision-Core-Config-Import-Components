@@ -1,5 +1,6 @@
 """Small session-owning API client, independent of experimental migration."""
 
+import os
 import ssl
 import warnings
 from dataclasses import dataclass
@@ -15,7 +16,12 @@ from .config import ControllerConfig
 from .contracts import ContractValidationError, JsonValue
 from .files import parse_json, serialize_json
 from .http_backend import ConnectionFactory, DestinationAuthorization, StdlibHttpBackend
-from .tls_policy import TLSPolicy, TLSPolicyError, warning
+from .tls_policy import (
+    TLSPolicy,
+    TLSPolicyError,
+    exceptions_allowed,
+    warning,
+)
 from .transport import (
     BackendFailure, HttpMethod, HttpResponse, HttpTransport, TransportConfig,
     TransportError, _unverified_tls_context, build_url,
@@ -64,6 +70,17 @@ class ApiClient:
             raise ClientError("invalid_configuration")
         self._origin = config.origin
         try:
+            allow_exceptions = exceptions_allowed(
+                os.environ.get(
+                    "CCV_ALLOW_INSECURE_TLS_EXCEPTION", "true"
+                )
+            )
+
+            if not config.verify_tls and not allow_exceptions:
+                raise TLSPolicyError(
+                    "This deployment prohibits insecure TLS exceptions."
+                )
+
             policy = TLSPolicy.from_dict({
                 "verify": config.verify_tls,
                 "lab_authorized": tls_exception_authorized,
@@ -72,6 +89,7 @@ class ApiClient:
             transport_config = _SessionTransportConfig(
                 base_url=self._origin, connect_timeout=config.connect_timeout,
                 read_timeout=config.read_timeout, operation_timeout=config.operation_timeout,
+                trusted_ca=config.trusted_ca,
                 verify_tls=config.verify_tls, policy=policy, read_retries=0,
             )
             scope = tuple(dict.fromkeys((

@@ -191,6 +191,99 @@ class LegacyCliTests(OfflineTestCase):
         self.exporter.assert_not_called()
         self.assertFalse(self.output_path.exists())
 
+    def test_administrator_tls_lock_blocks_export_and_import(self):
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false",
+            "CCV_TRUSTED_CA": "",
+        }):
+            export_output = self.run_menu([
+                "1", "1", "source.example.invalid",
+                "synthetic-operator", "n",
+            ])
+
+            import_output = self.run_menu([
+                "2", str(self.input_path),
+                "destination.example.invalid",
+                "synthetic-operator", "n",
+            ])
+
+        self.exporter.assert_not_called()
+        self.importer.assert_not_called()
+
+        for output in (export_output, import_output):
+            self.assertIn(
+                "prohibits insecure TLS exceptions", output
+            )
+
+    def test_invalid_administrator_tls_policy_fails_closed(self):
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "invalid",
+            "CCV_TRUSTED_CA": "",
+        }):
+            output = self.run_menu(["1"])
+
+        self.assertIn("must be true or false", output)
+        self.exporter.assert_not_called()
+        self.importer.assert_not_called()
+        self.password.assert_not_called()
+
+    def test_administrator_tls_lock_allows_verified_connection(self):
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false",
+            "CCV_TRUSTED_CA": "",
+        }):
+            self.run_menu(self.export_inputs())
+
+        self.exporter.assert_called_once()
+        self.assertTrue(
+            self.exporter.call_args.args[0].verify_tls
+        )
+        self.assertFalse(
+            self.exporter.call_args.kwargs[
+                "tls_exception_authorized"
+            ]
+        )
+
+    def test_administrator_allows_explicit_lab_exception(self):
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "true",
+            "CCV_TRUSTED_CA": "",
+        }):
+            output = self.run_menu(
+                self.export_inputs(
+                    verify="n", authorize="yes"
+                )
+            )
+
+        self.exporter.assert_called_once()
+        self.assertFalse(
+            self.exporter.call_args.args[0].verify_tls
+        )
+        self.assertTrue(
+            self.exporter.call_args.kwargs[
+                "tls_exception_authorized"
+            ]
+        )
+        self.assertIn("NOT VERIFIED", output)
+
+    def test_missing_custom_ca_prevents_dispatch(self):
+        missing_ca = self.directory / "missing-ca.pem"
+
+        with patch.dict("os.environ", {
+            "CCV_ALLOW_INSECURE_TLS_EXCEPTION": "false",
+            "CCV_TRUSTED_CA": str(missing_ca),
+        }):
+            output = self.run_menu([
+                "1", "1", "source.example.invalid",
+                "synthetic-operator",
+            ])
+
+        self.assertIn(
+            "Invalid controller settings", output
+        )
+        self.exporter.assert_not_called()
+        self.importer.assert_not_called()
+
     def test_unverified_tls_requires_operation_scoped_explicit_authorization(self):
         output = self.run_menu(self.export_inputs(verify="no", authorize="yes"))
         self.assertFalse(self.exporter.call_args.args[0].verify_tls)

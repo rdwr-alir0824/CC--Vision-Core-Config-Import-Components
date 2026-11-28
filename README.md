@@ -352,6 +352,91 @@ starts with authorized lab targets and protected exports, verifies roots and
 basic identities manually, and stops on uncertain outcomes. No deployment,
 credential transformation, Device update, LDAP or Scheduler implementation.
 
+### Phase 1E - CCV Core container deployment
+
+CCV Core is a standalone configuration export/import application
+designed to run directly in a dedicated container on supported
+APSolute Vision and Cyber Controller appliances.
+
+The same application image is intended for both environments.
+No external production utility server is required.
+
+#### Deployment configuration
+
+- Image: `ccv-core:0.1.0`
+- Compose service: `ccv-core`
+- Compose profile: `core`
+- Container entrypoint: `python -m cc_vision_import.ccv`
+- Working directory: `/data`
+- Runtime directory: `../ccv-runtime/core`
+- Container user: `10001:10001`
+- Read-only container filesystem.
+- All Linux capabilities dropped.
+- No automatic container restart.
+- Networking disabled during initial offline qualification.
+
+The dedicated Dockerfile core stage contains only the required
+application modules. Existing application images, services and
+launchers remain preserved.
+
+#### TLS configuration
+
+Certificate verification is enabled by default.
+
+The standard Compose deployment sets
+`CCV_ALLOW_INSECURE_TLS_EXCEPTION=false` by default.
+
+An administrator may explicitly permit an insecure TLS exception
+for an authorized lab operation. Operator consent is still
+required for each affected session. There is no automatic
+certificate verification downgrade or retry.
+
+Standalone Python execution and direct image invocation without
+the Compose environment retain the existing explicit-consent
+behavior for compatibility.
+
+`CCV_TRUSTED_CA` optionally identifies a trusted CA bundle at a
+container-visible path. Custom CA mounting and permissions
+require runtime qualification.
+
+#### Offline qualification
+
+- CCV Core application regression: 143 passed.
+- CLI regression: 42 passed.
+- Foundation regression: 33 passed.
+- Object export/import regression: 68 passed.
+- Compose deployment tests: 15 passed, one skipped.
+- Complete repository regression: 936 executed,
+  934 passed, two environment-dependent skips.
+- Zero failures and zero errors.
+
+The previous application checkpoint remains preserved:
+
+`checkpoint/legacy-first-offline-qualified`
+
+#### Deployment and live qualification boundaries
+
+Container integration has passed static and mocked testing.
+Actual image building, Docker execution, appliance compatibility,
+CA mounting, networking and live API behavior remain unverified.
+
+The initial container smoke test must run without network access.
+Live API dispatch requires separate authorization, compatible
+appliance networking and explicit use of `--allow-live`.
+
+Credentials, controller addresses, object identities and
+tree selections are supplied at runtime.
+
+Operational JSON exports may contain sensitive credentials.
+Store them outside Git in a protected runtime directory and
+transfer them using an approved secure method.
+
+Follow the fresh, operator-driven
+[qualification procedure](docs/ROADMAP.md#proposed-phase-1e---bounded-live-qualification).
+
+Credential transformation, LDAP, Scheduler and Device updates
+remain outside the current implementation scope.
+
 **The remaining sections document the existing experimental application, not
 the approved legacy-first design or new functionality.**
 

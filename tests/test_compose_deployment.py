@@ -24,6 +24,115 @@ class ComposeDeploymentTests(OfflineTestCase):
             "CCV_DESTINATION_VERSION": "10.7.0",
         }
 
+    def test_core_service_configuration(self):
+        config = json.loads((ROOT / "compose.yaml").read_text())
+        service = config["services"]["ccv-core"]
+
+        self.assertEqual(service["profiles"], ["core"])
+        self.assertEqual(
+            service["image"],
+            "${CCV_CORE_IMAGE:-ccv-core:0.1.0}",
+        )
+        self.assertEqual(
+            service["build"],
+            {"context": ".", "target": "core"},
+        )
+        self.assertEqual(
+            service["entrypoint"],
+            ["python", "-m", "cc_vision_import.ccv"],
+        )
+        self.assertEqual(service["command"], [])
+        self.assertEqual(service["working_dir"], "/data")
+        self.assertEqual(service["pull_policy"], "never")
+        self.assertTrue(service["stdin_open"])
+        self.assertTrue(service["tty"])
+        self.assertEqual(service["user"], "10001:10001")
+        self.assertTrue(service["read_only"])
+        self.assertEqual(service["cap_drop"], ["ALL"])
+        self.assertEqual(
+            service["security_opt"],
+            ["no-new-privileges:true"],
+        )
+        self.assertEqual(service["restart"], "no")
+        self.assertEqual(service["network_mode"], "none")
+        self.assertEqual(
+            service["environment"]["CCV_ALLOW_INSECURE_TLS_EXCEPTION"],
+            "${CCV_ALLOW_INSECURE_TLS_EXCEPTION:-false}",
+        )
+
+        self.assertEqual(
+            service["environment"]["CCV_TRUSTED_CA"],
+            "${CCV_TRUSTED_CA:-}",
+        )
+
+        self.assertNotIn("privileged", service)
+        self.assertNotIn("ports", service)
+
+        mounts = service["volumes"]
+        self.assertEqual(len(mounts), 1)
+
+        mount = mounts[0]
+
+        self.assertEqual(mount["type"], "bind")
+        self.assertEqual(mount["target"], "/data")
+        self.assertFalse(mount["bind"]["create_host_path"])
+        self.assertFalse(mount.get("read_only", False))
+        self.assertNotIn("docker.sock", mount["source"])
+
+    def test_core_dockerfile_preserves_existing_build(self):
+        dockerfile = (ROOT / "Dockerfile").read_text()
+
+        self.assertIn(
+            "FROM python:3.13-slim AS base", dockerfile
+        )
+        self.assertIn("FROM base AS core", dockerfile)
+        self.assertIn("FROM base AS existing", dockerfile)
+
+        core = dockerfile.split("FROM base AS core", 1)[1]
+        core = core.split("FROM base AS existing", 1)[0]
+
+        self.assertIn(
+            'ENTRYPOINT ["python", "-m", "cc_vision_import.ccv"]',
+            core,
+        )
+        self.assertIn("USER 10001:10001", core)
+
+        required = {
+            "__init__.py",
+            "_contract_validation.py",
+            "_json.py",
+            "authentication.py",
+            "backup_policy.py",
+            "ccv.py",
+            "client.py",
+            "config.py",
+            "contracts.py",
+            "files.py",
+            "http_backend.py",
+            "objects.py",
+            "tls_policy.py",
+            "transport.py",
+        }
+
+        included = {
+            token.rsplit("/", 1)[-1]
+            for token in core.split()
+            if token.startswith("src/cc_vision_import/")
+            and token.endswith(".py")
+        }
+
+        self.assertEqual(included, required)
+
+        existing = dockerfile.split(
+            "FROM base AS existing", 1
+        )[1]
+
+        self.assertIn("COPY src/ ./src/", existing)
+        self.assertIn(
+            'ENTRYPOINT ["python", "/app/master.py"]',
+            existing,
+        )
+
     def test_compose_separates_roles_mounts_network_and_privileges(self):
         config = json.loads((ROOT / "compose.yaml").read_text())
         services = config["services"]

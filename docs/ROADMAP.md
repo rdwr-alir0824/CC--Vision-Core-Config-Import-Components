@@ -10,8 +10,8 @@ milestones below. Those records and implementations remain preserved.
 | CCV-LF-1A | New client/config/files, compatible shared reuse, focused offline tests, documentation | Approved legacy-first design; original scripts and reusable HTTP/TLS/JSON code | Owner-approved; checkpoint c0d6b98854cc9ede3a398a476005ce2a494c6e3a. Offline/mocked only. |
 | CCV-LF-1B | Generic Physical/Organization Site/Device export only | Approved 1A foundation; original downloader | Closure passed offline; checkpoint 0ee1b142fbcf07fc593f249b02f8713c50f5db2c. No live verification. |
 | CCV-LF-1C | Independent Site/Device import only | Passing/committed 1B closure; original uploader | Closure passed; checkpoint b7ba305279c39d030cd2f3f77a137dd0795e9942. Offline only. |
-| CCV-LF-1D | Thin master CLI over approved export/import | Passing/committed 1C closure; existing foundation | Closure passed; local checkpoint/tag authorized. 134 focused; 925 full tests, 923 passed/two accepted environment skips. |
-| CCV-LF-1E preparation | Linux deployment and fresh lab qualification instructions only | Offline-qualified 1D checkpoint; separate execution approval | Preparation authorized. No deployment, live qualification or new domains authorized. |
+| CCV-LF-1D | Thin master CLI over approved export/import | Passing/committed 1C closure; existing foundation | Checkpoint 0b4814d53868f7740ee2d4ef2c702ee1c253f748; annotated offline-qualified tag verified. 134 focused; 925 full tests, 923 passed/two accepted environment skips. |
+| CCV-LF-1E | CCV Core container integration, TLS controls and fresh qualification preparation | Offline-qualified 1D checkpoint; separate execution approval | Offline qualification passed: 936 tests, 934 passed, two skipped. Container runtime and live qualification pending. |
 | Future optional credentials | CLI/HTTP/HTTPS/SNMPv3 JSON edits and separately approved Device updates | Portable exports; approved destination lookup/update behavior | Deferred. |
 | Future LDAP | Independent export/import functions, preserving authorization semantics | Original LDAP behavior; explicit scope approval | Deferred; no implementation. |
 | Future Scheduler | Independent export/import functions | Concrete configured endpoints and task behavior; explicit approval | Deferred; no implementation. |
@@ -39,33 +39,94 @@ See [current progress](PROGRESS.md#ccv-lf-1d---thin-master-cli).
 
 ## Proposed Phase 1E - bounded live qualification
 
-Proposal only; obtain explicit owner approval before any live request.
+Container integration is qualified offline. Obtain explicit owner
+approval before appliance deployment or any live request.
 
-1. Approve exact source/destination products, versions, lab addresses/accounts,
-   permitted source reads and destination creates, selected trees/roots, TLS
-   policy and protected output paths. Prefer verified TLS/trusted certificates.
-   Do not put operational credentials or exports in Git.
-2. Prepare small, generic isolated lab hierarchies with nested Sites, direct-root
-   and nested Devices. Review destination inventory/IP conflicts and establish
-   an operator-controlled backup/manual cleanup plan; no automatic rollback.
-3. Launch the documented CLI with --allow-live only after authorization. Export
-   selected trees into protected files; inspect completeness/parent relationships
-   without printing credentials. Confirm any replacement explicitly.
-4. Import one approved file/tree at a time. Review source root/counts and actual
-   discovered destination root; explicitly confirm both stages. Verify created
-   names/types/IPs/placement and independent destination IDs using GUI or approved
-   existing GET endpoints. Check supported credential usability separately using
-   approved methods; do not assume masked/encrypted secrets are portable.
-5. On an approved repeat, correctly existing objects should skip. Review conflicts
-   and failed branches without automatic updates/moves/deletes. Stop on uncertain
-   creation, timeout or delayed completion; inspect destination manually before
-   considering any separately approved repeat. Do not expand readback speculatively.
-6. Record product/version-specific live evidence in API_MATRIX and PROGRESS,
-   distinguishing source-observed, documented, mocked and live-tested behavior.
-   Keep secrets and sensitive operational outputs outside repository reports.
+Use the same CCV Core image on the approved source and destination
+appliances. No external production utility server is required.
 
-No utility-server deployment, customer-specific behavior, credential
-transformation, Device update, LDAP/Scheduler or experimental-engine changes.
+Before live qualification:
+
+- Complete the local Git release checkpoint.
+- Build and verify the `ccv-core:0.1.0` image.
+- Verify Compose profile isolation and offline container startup.
+- Validate appliance Docker compatibility and protected data mounts.
+- Validate TLS trust configuration and optional read-only CA mounting.
+- Establish approved container-to-controller connectivity.
+- Approve products, versions, authentication, source/destination
+  reads, destination creates, selected trees and repeat scope.
+
+All operational addresses, accounts, names, types, IPs and IDs
+come from the operator or fresh API discovery.
+
+No prior qualification exports, journals or recovery state.
+Prefer verified TLS; never silently bypass trust failures.
+
+See [CCV Core container deployment](../README.md#phase-1e---ccv-core-container-deployment).
+
+1. Select the source controller/product at runtime using menu option 1. Record
+   product/version and the approved selected tree; do not assume cross-product
+   API compatibility from mocked evidence.
+2. Export one Physical or Organization tree to a completely new protected JSON
+   filename in the protected container runtime data directory outside Git.
+   Verify host/container ownership and restrictive permissions. Do not
+   replace/reuse previous qualification output.
+3. Require SUCCESS and compare available Site/Device counts with independently
+   reviewed source inventory. Use existing inspect_import for local strict JSON,
+   source-root/identity/parent/cycle/access-object validation and metadata-only
+   counts. Inspect relationships in a protected editor, not a console dump.
+   Failure/incomplete results stop import. Do not print credential-bearing JSON.
+4. Independently select and authenticate the destination Cyber Controller at
+   runtime, after verifying it is the intended different environment. Capture
+   baseline inventory via approved GUI/API reads; check identity/IP/placement
+   conflicts and permissions without modifying objects.
+5. Choose menu option 2 with the fresh export and explicitly selected destination
+   tree. Review source metadata/counts, destination controller/tree and actual
+   discovered destination root. Confirm the intended root-to-root relationship;
+   source IDs are not destination IDs. Decline on mismatch or ambiguity.
+6. Explicitly confirm both import stages only when correct. Record the reported
+   Site/Device SUCCESS/SKIPPED/FAILED counts and safe per-object reasons. No moves,
+   updates, deletes, retry POSTs or rollback. Stop on uncertain completion,
+   timeout or failure; independently inspect before any separately approved retry.
+7. Independently retrieve destination hierarchy in a new session, not merely the
+   importer's readback. Reuse menu option 1 with destination as the Cyber
+   Controller export source, the same selected tree, and another fresh protected
+   output filename. Approved GET /mgmt/system/config/tree/{selected_tree} or
+   vendor GUI/API tooling is an alternative; do not invent endpoints or scripts.
+8. Compare root-relative Site paths and actual native destination parent IDs.
+   Verify Device name/basic identity, source-observed type, management IP and
+   placement, including direct-root and nested relationships present in the
+   chosen fresh source inventory. Count agreement alone is insufficient.
+9. Inspect supported non-secret Device access settings through approved
+   GET /mgmt/system/config/tree/device/byip/{managementIp} (already used by the
+   destination export) or vendor UI. Compare fields/types/flags in protected
+   records; never display passwords, SNMP secret values or cookies. Separately
+   approved protocol usability checks must establish credential portability;
+   masked/encrypted values or HTTP acceptance alone do not prove it.
+10. Only after confirmed completion and discrepancy review, repeat the same fresh
+    import within the approved scope. Correct existing identities/placement
+    should be SKIPPED without creation POSTs; conflicts/ambiguities should be
+    FAILED, not automatically changed. SKIPPED does not prove credential equality
+    and does not update Device access. Independently check for duplicates.
+11. Record checkpoint/tag, time, approval reference, product/version, selected
+    trees/root mapping, counts, independent verification results, supported-access
+    checks and outstanding discrepancies. Keep operational exports/inventories
+    and secrets protected outside Git. Add only sanitized live evidence to
+    API_MATRIX/PROGRESS after authorized execution, clearly separate from mocks.
+
+Local metadata preview uses the existing `inspect_import`
+validation function inside the qualified CCV Core container.
+
+The preview must remain local and must not print credential-bearing
+JSON or initiate API requests.
+
+Container invocation and protected file handling must be
+validated during runtime qualification.
+
+Preparation introduces no customer-specific operational values.
+No live calls, credential transformation, Device updates,
+LDAP/Scheduler, recovery redesign or experimental-engine
+implementation changes were performed.
 
 Date: 2026-11-19
 Status: **CCV-001 architectural baseline approved; CCV-002 completion confirmed

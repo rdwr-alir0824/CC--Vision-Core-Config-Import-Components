@@ -2,11 +2,13 @@
 
 import argparse
 import warnings
+import os
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from getpass import GetPassWarning, getpass
 from pathlib import Path
 
+from .tls_policy import TLSPolicyError, exceptions_allowed
 from .config import ConfigError, ControllerConfig, prompt_config
 from .contracts import JsonValue
 from .http_backend import ConnectionFactory
@@ -66,27 +68,70 @@ def _tree(reader: Callable[[str], str], *, both: bool = False) -> tuple[str, ...
     return choices[choice]
 
 
+
 def _config(
     reader: Callable[[str], str], password_reader: Callable[[str], str],
     output: Callable[[str], None], *, source: bool,
 ) -> tuple[ControllerConfig, bool]:
+    try:
+        allow_exceptions = exceptions_allowed(
+            os.environ.get(
+                "CCV_ALLOW_INSECURE_TLS_EXCEPTION", "true"
+            )
+        )
+    except TLSPolicyError as error:
+        raise CliInputError(str(error)) from None
+
     product = "cyber-controller"
+
     if source:
-        choice = reader("Source product: 1 Vision, 2 Cyber Controller: ").strip()
+        choice = reader(
+            "Source product: 1 Vision, 2 Cyber Controller: "
+        ).strip()
+
         if choice not in ("1", "2"):
             raise CliInputError("Invalid source product selection.")
+
         product = "vision" if choice == "1" else "cyber-controller"
-    config = prompt_config(product, input_fn=reader, password_fn=password_reader)
-    verify = reader("Verify TLS certificates? [Y/n]: ").strip().lower()
+
+    config = prompt_config(
+        product,
+        input_fn=reader,
+        password_fn=password_reader,
+    )
+
+    trusted_ca = os.environ.get("CCV_TRUSTED_CA") or None
+
+    if trusted_ca is not None:
+        config = replace(config, trusted_ca=trusted_ca)
+
+    verify = reader(
+        "Verify TLS certificates? [Y/n]: "
+    ).strip().lower()
+
     if verify in ("", "y", "yes"):
         return config, False
+
     if verify not in ("n", "no"):
         raise CliInputError("Invalid TLS verification selection.")
-    output("WARNING: Controller identity is NOT VERIFIED with unverified TLS.")
-    if not _confirm(reader, "Authorize unverified TLS for this operation/session only? [y/N]: "):
-        raise OperationCancelled
-    return replace(config, verify_tls=False), True
 
+    if not allow_exceptions:
+        raise CliInputError(
+            "This deployment prohibits insecure TLS exceptions."
+        )
+
+    output(
+        "WARNING: Controller identity is NOT VERIFIED "
+        "with unverified TLS."
+    )
+
+    if not _confirm(
+        reader,
+        "Authorize unverified TLS for this operation/session only? [y/N]: ",
+    ):
+        raise OperationCancelled
+
+    return replace(config, verify_tls=False), True
 
 def _path(value: str) -> Path:
     try:
@@ -212,7 +257,7 @@ def main(
     output_fn: Callable[[str], None] | None = None,
     connection_factory: ConnectionFactory | None = None,
 ) -> int:
-    parser = argparse.ArgumentParser(description="Legacy-first interactive export/import menu.")
+    parser = argparse.ArgumentParser(description="CCV Core - Interactive configuration export/import.")
     parser.add_argument(
         "--allow-live", action="store_true",
         help="Enable live dispatch only after separate authorization; does not grant permission.",

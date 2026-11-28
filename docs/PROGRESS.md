@@ -1,6 +1,47 @@
 # Persistent Development Tracker
 
-Last updated: 2026-11-27
+Last updated: 2026-11-28
+
+## CCV-LF-1E - CCV Core container integration and offline qualification
+
+- Objective: package the approved generic Site/Device application
+  for appliance-local container execution without an external
+  production utility server.
+- Application name: CCV Core.
+- Initial image: `ccv-core:0.1.0`.
+- Compose service/profile: `ccv-core` / `core`.
+- Implementation: dedicated minimal Dockerfile stage and isolated
+  Compose service. Existing application services and launchers
+  remain preserved.
+- Runtime configuration: non-root user, read-only filesystem,
+  dropped capabilities, protected bind-mounted data directory
+  and initially disabled networking.
+- Security: administrator-controlled TLS exceptions, explicit
+  operation-scoped operator consent, trusted CA support and
+  rejection of invalid TLS configuration.
+- Standard Compose configuration prohibits insecure TLS exceptions
+  by default. Standalone compatibility behavior is preserved.
+- Tests: added two container configuration tests and nine
+  application TLS regression tests.
+- Existing launcher test fixture adjusted to reproduce the
+  profiles activated by the existing launcher.
+- Focused application regression: 143/143 passed.
+- Complete repository regression: 936 tests in 614.279 seconds;
+  934 passed, two environment-dependent skips, zero failures
+  and zero errors.
+- Integrity: generic object engine and existing production
+  launchers unchanged. Git whitespace validation passed.
+- Assessment: container integration and application security
+  changes qualified offline.
+- Pending: documentation closure and local Git checkpoint,
+  dedicated CCV Core launcher, actual image build, profile
+  isolation, container execution, CA mounting and appliance
+  connectivity.
+- Live qualification: fresh source export, independently
+  selected destination, explicit confirmations and independent
+  verification. No previous exports or recovery state.
+- No live controller requests or production deployment performed.
+- Existing Phase 1D checkpoint and historical records preserved.
 
 ## CCV-LF-1D closure - local offline-qualified checkpoint
 
@@ -29,9 +70,13 @@ Last updated: 2026-11-27
   The historical RecoveryLedger tracker blank line stays excluded from staging.
 - Assessment: closure passed; no material architectural deviation. No changes
   to import/readback/authentication/TLS behavior during closure.
-- Checkpoint next: feat: implement legacy-first Phase 1D master CLI; annotated
-  local tag checkpoint/legacy-first-offline-qualified. Verify tag/commit after
-  creation; no push. Phase 1E preparation is documentation only after checkpoint.
+- Checkpoint created: 0b4814d53868f7740ee2d4ef2c702ee1c253f748,
+  feat: implement legacy-first Phase 1D master CLI; 11 approved files,
+  1,174 insertions/23 deletions, required co-author trailer. Annotated local tag
+  checkpoint/legacy-first-offline-qualified is a tag object and resolves to that
+  exact commit. Tag message: Legacy-first generic Site and Device export/import
+  with master CLI; offline qualification complete. No push. Immediately after
+  checkpoint only the historical tracker blank line remained unstaged.
 - Known blockers/next action: no offline closure blocker. Linux deployment and
   live compatibility/credential portability remain untested and require owner
   approval before execution.
