@@ -1,1 +1,2 @@
 run-vision-backup.sh text eol=lf
+ccv-core.sh text eol=lf
