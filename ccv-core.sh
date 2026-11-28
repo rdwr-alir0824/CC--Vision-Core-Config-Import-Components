@@ -36,6 +36,13 @@ cd -- "$APP_DIR"
 command -v docker >/dev/null 2>&1 \
     || fail "Docker is not available."
 
+# Use only the existing local appliance Docker daemon.
+unset DOCKER_CONTEXT
+export DOCKER_HOST="unix:///var/run/docker.sock"
+
+[[ -S /var/run/docker.sock ]] \
+    || fail "Standard local Docker socket is unavailable."
+
 docker info >/dev/null 2>&1 \
     || fail "Cannot access the Docker daemon."
 
